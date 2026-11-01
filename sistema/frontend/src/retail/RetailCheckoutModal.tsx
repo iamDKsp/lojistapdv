@@ -20,6 +20,8 @@ type Payment = {
   given: number;
   label: string;
   creditId?: string;
+  installments?: number;
+  firstDueDate?: string;
 };
 const methods = [
   { id: "dinheiro", name: "Dinheiro" },
@@ -32,9 +34,15 @@ const tPag: Record<string, string> = {
   pix: "17",
   credito: "03",
   debito: "04",
+  crediario: "05",
   credito_loja: "99",
 };
 const cents = (n: number) => Math.round(n * 100) / 100;
+
+function defaultDueDateIso(days = 30): string {
+  const dt = new Date(Date.now() + Math.max(1, days) * 86400000);
+  return dt.toISOString().slice(0, 10);
+}
 
 export function RetailCheckoutModal({
   onClose,
@@ -58,6 +66,9 @@ export function RetailCheckoutModal({
   const [value, setValue] = useState("");
   const [credits, setCredits] = useState<any[]>([]);
   const [creditId, setCreditId] = useState("");
+  const [customerCrediario, setCustomerCrediario] = useState<any | null>(null);
+  const [installments, setInstallments] = useState("1");
+  const [firstDueDate, setFirstDueDate] = useState(() => defaultDueDateIso(30));
   const [customMethods, setCustomMethods] = useState<
     { id: string; name: string }[]
   >([]);
@@ -91,6 +102,7 @@ export function RetailCheckoutModal({
     }
   })();
   const nfceAvailable = Boolean(config?.nfceAtivo) && modules.nfce !== false;
+  const crediarioAvailable = Boolean(modules.crediario);
 
   useEffect(() => {
     let active = true;
@@ -110,6 +122,7 @@ export function RetailCheckoutModal({
                   "debito",
                   "consumo_funcionario",
                   "credito_loja",
+                  "crediario",
                 ].includes(m.id),
             ),
           );
@@ -128,6 +141,7 @@ export function RetailCheckoutModal({
   useEffect(() => {
     setCreditId("");
     setCredits([]);
+    setCustomerCrediario(null);
     if (!customerId || !isOnline) return;
     const controller = new AbortController();
     api
@@ -136,8 +150,18 @@ export function RetailCheckoutModal({
       .catch((err) => {
         if (!controller.signal.aborted) setError(apiError(err));
       });
+    if (crediarioAvailable) {
+      api
+        .get(`/crediario/customers/${customerId}`, { signal: controller.signal })
+        .then((res) => {
+          setCustomerCrediario(res.data);
+          const dueDays = Number(res.data?.settings?.defaultDueDays || 30);
+          setFirstDueDate(defaultDueDateIso(dueDays));
+        })
+        .catch(() => {});
+    }
     return () => controller.abort();
-  }, [customerId, isOnline]);
+  }, [customerId, isOnline, crediarioAvailable]);
 
   const close = useCallback(() => {
     if (!busy) onClose();
@@ -169,6 +193,43 @@ export function RetailCheckoutModal({
         return;
       }
     }
+    if (method === "crediario") {
+      if (!isOnline || !customerId) {
+        setError(
+          "Selecione um cliente cadastrado e confirme conexão ativa para lançar no Fiado / Crediário.",
+        );
+        return;
+      }
+      if (
+        customerCrediario?.summary &&
+        !customerCrediario.summary.canBuyOnCrediario
+      ) {
+        setError(
+          customerCrediario.summary.blockReason ||
+            "Este cliente não está apto para compras no crediário.",
+        );
+        return;
+      }
+      const alreadyCrediario = payments
+        .filter((p) => p.method === "crediario")
+        .reduce((sum, p) => sum + p.value, 0);
+      const effectiveTake = Math.min(given, remaining);
+      if (
+        customerCrediario?.summary &&
+        cents(alreadyCrediario + effectiveTake) >
+          Number(customerCrediario.summary.availableCredit)
+      ) {
+        setError(
+          `Limite insuficiente no crediário. Disponível: ${money(customerCrediario.summary.availableCredit)}.`,
+        );
+        return;
+      }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(firstDueDate)) {
+        setError("Informe uma data válida para o 1º vencimento do crediário.");
+        return;
+      }
+    }
+    const instCount = Math.max(1, Number(installments || 1));
     setPayments((rows) => [
       ...rows,
       {
@@ -176,10 +237,17 @@ export function RetailCheckoutModal({
         label:
           method === "credito_loja"
             ? "Crédito na loja"
-            : methodsAll.find((m) => m.id === method)?.name || method,
+            : method === "crediario"
+              ? instCount > 1
+                ? `Fiado / Crediário (${instCount}x)`
+                : "Fiado / Crediário"
+              : methodsAll.find((m) => m.id === method)?.name || method,
         value: Math.min(given, remaining),
         given,
         ...(method === "credito_loja" ? { creditId } : {}),
+        ...(method === "crediario"
+          ? { installments: instCount, firstDueDate }
+          : {}),
       },
     ]);
     setValue("");
@@ -218,8 +286,15 @@ export function RetailCheckoutModal({
       setError("Autorize o desconto com o PIN gerencial.");
       return;
     }
-    if (!isOnline && payments.some((p) => p.method === "credito_loja")) {
-      setError("O crédito da loja exige conexão para conferir o saldo.");
+    if (
+      !isOnline &&
+      payments.some(
+        (p) => p.method === "credito_loja" || p.method === "crediario",
+      )
+    ) {
+      setError(
+        "O crédito da loja e o crediário exigem conexão ativa para validar o saldo do cliente.",
+      );
       return;
     }
     setBusy(true);
@@ -242,6 +317,12 @@ export function RetailCheckoutModal({
         value: p.value,
         troco: p.method === "dinheiro" ? cents(p.given - p.value) : 0,
         ...(p.creditId ? { creditId: p.creditId } : {}),
+        ...(p.method === "crediario"
+          ? {
+              installments: p.installments || 1,
+              firstDueDate: p.firstDueDate,
+            }
+          : {}),
       })),
       discount: Number(discount || 0),
       customerId: customerId || undefined,
@@ -378,6 +459,11 @@ export function RetailCheckoutModal({
       </RetailDialog>
     );
 
+  const maxInstallments = Math.max(
+    1,
+    Number(customerCrediario?.settings?.maxInstallments || 6),
+  );
+
   return (
     <RetailDialog title="Finalizar venda" onClose={close} busy={busy}>
       <div className="retail-dialog-body retail-stack" aria-busy={busy}>
@@ -388,6 +474,7 @@ export function RetailCheckoutModal({
         <CustomerPicker
           value={customerId}
           onChange={setCustomerId}
+          required={method === "crediario" || method === "credito_loja"}
           disabled={busy || !isOnline}
         />
         <div className="retail-payment-methods">
@@ -406,6 +493,20 @@ export function RetailCheckoutModal({
               {m.name}
             </button>
           ))}
+          {crediarioAvailable && (
+            <button
+              type="button"
+              className={`retail-button ${method === "crediario" ? "retail-button-primary" : ""}`}
+              disabled={busy || !isOnline}
+              aria-pressed={method === "crediario"}
+              onClick={() => {
+                setMethod("crediario");
+                setError("");
+              }}
+            >
+              Fiado / Crediário
+            </button>
+          )}
           <button
             type="button"
             className={`retail-button ${method === "credito_loja" ? "retail-button-primary" : ""}`}
@@ -434,11 +535,72 @@ export function RetailCheckoutModal({
             />
           </div>
         )}
+        {method === "crediario" && (
+          <div className="retail-stack" style={{ padding: 12, borderRadius: 14, border: "1px solid var(--pdv-border)", background: "var(--pdv-background)" }}>
+            {!customerId ? (
+              <small className="retail-muted">
+                Selecione ou cadastre o cliente acima para consultar o limite do crediário.
+              </small>
+            ) : customerCrediario?.summary ? (
+              <>
+                <div className="retail-row retail-spread">
+                  <span>Limite disponível:</span>
+                  <strong>{money(customerCrediario.summary.availableCredit)}</strong>
+                </div>
+                <div className="retail-row retail-spread">
+                  <small className="retail-muted">
+                    Em aberto: {money(customerCrediario.summary.usedCredit)} / Limite:{" "}
+                    {money(customerCrediario.summary.effectiveCreditLimit)}
+                  </small>
+                  {!customerCrediario.summary.canBuyOnCrediario && (
+                    <small className="retail-message">
+                      {customerCrediario.summary.blockReason}
+                    </small>
+                  )}
+                </div>
+              </>
+            ) : null}
+            <div className="retail-form-grid">
+              <label className="retail-field">
+                Parcelas
+                <RetailSelect
+                  aria-label="Parcelas do crediário"
+                  value={installments}
+                  onValueChange={setInstallments}
+                  disabled={busy}
+                  options={Array.from({ length: maxInstallments }, (_, idx) => {
+                    const count = idx + 1;
+                    const baseVal =
+                      remaining > 0 ? cents(remaining / count) : 0;
+                    return {
+                      value: String(count),
+                      label:
+                        count === 1
+                          ? `1x à prazo (${money(remaining)})`
+                          : `${count}x de ~${money(baseVal)}`,
+                    };
+                  })}
+                />
+              </label>
+              <label className="retail-field">
+                1º Vencimento
+                <input
+                  type="date"
+                  value={firstDueDate}
+                  disabled={busy}
+                  onChange={(e) => setFirstDueDate(e.target.value)}
+                />
+              </label>
+            </div>
+          </div>
+        )}
         <div className="retail-row">
           <label className="retail-field" style={{ flex: 1 }}>
             {method === "dinheiro"
               ? "Valor recebido em dinheiro"
-              : "Valor do pagamento"}
+              : method === "crediario"
+                ? "Valor a lançar no crediário"
+                : "Valor do pagamento"}
             <input
               disabled={busy}
               type="number"
@@ -463,6 +625,12 @@ export function RetailCheckoutModal({
           <div className="retail-payment-line" key={i}>
             <span>
               {pay.label}
+              {pay.firstDueDate && (
+                <small className="retail-muted">
+                  {" "}
+                  · 1º venc: {pay.firstDueDate.split("-").reverse().join("/")}
+                </small>
+              )}
               {pay.given > pay.value && (
                 <small className="retail-muted">
                   {" "}
@@ -554,7 +722,7 @@ export function RetailCheckoutModal({
         {!isOnline && (
           <p className="retail-message">
             Sem conexão: o registro ficará pendente neste dispositivo. Créditos
-            da loja ficam indisponíveis até a reconexão.
+            da loja e crediário ficam indisponíveis até a reconexão.
           </p>
         )}
         {error && (

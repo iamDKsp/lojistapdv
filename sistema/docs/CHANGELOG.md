@@ -1,5 +1,19 @@
 # Histórico — PDV Lojista
 
+## 2026-11-01 — Fotos de Funcionários, Ícones da Equipe no Topo, Troca Rápida em 1 Clique e Caixa Compartilhado
+
+- **Cadastro e Sincronização de Foto de Funcionários (`backend/prisma/heart.schema.prisma`, `backend/src/prisma/heart-prisma.service.ts`, `backend/src/users/users.service.ts`, `backend/src/operators/operators.service.ts`, `frontend/src/components/UserModal.tsx`, `frontend/src/components/OperatorsManagementModal.tsx` e `frontend/src/app/dashboard/users/page.tsx`)**:
+  - Adicionado suporte a foto (`imageUrl`) no cadastro e na edição de funcionários/colaboradores tanto em `Gestão de Equipe` (`/dashboard/equipe` -> `UserModal`) quanto em `Operadores do PDV` (`OperatorsManagementModal`).
+  - Persistência da foto em `users.imageUrl` e `operator_profiles` no banco `heart` (auto-provisionado por `HeartPrismaService.ensureHeartColumnsAndTables()`), com sincronização bidirecional entre contas de usuário e operadores do caixa sem exigir migração prévia nos bancos de clientes.
+  - Removida a trava antiga de máximo de 2 usuários por loja para permitir equipes com 5 ou mais funcionários.
+- **Ícones da Equipe no Topo do PDV e Troca Rápida em 1 Clique (`frontend/src/retail/RetailLayout.tsx`, `frontend/src/retail/retail.css`, `frontend/src/contexts/ShiftContext.tsx`, `frontend/src/store/cart.ts` e `backend/src/auth/auth.service.ts`)**:
+  - Os ícones circulares no canto superior direito (`RetailTeamAvatars`) passam a renderizar dinamicamente 1 ícone para cada funcionário ativo do tenant (ex.: 5 funcionários = 5 ícones no topo).
+  - Quando o funcionário possui foto cadastrada, sua foto real é exibida no ícone circular (e no avatar do operador ativo ao lado do nome); quando não possui foto, o ícone vetorial estilizado padrão é exibido automaticamente.
+  - Ao clicar na foto/ícone de qualquer funcionário no topo, o PDV executa a troca instantânea (`POST /api/auth/operator-switch` -> `quickSwitchOperator`) para o perfil daquele funcionário, destacando o funcionário ativo com anel roxo e indicador e preservando integralmente os itens já adicionados ao carrinho caso a troca ocorra no meio de uma venda.
+- **Caixa Compartilhado entre Funcionários do Turno (`backend/src/cash-registers/cash-registers.service.ts`, `backend/src/sales/sales.service.ts` e `frontend/src/components/CloseRegisterModal.tsx`)**:
+  - A abertura de caixa (`openRegister` / `getCurrentRegister`) passa a operar em regime de gaveta compartilhada da loja: quando o primeiro funcionário abre o caixa e informa o fundo de troco inicial, todos os demais funcionários utilizam automaticamente esse mesmo caixa aberto ao alternar de perfil no topo, sem precisar abrir outro caixa nem duplicar valores de abertura.
+  - Cada venda realizada registra individualmente o `operatorId` do funcionário ativo no momento da conclusão (`Sale.operatorId`), e o modal de conferência/fechamento (`CloseRegisterModal`) passa a exibir o resumo `Vendas por Funcionário neste Turno` (`salesByOperator`) além da identificação do vendedor em cada operação individual.
+
 ## 2026-11-01 — Fundo Translúcido com Blur Suave nos Modais do PDV e Escolha de Tamanho/Cor
 
 - **Sobreposição Translúcida com Blur Leve (`frontend/src/retail/retail.css`, `frontend/src/components/OperatorLoginModal.tsx`, `frontend/src/components/OpenShiftModal.tsx`, `frontend/src/components/CashMovementModal.tsx` e `frontend/src/components/CloseRegisterModal.tsx`)**:

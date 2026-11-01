@@ -1,0 +1,14 @@
+[
+  {"nome":"Boné Essential Preto","categoria":"Bonés","preco":"59.90","custo":"24.90","cor":"Preto","tamanho":"Único","estoque":20,"codigo":"DEMO-BON01","foto":"bone-preto.jpg"},
+  {"nome":"Boné Urban Bege","categoria":"Bonés","preco":"69.90","custo":"29.90","cor":"Bege","tamanho":"Único","estoque":18,"codigo":"DEMO-BON02","foto":"bone-bege.jpg"},
+  {"nome":"Boné Classic Marinho","categoria":"Bonés","preco":"64.90","custo":"27.90","cor":"Marinho","tamanho":"Único","estoque":16,"codigo":"DEMO-BON03","foto":"bone-marinho.jpg"},
+  {"nome":"Boné Sport Branco","categoria":"Bonés","preco":"54.90","custo":"22.90","cor":"Branco","tamanho":"Único","estoque":22,"codigo":"DEMO-BON04","foto":"bone-branco.jpg"},
+  {"nome":"Relógio Classic Prata","categoria":"Relógios","preco":"249.90","custo":"119.90","cor":"Prata","tamanho":"Único","estoque":10,"codigo":"DEMO-REL01","foto":"relogio-prata.jpg"},
+  {"nome":"Relógio Elegance Dourado","categoria":"Relógios","preco":"229.90","custo":"109.90","cor":"Dourado","tamanho":"Único","estoque":8,"codigo":"DEMO-REL02","foto":"relogio-dourado.jpg"},
+  {"nome":"Relógio Sport Digital Preto","categoria":"Relógios","preco":"199.90","custo":"89.90","cor":"Preto","tamanho":"Único","estoque":12,"codigo":"DEMO-REL03","foto":"relogio-digital.jpg"},
+  {"nome":"Relógio Casual Couro Marrom","categoria":"Relógios","preco":"169.90","custo":"74.90","cor":"Marrom","tamanho":"Único","estoque":9,"codigo":"DEMO-REL04","foto":"relogio-couro.jpg"},
+  {"nome":"Óculos de Sol Urban Preto","categoria":"Óculos","preco":"99.90","custo":"39.90","cor":"Preto","tamanho":"Único","estoque":16,"codigo":"DEMO-OCU01","foto":"oculos-preto.jpg"},
+  {"nome":"Óculos de Sol Aviador Dourado","categoria":"Óculos","preco":"129.90","custo":"54.90","cor":"Dourado","tamanho":"Único","estoque":12,"codigo":"DEMO-OCU02","foto":"oculos-aviador.jpg"},
+  {"nome":"Óculos de Sol Gatinho Tartaruga","categoria":"Óculos","preco":"119.90","custo":"49.90","cor":"Tartaruga","tamanho":"Único","estoque":14,"codigo":"DEMO-OCU03","foto":"oculos-gatinho.jpg"},
+  {"nome":"Óculos de Sol Sport Preto","categoria":"Óculos","preco":"149.90","custo":"64.90","cor":"Preto","tamanho":"Único","estoque":10,"codigo":"DEMO-OCU04","foto":"oculos-esportivo.webp"}
+]

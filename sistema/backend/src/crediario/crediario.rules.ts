@@ -79,7 +79,7 @@ export function splitInstallmentsInCents(
   if (totalCents <= 0) {
     throw new BadRequestException('O valor do crediário deve ser maior que zero.');
   }
-  const count = Number(installmentsCount || 1);
+  const count = Number(installmentsCount ?? 1);
   if (!Number.isInteger(count) || count < 1 || count > 24) {
     throw new BadRequestException('O número de parcelas deve ser entre 1 e 24.');
   }

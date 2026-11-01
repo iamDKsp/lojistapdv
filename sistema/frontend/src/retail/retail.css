@@ -4984,6 +4984,7 @@ textarea:focus-visible {
   /* 8. Modais e Diálogos Ancorados na Base (Bottom Sheet) */
   .retail-modal-overlay,
   .pdv-mobile-sheet-backdrop {
+    z-index: 150 !important;
     align-items: flex-end !important;
     padding: 0 !important;
   }

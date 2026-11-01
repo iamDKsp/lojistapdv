@@ -163,7 +163,7 @@ export class SalesService {
 
     let allProductIdsToSync: string[] = [];
     let sale: any;
-    let crediarioOutcome = null as { createdReceivables: any[]; totalCrediario: number } | null;
+    let crediarioOutcome: any = null;
 
     try {
       sale = await retryTransaction(() => prisma.$transaction(async (tx: any) => {

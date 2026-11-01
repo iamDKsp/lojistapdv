@@ -46,6 +46,11 @@ export const ROUTES = {
     whatsapp: "/crediario/whatsapp",
   },
 
+  vitrine: {
+    slides: "/vitrine",
+    aparencia: "/vitrine/aparencia",
+  },
+
   configuracoes: {
     empresa: "/configuracoes/empresa",
     empresaDados: "/configuracoes/empresa/dados",
@@ -157,6 +162,13 @@ export const LEGACY_AND_ALIAS_REDIRECTS: ReadonlyArray<{
   { from: "/crediario/parcelasevencimentos", to: ROUTES.crediario.parcelas },
   { from: "/dashboard/crediario/whatsapp", to: ROUTES.crediario.whatsapp },
 
+  // Módulo Vitrine Digital e TV
+  { from: "/dashboard/vitrine", to: ROUTES.vitrine.slides },
+  { from: "/vitrine/slides", to: ROUTES.vitrine.slides },
+  { from: "/vitrine/programacao", to: ROUTES.vitrine.slides },
+  { from: "/vitrine/configuracoes", to: ROUTES.vitrine.aparencia },
+  { from: "/dashboard/vitrine/aparencia", to: ROUTES.vitrine.aparencia },
+
   // Módulo Configurações e Fiscal
   { from: "/configuracoes", to: ROUTES.configuracoes.empresa },
   { from: "/dashboard/configuracoes", to: ROUTES.configuracoes.empresa },
@@ -194,3 +206,147 @@ export const LEGACY_AND_ALIAS_REDIRECTS: ReadonlyArray<{
   { from: "/grupo-portal/forecast", to: ROUTES.grupoPortal.previsao },
   { from: "/grupo-portal/previsaodecompras", to: ROUTES.grupoPortal.previsao },
 ];
+
+/**
+ * Identifica o módulo canônico de uma rota (`pos`, `inicio`, `estoque`, `financeiro`,
+ * `equipe`, `clientes`, `crediario`, `configuracoes`, `vitrine`, `grupo-portal`, `sys-init`).
+ * Trocas dentro do mesmo módulo canônico são trocas de aba; trocas entre módulos distintos
+ * (ou acionadas pelo menu de módulos / setas verticais) disparam a transição de módulo.
+ */
+export function getCanonicalModuleId(pathname: string): string {
+  const clean = (pathname || "/").split("?")[0].split("#")[0] || "/";
+  if (clean === "/" || clean.startsWith("/pdv") || clean.startsWith("/caixa")) {
+    return "pos";
+  }
+  if (
+    clean.startsWith("/inicio") ||
+    clean === "/dashboard" ||
+    clean.startsWith("/dashboard/registers") ||
+    clean.startsWith("/dashboard/reports") ||
+    clean.startsWith("/dashboard/operations")
+  ) {
+    return "inicio";
+  }
+  if (
+    clean.startsWith("/estoque") ||
+    clean.startsWith("/dashboard/inventory")
+  ) {
+    return "estoque";
+  }
+  if (
+    clean.startsWith("/financeiro") ||
+    clean.startsWith("/dashboard/finance") ||
+    clean.startsWith("/dashboard/purchase-orders") ||
+    clean.startsWith("/dashboard/suppliers")
+  ) {
+    return "financeiro";
+  }
+  if (
+    clean.startsWith("/equipe") ||
+    clean.startsWith("/dashboard/equipe") ||
+    clean.startsWith("/dashboard/users")
+  ) {
+    return "equipe";
+  }
+  if (
+    clean.startsWith("/clientes") ||
+    clean.startsWith("/trocas") ||
+    clean.startsWith("/dashboard/customers") ||
+    clean.startsWith("/dashboard/returns")
+  ) {
+    return "clientes";
+  }
+  if (
+    clean.startsWith("/crediario") ||
+    clean.startsWith("/dashboard/crediario")
+  ) {
+    return "crediario";
+  }
+  if (
+    clean.startsWith("/configuracoes") ||
+    clean.startsWith("/fiscal") ||
+    clean.startsWith("/dashboard/configuracoes") ||
+    clean.startsWith("/dashboard/fiscal") ||
+    clean.startsWith("/dashboard/audit")
+  ) {
+    return "configuracoes";
+  }
+  if (
+    clean.startsWith("/vitrine") ||
+    clean.startsWith("/dashboard/vitrine")
+  ) {
+    return "vitrine";
+  }
+  if (clean.startsWith("/grupo-portal")) {
+    return "grupo-portal";
+  }
+  if (clean.startsWith("/sys-init")) {
+    return "sys-init";
+  }
+  return clean.split("/")[1] || "pos";
+}
+
+/**
+ * Verifica se o atalho de teclado de setas deve ser ignorado para não interferir
+ * na digitação em campos com texto, seletores abertos ou modais ativos.
+ */
+export function shouldIgnoreArrowNavigation(event: KeyboardEvent): boolean {
+  if (event.defaultPrevented) return true;
+  if (event.ctrlKey || event.metaKey) return true;
+
+  if (typeof document !== "undefined") {
+    const openOverlay = document.querySelector(
+      '.retail-modal-overlay, .retail-demo-modal-backdrop, .retail-mobile-drawer-overlay, .retail-floating-menu, [role="dialog"], [role="listbox"], .pdv-select-dropdown, .pdv-datepicker-popover',
+    );
+    if (openOverlay) return true;
+  }
+
+  const target =
+    (event.target as HTMLElement | null) ||
+    (typeof document !== "undefined"
+      ? (document.activeElement as HTMLElement | null)
+      : null);
+  if (!target) return false;
+
+  const tagName = target.tagName?.toLowerCase();
+  if (
+    tagName === "textarea" ||
+    tagName === "select" ||
+    target.isContentEditable
+  ) {
+    return true;
+  }
+
+  if (
+    typeof target.closest === "function" &&
+    target.closest(
+      '[role="combobox"], [role="listbox"], [role="menu"], [role="slider"], [role="spinbutton"], [contenteditable="true"]',
+    )
+  ) {
+    return true;
+  }
+
+  if (tagName === "input") {
+    const input = target as HTMLInputElement;
+    const inputType = (input.type || "text").toLowerCase();
+    if (
+      [
+        "number",
+        "date",
+        "datetime-local",
+        "month",
+        "time",
+        "week",
+        "range",
+        "color",
+      ].includes(inputType)
+    ) {
+      return true;
+    }
+    if (!event.altKey && (input.value || "").length > 0) {
+      return true;
+    }
+  }
+
+  return false;
+}

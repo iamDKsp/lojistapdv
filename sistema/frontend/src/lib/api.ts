@@ -53,6 +53,8 @@ api.interceptors.response.use(
       url.includes('/groups/setup') ||
       url.includes('/sys-init') ||
       url.includes('/integrations/setup') ||
+      url.includes('/vitrine/public') ||
+      url.includes('/vitrine/themes') ||
       (typeof window !== 'undefined' && window.location.pathname.startsWith('/sys-init')) ||
       Boolean(error.config?.skipAuthRedirect);
 

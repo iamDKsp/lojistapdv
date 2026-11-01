@@ -310,6 +310,7 @@ export async function resetDemoDatabaseState(
     client.category.deleteMany({}),
     client.customer.deleteMany({}),
     client.operator.deleteMany({}),
+    client.vitrineConfig.deleteMany({}),
   ]);
 
   // 2. Configurações e Tributação Padrão
@@ -404,6 +405,16 @@ export async function resetDemoDatabaseState(
   });
 
   // 5. Grupos de Mercadorias, Grades (Produtos), Lotes e Logs de Estoque
+  const createdGroups: Array<{
+    id: string;
+    key: string;
+    name: string;
+    category: string;
+    imageUrl: string;
+    priceSell: number;
+    sizes: string[];
+    colors: string[];
+  }> = [];
   const createdProducts: Array<{
     id: string;
     name: string;
@@ -431,6 +442,16 @@ export async function resetDemoDatabaseState(
         active: true,
         version: 1,
       },
+    });
+    createdGroups.push({
+      id: retailGroup.id,
+      key: g.key,
+      name: g.name,
+      category: g.category,
+      imageUrl: g.imageUrl,
+      priceSell: g.priceSell,
+      sizes: g.sizes,
+      colors: g.colors,
     });
 
     for (const size of g.sizes) {
@@ -986,6 +1007,120 @@ export async function resetDemoDatabaseState(
       },
     });
   }
+
+  // 13. Vitrine Digital & TV Promocional pré-configurada e publicada na Loja Demonstração
+  const grpPima = createdGroups.find((g) => g.key === 'camiseta_pima');
+  const grpTenis = createdGroups.find((g) => g.key === 'tenis_casual');
+  const grpJaqueta = createdGroups.find((g) => g.key === 'jaqueta_corta_vento');
+  const grpJeans = createdGroups.find((g) => g.key === 'calca_jeans');
+  const grpBone = createdGroups.find((g) => g.key === 'bone_aba_curva');
+  const grpRelogio = createdGroups.find((g) => g.key === 'relogio_casual');
+
+  const demoVitrineSlides: any[] = [];
+  if (grpPima) {
+    demoVitrineSlides.push({
+      slideType: 'single',
+      productId: `group:${grpPima.id}`,
+      retailGroupId: grpPima.id,
+      productName: grpPima.name,
+      categoryName: grpPima.category,
+      imageUrl: grpPima.imageUrl,
+      priceSell: grpPima.priceSell,
+      promoPrice: 69.9,
+      badge: 'OFERTA',
+      showSizes: true,
+      sizesAvailable: grpPima.sizes,
+      colorsAvailable: grpPima.colors,
+      order: 1,
+    });
+  }
+  if (grpTenis) {
+    demoVitrineSlides.push({
+      slideType: 'single',
+      productId: `group:${grpTenis.id}`,
+      retailGroupId: grpTenis.id,
+      productName: grpTenis.name,
+      categoryName: grpTenis.category,
+      imageUrl: grpTenis.imageUrl,
+      priceSell: grpTenis.priceSell,
+      promoPrice: 159.9,
+      badge: 'DESTAQUE',
+      showSizes: true,
+      sizesAvailable: grpTenis.sizes,
+      colorsAvailable: grpTenis.colors,
+      order: 2,
+    });
+  }
+  const gridCandidates = [grpPima, grpJaqueta, grpJeans, grpTenis, grpBone, grpRelogio].filter(
+    Boolean,
+  ) as typeof createdGroups;
+  if (gridCandidates.length >= 2) {
+    demoVitrineSlides.push({
+      slideType: 'grid',
+      gridId: 'grid_demo_colecao',
+      order: 3,
+      gridTitle: 'COLEÇÃO URBANA & ACESSÓRIOS',
+      gridSubtitle: '• SELEÇÃO ESPECIAL DA SEMANA •',
+      gridBadge: 'SUPER PROMO',
+      duration: 15,
+      gridProducts: gridCandidates.slice(0, 4).map((g) => ({
+        productId: `group:${g.id}`,
+        retailGroupId: g.id,
+        productName: g.name,
+        categoryName: g.category,
+        imageUrl: g.imageUrl,
+        priceSell: g.priceSell,
+        promoPrice: Number((g.priceSell * 0.85).toFixed(2)),
+        sizesAvailable: g.sizes,
+        colorsAvailable: g.colors,
+      })),
+    });
+  }
+
+  await client.vitrineConfig
+    .upsert({
+      where: { id: 'singleton' },
+      update: {
+        active: true,
+        version: 1,
+        publishedAt: new Date(),
+        publishedByUserId: 'demo-admin',
+        publishedByName: 'Carla Mendes (Gerente)',
+        draftUpdatedAt: new Date(),
+        theme: 'dark_premium',
+        showLogo: true,
+        logoPosition: JSON.stringify({
+          position: 'top-left',
+          instagram: '@boutiquemodelo',
+          gridSlideDuration: 15,
+          storeTagline: 'Moda, Calçados & Acessórios',
+        }),
+        slideDuration: 8,
+        draftSlides: demoVitrineSlides,
+        publishedSlides: demoVitrineSlides,
+      },
+      create: {
+        id: 'singleton',
+        active: true,
+        version: 1,
+        publishedAt: new Date(),
+        publishedByUserId: 'demo-admin',
+        publishedByName: 'Carla Mendes (Gerente)',
+        draftUpdatedAt: new Date(),
+        theme: 'dark_premium',
+        showLogo: true,
+        logoPosition: JSON.stringify({
+          position: 'top-left',
+          instagram: '@boutiquemodelo',
+          gridSlideDuration: 15,
+          storeTagline: 'Moda, Calçados & Acessórios',
+        }),
+        slideDuration: 8,
+        draftSlides: demoVitrineSlides,
+        publishedSlides: demoVitrineSlides,
+      },
+    })
+    .catch(() => {});
 
   return {
     primaryOperator: {

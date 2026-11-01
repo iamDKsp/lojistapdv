@@ -32,6 +32,7 @@ import {
   Menu,
   X,
   Monitor,
+  Tv2,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { useShift } from "@/contexts/ShiftContext";
@@ -304,6 +305,8 @@ export function RetailLayout() {
     if (path.includes("/estoque/contagem") || path.includes("stock-count"))
       return modules.estoque !== false;
     if (path.includes("/crediario")) return Boolean(modules.crediario);
+    if (path.includes("/vitrine"))
+      return Boolean(modules.vitrineDigital || modules.digitalSignage);
     return true;
   }
 
@@ -408,6 +411,17 @@ export function RetailLayout() {
                 },
               ]
             : []),
+          ...(moduleAllowed("/vitrine")
+            ? [
+                {
+                  name: "Vitrine e TV",
+                  path: "/vitrine",
+                  icon: Tv2,
+                  iconKind: "vitrine",
+                  active: pathname.startsWith("/vitrine"),
+                },
+              ]
+            : []),
         ],
         [
           ...(moduleAllowed("/configuracoes/nfce")
@@ -506,8 +520,23 @@ export function RetailLayout() {
         { label: "WhatsApp e régua", path: "/crediario/whatsapp" },
       ];
     }
+    if (pathname.startsWith("/vitrine")) {
+      return [
+        { label: "Programação e slides", path: "/vitrine" },
+        { label: "Aparência e link da TV", path: "/vitrine/aparencia" },
+      ];
+    }
     return [];
-  }, [isPosRoute, pathname, modules.nfce, modules.importacaoXml, modules.estoque, modules.crediario]);
+  }, [
+    isPosRoute,
+    pathname,
+    modules.nfce,
+    modules.importacaoXml,
+    modules.estoque,
+    modules.crediario,
+    modules.vitrineDigital,
+    modules.digitalSignage,
+  ]);
 
   const sectionHeading = useMemo(() => {
     if (pathname.startsWith("/estoque")) return "Catálogo e Estoque";
@@ -520,6 +549,7 @@ export function RetailLayout() {
     if (pathname.startsWith("/clientes/trocas")) return "Trocas e Créditos";
     if (pathname.startsWith("/clientes")) return "Clientes e Pós-Venda";
     if (pathname.startsWith("/crediario")) return "Crediário e Cobrança";
+    if (pathname.startsWith("/vitrine")) return "Vitrine Digital e TV";
     if (pathname.startsWith("/configuracoes/nfce")) return "Gestão Fiscal";
     if (pathname.startsWith("/configuracoes")) return "Configurações da Loja";
     return config?.nomeFantasia || config?.razaoSocial || "Painel da Loja";
@@ -529,6 +559,7 @@ export function RetailLayout() {
     if (pathname === "/") return "pos";
     if (pathname.startsWith("/estoque")) return "inventory";
     if (pathname.startsWith("/crediario")) return "finance";
+    if (pathname.startsWith("/vitrine")) return "vitrine";
     if (pathname.startsWith("/financeiro")) return "finance";
     if (
       pathname.startsWith("/inicio/historico-de-caixas") ||
@@ -546,7 +577,8 @@ export function RetailLayout() {
       tab.path === "/inicio" ||
       tab.path === "/estoque" ||
       tab.path === "/clientes" ||
-      tab.path === "/crediario"
+      tab.path === "/crediario" ||
+      tab.path === "/vitrine"
         ? pathname === tab.path
         : pathname.startsWith(tab.path),
     );
@@ -878,7 +910,8 @@ export function RetailLayout() {
                       tab.path === "/inicio" ||
                       tab.path === "/estoque" ||
                       tab.path === "/clientes" ||
-                      tab.path === "/crediario";
+                      tab.path === "/crediario" ||
+                      tab.path === "/vitrine";
                     const isTabActive = isExactRoot
                       ? pathname === tab.path
                       : pathname.startsWith(tab.path);
@@ -1024,6 +1057,7 @@ export function RetailLayout() {
                       pathname.startsWith("/financeiro") ||
                       pathname.startsWith("/equipe") ||
                       pathname.startsWith("/crediario") ||
+                      pathname.startsWith("/vitrine") ||
                       pathname.startsWith("/configuracoes")
                         ? "is-active"
                         : ""

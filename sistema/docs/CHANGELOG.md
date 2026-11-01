@@ -1,5 +1,20 @@
 # Histórico — PDV Lojista
 
+## 2026-11-01 — Módulo Independente de Vitrine Digital & TV (`/vitrine` e `/tv/:tvPublicId`)
+
+- **Backend Multi-Tenant e Catálogo de Grades (`backend/src/vitrine/vitrine.module.ts`, `vitrine.service.ts`, `vitrine.controller.ts` e `vitrine.service.spec.ts`)**:
+  - Adaptado do módulo legado de TV para PostgreSQL multi-tenant (`HeartPrismaService` + `TenantPrismaService`), respeitando a flag `modulos.vitrineDigital` (habilitável por loja no `/sys-init`) e gerando automaticamente o código curto `tvPublicId` (8 caracteres) no registro do tenant quando ausente.
+  - Novo endpoint `GET /api/vitrine/catalog` que consolida grupos de mercadorias (`RetailGroup`) e produtos avulsos (`Product`) ativos, agregando automaticamente os tamanhos (`sizesAvailable`) e cores (`colorsAvailable`) que possuem estoque disponível (`stock > 0`), além de resolver imagens em banco (`ProductImage`), URLs locais e SVGs da Loja Demonstração.
+  - Endpoints administrativos autenticados (`GET /api/vitrine/config`, `PUT /api/vitrine/draft`, `POST /api/vitrine/publish`, `PATCH /api/vitrine/active`, `POST /api/vitrine/upload-logo`, `POST /api/vitrine/upload-bg`) e endpoint público de alta eficiência para Smart TVs (`GET /api/vitrine/public/:tvPublicId`) com suporte a `If-None-Match` / `ETag` (`304 Not Modified`) e enriquecimento em tempo real das grades de tamanhos/cores disponíveis.
+- **Reprodutor Público 16:9 para Smart TV e Monitores (`frontend/src/retail/RetailVitrineTvPage.tsx`)**:
+  - Rotas públicas `/tv/:tvPublicId` e `/vitrine/:tvPublicId` acessíveis sem login em qualquer Smart TV, TV Box ou segundo monitor conectado ao caixa.
+  - 6 temas visuais construídos exclusivamente com os 8 tokens oficiais da paleta roxa, branca e neutra (`Noite Imperial`, `Editorial Roxo`, `Vitrine Clara`, `Palco Urbano`, `Vidro Fumê` e `Grafite Puro`), exibindo preço promocional, percentual de desconto, pílulas de tamanhos/cores disponíveis na loja, carrossel de próximos destaques e grades de coleção de 2 a 6 peças.
+- **Estúdio Administrativo com Simulador 16:9 ao Vivo (`frontend/src/retail/RetailVitrinePage.tsx`, `RetailLayout.tsx`, `App.tsx` e `routes.ts`)**:
+  - Integrado ao menu lateral e mobile (`Vitrine e TV`) com duas sub-abas semânticas: `/vitrine` (*Programação e slides*) e `/vitrine/aparencia` (*Aparência e link da TV*).
+  - Adição rápida de grupos/produtos, construtor de **Grade de Coleção (2 a 6 peças)** com preenchimento automático por categoria em 1 clique, edição inline de preço promocional e selos de campanha, simulador Mini-TV 16:9 em tempo real e publicação instantânea.
+- **Loja Demonstração Pré-Configurada (`backend/src/tenants/demo-store.seed.ts`, `tenants.service.ts` e `scripts/demo-local.cjs`)**:
+  - A Loja Demonstração (`tvPublicId: 'DEMOLOJA'`) já inicia com programação publicada no ar contendo slides individuais com grades de tamanhos/cores e grade de coleção de 4 peças.
+
 ## 2026-11-01 — Correção de Concorrência, Auto-DDL de Schema e Cards KPI no Módulo de Crediário (`/crediario`)
 
 - **Auto-DDL Idempotente em Bloco PL/pgSQL (`backend/src/prisma/tenant-prisma.service.ts`)**:

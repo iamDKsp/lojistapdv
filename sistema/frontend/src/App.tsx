@@ -25,6 +25,8 @@ import { RetailCrediarioPage } from "@/retail/RetailCrediarioPage";
 import { RetailReturnsPage } from "@/retail/RetailReturnsPage";
 import { RetailOperationsPage } from "@/retail/RetailOperationsPage";
 import { RetailDashboardPage } from "@/retail/RetailDashboardPage";
+import { RetailVitrinePage } from "@/retail/RetailVitrinePage";
+import { RetailVitrineTvPage } from "@/retail/RetailVitrineTvPage";
 import {
   PdvLojistaLoader,
   SESSION_TRANSITION_EVENT,
@@ -214,11 +216,14 @@ export function App() {
   });
 
   useEffect(() => {
-    const handleTransition = () => {
+    const handleTransition = (event: Event) => {
+      const customEvent = event as CustomEvent<{ label?: string }>;
+      const nextLabel =
+        customEvent.detail?.label || "Preparando ambiente da loja…";
       setTransitionState((prev) => ({
         active: true,
         runId: prev.runId + 1,
-        label: "Preparando ambiente da loja…",
+        label: nextLabel,
       }));
     };
     window.addEventListener(SESSION_TRANSITION_EVENT, handleTransition);
@@ -237,9 +242,12 @@ export function App() {
           fullScreenOverlay
           once
           label={transitionState.label}
-          onComplete={() =>
-            setTransitionState((prev) => ({ ...prev, active: false }))
-          }
+          onComplete={() => {
+            const completedRunId = transitionState.runId;
+            setTransitionState((prev) =>
+              prev.runId === completedRunId ? { ...prev, active: false } : prev,
+            );
+          }}
         />
       )}
       <GlobalTooltipLayer />
@@ -253,6 +261,9 @@ export function App() {
         <Routes>
           <Route path="/login" element={<RetailLoginPage />} />
           <Route path="/sys-init" element={<SysInitPage />} />
+          {/* Reprodutor público de TV / Vitrine Digital (acesso sem login em Smart TVs) */}
+          <Route path="/tv/:tvPublicId" element={<RetailVitrineTvPage />} />
+          <Route path="/vitrine/:tvPublicId" element={<RetailVitrineTvPage />} />
           <Route element={<Protected />}>
             <Route path="/grupo-portal/:tab" element={<GroupPortalPage />} />
             <Route
@@ -325,6 +336,13 @@ export function App() {
                 <Route
                   path="/crediario/whatsapp"
                   element={<RetailCrediarioPage />}
+                />
+
+                {/* Módulo Vitrine Digital e TV */}
+                <Route path="/vitrine" element={<RetailVitrinePage />} />
+                <Route
+                  path="/vitrine/aparencia"
+                  element={<RetailVitrinePage />}
                 />
 
                 {/* Módulo Configurações e Fiscal */}

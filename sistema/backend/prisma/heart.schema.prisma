@@ -403,14 +403,16 @@ model WebhookOutbox {
 //  Lead — captura de interessados na demonstração gratuita
 // ------------------------------------------------------------
 model Lead {
-  id        String   @id @default(uuid())
-  name      String
-  whatsapp  String
-  status    String   @default("NOVO") // NOVO, EM_DEMO, CONTATADO, CONVERTIDO, DESCARTADO
-  source    String   @default("demo") // demo, landing, whatsapp
-  notes     String?  @db.Text
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String   @id @default(uuid())
+  name         String
+  whatsapp     String   @unique
+  accessCount  Int      @default(1) @map("access_count")
+  lastAccessAt DateTime @default(now()) @map("last_access_at")
+  status       String   @default("NOVO") // NOVO, EM_DEMO, CONTATADO, CONVERTIDO, DESCARTADO
+  source       String   @default("demo") // demo, landing, whatsapp
+  notes        String?  @db.Text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@index([status])
   @@index([createdAt])

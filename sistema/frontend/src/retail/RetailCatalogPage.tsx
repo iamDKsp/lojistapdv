@@ -176,7 +176,7 @@ export function RetailCatalogPage() {
       ) : groups.length ? (
         <>
           <div className="retail-table-wrap">
-            <table className="retail-table">
+            <table className="retail-table retail-table-cards">
               <thead>
                 <tr>
                   <th>Grupo de mercadorias</th>
@@ -190,7 +190,7 @@ export function RetailCatalogPage() {
               <tbody>
                 {groups.map((group) => (
                   <tr key={group.id}>
-                    <td>
+                    <td data-label="Grupo" className="retail-cell-primary">
                       <div className="retail-product-title">
                         {group.imageUrl ? (
                           <img src={getFullUrl(group.imageUrl)} alt="" />
@@ -205,15 +205,19 @@ export function RetailCatalogPage() {
                         </div>
                       </div>
                     </td>
-                    <td>{group.variants.length} variações</td>
-                    <td className="retail-number">{group.stock}</td>
-                    <td className="retail-number">{money(group.priceSell)}</td>
-                    <td>
+                    <td data-label="Grade">{group.variants.length} variações</td>
+                    <td data-label="Saldo ativo" className="retail-number">
+                      {group.stock}
+                    </td>
+                    <td data-label="Preço" className="retail-number">
+                      {money(group.priceSell)}
+                    </td>
+                    <td data-label="Situação">
                       <span className="retail-badge">
                         {group.active ? "Ativo" : "Inativo"}
                       </span>
                     </td>
-                    <td>
+                    <td data-label="Ações" className="retail-cell-actions">
                       <button
                         type="button"
                         className="retail-icon-button"

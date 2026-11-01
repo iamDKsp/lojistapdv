@@ -26,7 +26,9 @@ import {
   ChevronsUpDown,
   BadgePercent,
   ChevronRight,
+  ChevronUp,
   Monitor,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -390,6 +392,7 @@ export function RetailPosPage() {
   const [switchOperator, setSwitchOperator] = useState(false);
   const [reviewCount, setReviewCount] = useState(0);
   const [quickMethodIndex, setQuickMethodIndex] = useState(0);
+  const [mobileBagOpen, setMobileBagOpen] = useState(false);
   const [openMenu, setOpenMenu] = useState<
     "bell" | "settings" | "profile" | null
   >(null);
@@ -584,7 +587,12 @@ export function RetailPosPage() {
     });
     setChoice(null);
     setSearch("");
-    searchRef.current?.focus();
+    if (
+      typeof window !== "undefined" &&
+      !window.matchMedia("(max-width: 768px)").matches
+    ) {
+      searchRef.current?.focus();
+    }
   }
 
   function open(group: (typeof grouped)[number]) {
@@ -639,6 +647,11 @@ export function RetailPosPage() {
       return sum + (item.subtotal * rate) / 100;
     }, 0);
   }, [cart.items]);
+
+  const totalCartPieces = useMemo(
+    () => cart.items.reduce((sum, item) => sum + item.quantity, 0),
+    [cart.items],
+  );
 
   const currentQuickMethod = QUICK_METHODS[quickMethodIndex];
 
@@ -1144,19 +1157,44 @@ export function RetailPosPage() {
         </section>
 
         {/* Coluna Direita: Detalhes da Transação (Detail Transaction na referência) */}
-        <aside className="retail-order" aria-label="Venda atual">
+        {mobileBagOpen && (
+          <div
+            className="retail-mobile-bag-backdrop"
+            aria-hidden="true"
+            onClick={() => setMobileBagOpen(false)}
+          />
+        )}
+        <aside
+          className={`retail-order ${mobileBagOpen ? "is-mobile-open" : ""}`}
+          aria-label="Venda atual"
+        >
+          <div
+            className="retail-sheet-handle"
+            aria-hidden="true"
+            onClick={() => setMobileBagOpen(false)}
+          />
           <div className="retail-order-head">
             <h2>Detalhes da Transação</h2>
-            <button
-              type="button"
-              className="retail-reset-order-btn"
-              disabled={!cart.items.length || cart.isOperationLocked}
-              onClick={() => cart.clearCart()}
-              data-tooltip="Limpar todos os itens do pedido"
-            >
-              <Trash2 size={13} />
-              <span>Limpar Pedido</span>
-            </button>
+            <div className="retail-order-head-actions">
+              <button
+                type="button"
+                className="retail-reset-order-btn"
+                disabled={!cart.items.length || cart.isOperationLocked}
+                onClick={() => cart.clearCart()}
+                data-tooltip="Limpar todos os itens do pedido"
+              >
+                <Trash2 size={13} />
+                <span>Limpar Pedido</span>
+              </button>
+              <button
+                type="button"
+                className="retail-icon-button retail-mobile-bag-close"
+                aria-label="Fechar sacola"
+                onClick={() => setMobileBagOpen(false)}
+              >
+                <X size={18} />
+              </button>
+            </div>
           </div>
 
           <div className="retail-order-items">
@@ -1352,12 +1390,73 @@ export function RetailPosPage() {
                 shift.needsOperatorReauth ||
                 cart.isOperationLocked
               }
-              onClick={() => setCheckout(true)}
+              onClick={() => {
+                setMobileBagOpen(false);
+                setCheckout(true);
+              }}
             >
               Continuar
             </button>
           </div>
         </aside>
+      </div>
+
+      {/* Barra Flutuante da Sacola no Mobile (<= 768px) */}
+      <div
+        className={`retail-mobile-bag-bar ${
+          cart.items.length > 0 ? "has-items" : "is-empty"
+        }`}
+        role="region"
+        aria-label="Resumo rápido da sacola"
+      >
+        <button
+          type="button"
+          className="retail-mobile-bag-summary"
+          aria-expanded={mobileBagOpen}
+          onClick={() => setMobileBagOpen((v) => !v)}
+        >
+          <span className="retail-mobile-bag-icon">
+            <ShoppingBag size={18} strokeWidth={2.2} />
+            {totalCartPieces > 0 && (
+              <span className="retail-mobile-bag-badge retail-number">
+                {totalCartPieces}
+              </span>
+            )}
+          </span>
+          <span className="retail-mobile-bag-text">
+            <strong>
+              {totalCartPieces > 0
+                ? `${totalCartPieces} ${
+                    totalCartPieces === 1 ? "peça na sacola" : "peças na sacola"
+                  }`
+                : "Sacola vazia"}
+            </strong>
+            <span className="retail-number">{money(cart.total)}</span>
+          </span>
+          <ChevronUp
+            size={16}
+            className={`retail-mobile-bag-chevron ${
+              mobileBagOpen ? "is-open" : ""
+            }`}
+          />
+        </button>
+
+        <button
+          type="button"
+          className="retail-mobile-bag-cta"
+          disabled={
+            !cart.items.length ||
+            !shift.cashRegister ||
+            shift.needsOperatorReauth ||
+            cart.isOperationLocked
+          }
+          onClick={() => {
+            setMobileBagOpen(false);
+            setCheckout(true);
+          }}
+        >
+          Receber
+        </button>
       </div>
 
       {choice && (

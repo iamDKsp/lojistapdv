@@ -12,7 +12,9 @@ Esta demonstração usa a interface real com uma API local simulada e dados fict
 - PIN de demonstração: `1234`
 - Painel `/sys-init`: `http://127.0.0.1:3531/sys-init` (PIN padrão `teltech352` ou variável `SETUP_PIN`)
 
-Pode testar catálogo, criação/edição de grupos, grades, entradas de peças, vendas com pagamentos mistos, escolha de cliente, trocas e resgate de crédito. Há uma venda fictícia nº 1 para testar uma troca imediatamente. Os códigos de barras dos exemplos começam em 1000.
+Ao clicar em **Loja Demonstração** na tela de login, o modal em 2 etapas pergunta *"Qual seu nome?"* e *"Qual seu WhatsApp?"*, registra o visitante sem duplicidade na aba **Leads** do `/sys-init` e abre o balcão já com produtos com fotos, caixa de teste aberto, contas a pagar alimentadas e estoque completo. Sempre que a sessão é encerrada ou outro visitante acessa a demonstração, os dados da loja voltam ao estado habitual (preservando os leads capturados).
+
+Pode testar catálogo, criação/edição de grupos, grades, entradas de peças, financeiro (contas a pagar, fornecedores e pedidos de compra), vendas com pagamentos mistos, escolha de cliente, trocas e resgate de crédito. Há uma venda fictícia nº 1 para testar uma troca imediatamente. Os códigos de barras dos exemplos começam em 1000.
 
 Os dados de teste ficam salvos entre reinicializações. Recursos fiscais, upload de fotos, compras e auditoria completa de caixa exigem a API real com MySQL. A demonstração não valida o comportamento transacional do banco ou uma operação real.
 

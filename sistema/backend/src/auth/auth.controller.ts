@@ -36,6 +36,16 @@ export class AuthController {
     return this.authService.login(user);
   }
 
+  @Post('demo-login')
+  async demoLogin(@Body() body: { name: string; whatsapp: string }) {
+    return this.authService.demoLogin(body?.name, body?.whatsapp);
+  }
+
+  @Post('demo-reset')
+  async demoReset() {
+    return this.authService.resetDemo();
+  }
+
   @UseGuards(JwtAuthGuard)
   @Post('operator-login')
   async operatorLogin(@CurrentUser() user: any, @Body() body: { operatorId: string, pin: string, context?: string }) {

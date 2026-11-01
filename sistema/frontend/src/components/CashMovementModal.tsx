@@ -47,11 +47,12 @@ export function CashMovementModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/30 backdrop-blur-sm p-4">
+    <div className="pdv-mobile-sheet-backdrop fixed inset-0 z-50 flex items-center justify-center bg-ink/30 backdrop-blur-sm p-4">
       <div
-        className="bg-page border border-line rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+        className="pdv-mobile-sheet bg-page border border-line rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
         aria-busy={submitting}
       >
+        <div className="retail-sheet-handle" aria-hidden="true" />
         <div className="flex justify-between items-center p-6 border-b border-line">
           <h2 className="text-xl font-bold flex items-center gap-2">
             Sangria / Suprimento

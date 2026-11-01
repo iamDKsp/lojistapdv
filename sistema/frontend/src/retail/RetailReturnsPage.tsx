@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Search, RotateCcw } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/store/auth";
@@ -9,6 +10,7 @@ import { money, apiError } from "./types";
 
 export function RetailReturnsPage() {
   const user = useAuthStore((state) => state.user);
+  const [searchParams, setSearchParams] = useSearchParams();
   const storageKey = `lojista-return-pending:${user?.tenant}:${user?.id}`;
   const [reference, setReference] = useState("");
   const [sale, setSale] = useState<any>(null);
@@ -32,6 +34,27 @@ export function RetailReturnsPage() {
     [],
   );
 
+  const lookupSale = useCallback(async (refValue: string) => {
+    const trimmed = refValue.trim();
+    if (!trimmed) return;
+    setBusy(true);
+    setError("");
+    setSale(null);
+    setNotice("");
+    try {
+      const res = await api.get(
+        `/retail/returns/sale/${encodeURIComponent(trimmed)}`,
+      );
+      setSale(res.data);
+      setCustomerId(res.data.customerId || "");
+      setSelected({});
+    } catch (err) {
+      setError(apiError(err));
+    } finally {
+      setBusy(false);
+    }
+  }, []);
+
   useEffect(() => {
     void loadHistory();
     try {
@@ -42,24 +65,20 @@ export function RetailReturnsPage() {
     }
   }, [loadHistory, storageKey]);
 
+  useEffect(() => {
+    const prefillSale = searchParams.get("sale");
+    if (prefillSale && prefillSale.trim()) {
+      setReference(prefillSale.trim());
+      void lookupSale(prefillSale.trim());
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete("sale");
+      setSearchParams(nextParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams, lookupSale]);
+
   async function find(event: React.FormEvent) {
     event.preventDefault();
-    setBusy(true);
-    setError("");
-    setSale(null);
-    setNotice("");
-    try {
-      const res = await api.get(
-        `/retail/returns/sale/${encodeURIComponent(reference.trim())}`,
-      );
-      setSale(res.data);
-      setCustomerId(res.data.customerId || "");
-      setSelected({});
-    } catch (err) {
-      setError(apiError(err));
-    } finally {
-      setBusy(false);
-    }
+    await lookupSale(reference);
   }
 
   async function create() {

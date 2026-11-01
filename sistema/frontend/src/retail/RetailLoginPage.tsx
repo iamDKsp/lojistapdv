@@ -8,6 +8,7 @@ import PdvLojistaLoader, {
   TRANSITION_UNVEIL_EVENT,
 } from "@/components/PdvLojistaLoader";
 import { RetailMobileLogin } from "./RetailMobileLogin";
+import { DemoLeadModal } from "./DemoLeadModal";
 import { apiError } from "./types";
 
 /**
@@ -395,6 +396,7 @@ export function RetailLoginPage() {
   const [error, setError] = useState("");
   const [isUnveiled, setIsUnveiled] = useState(false);
   const [demoPulse, setDemoPulse] = useState(false);
+  const [demoModalOpen, setDemoModalOpen] = useState(false);
   const [isMobileViewport, setIsMobileViewport] = useState<boolean>(() => {
     if (typeof window === "undefined" || !window.matchMedia) return false;
     return window.matchMedia("(max-width: 768px)").matches;
@@ -463,14 +465,9 @@ export function RetailLoginPage() {
   }
 
   function fillDemoStore() {
-    setEmail("demo@lojista.local");
-    setPassword("Lojista123!");
     setError("");
-    setDemoPulse(false);
-    window.requestAnimationFrame(() => setDemoPulse(true));
-    setHelperNotice(
-      "Credenciais do comércio de demonstração preenchidas. Clique em Entrar para acessar.",
-    );
+    setHelperNotice("");
+    setDemoModalOpen(true);
   }
 
   useEffect(() => {
@@ -515,26 +512,36 @@ export function RetailLoginPage() {
 
   if (isMobileViewport) {
     return (
-      <RetailMobileLogin
-        email={email}
-        setEmail={setEmail}
-        password={password}
-        setPassword={setPassword}
-        showPassword={showPassword}
-        setShowPassword={setShowPassword}
-        rememberMe={rememberMe}
-        setRememberMe={setRememberMe}
-        busy={busy}
-        error={error}
-        helperNotice={helperNotice}
-        setHelperNotice={setHelperNotice}
-        demoPulse={demoPulse}
-        onFillDemoStore={fillDemoStore}
-        onAuthenticate={authenticateMobile}
-        onNavigateTarget={(targetPath) => {
-          navigate(targetPath);
-        }}
-      />
+      <>
+        <RetailMobileLogin
+          email={email}
+          setEmail={setEmail}
+          password={password}
+          setPassword={setPassword}
+          showPassword={showPassword}
+          setShowPassword={setShowPassword}
+          rememberMe={rememberMe}
+          setRememberMe={setRememberMe}
+          busy={busy}
+          error={error}
+          helperNotice={helperNotice}
+          setHelperNotice={setHelperNotice}
+          demoPulse={demoPulse}
+          onFillDemoStore={fillDemoStore}
+          onAuthenticate={authenticateMobile}
+          onNavigateTarget={(targetPath) => {
+            navigate(targetPath);
+          }}
+        />
+        <DemoLeadModal
+          open={demoModalOpen}
+          onClose={() => setDemoModalOpen(false)}
+          onSuccessNavigate={(targetPath) => {
+            setDemoModalOpen(false);
+            navigate(targetPath);
+          }}
+        />
+      </>
     );
   }
 
@@ -731,6 +738,15 @@ export function RetailLoginPage() {
 
       {/* Coluna Direita — Painel Roxo Institucional e Prévia Animada do Comércio Local */}
       <LoginShowcasePanel isUnveiled={isUnveiled} />
+
+      <DemoLeadModal
+        open={demoModalOpen}
+        onClose={() => setDemoModalOpen(false)}
+        onSuccessNavigate={(targetPath) => {
+          setDemoModalOpen(false);
+          navigate(targetPath);
+        }}
+      />
     </main>
   );
 }

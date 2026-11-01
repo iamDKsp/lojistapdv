@@ -193,6 +193,14 @@ model Customer {
   sales Sale[]
   retailReturns RetailReturn[]
   storeCredits StoreCredit[]
+  receivables CustomerReceivable[]
+  receivablePayments CustomerReceivablePayment[]
+  crediarioLogs CrediarioNotificationLog[]
+  creditLimit Decimal @default(0) @db.Decimal(10, 2)
+  creditBlocked Boolean @default(false)
+  preferredDueDay Int?
+  whatsappOptIn Boolean @default(true)
+  creditNotes String? @db.Text
 
   @@map("customers")
 }
@@ -296,6 +304,7 @@ model Sale {
   comandas            Comanda[]
   retailReturns       RetailReturn[]
   creditUses          StoreCreditUse[]
+  receivables         CustomerReceivable[]
 
   @@index([code])
   @@index([createdAt])
@@ -1132,4 +1141,135 @@ model StoreCreditUse {
   createdAt DateTime @default(now())
   @@unique([creditId, saleId])
   @@map("store_credit_uses")
+}
+
+// ============================================================
+//  MÓDULO CREDIÁRIO (FIADO) & COBRANÇA AUTOMÁTICA (BAILEYS)
+// ============================================================
+
+model CustomerReceivable {
+  id                String   @id @default(uuid())
+  customerId        String
+  customer          Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  saleId            String?
+  sale              Sale?    @relation(fields: [saleId], references: [id], onDelete: SetNull)
+
+  installmentNumber Int      @default(1)
+  totalInstallments Int      @default(1)
+  description       String   @db.VarChar(240)
+
+  originalAmount    Decimal  @db.Decimal(10, 2)
+  paidAmount        Decimal  @default(0) @db.Decimal(10, 2)
+  remainingAmount   Decimal  @db.Decimal(10, 2)
+
+  dueDate           DateTime
+  status            String   @default("OPEN") // OPEN, PARTIAL, PAID, CANCELLED
+  paidAt            DateTime?
+
+  lastReminderAt    DateTime?
+  reminderCount     Int      @default(0)
+  operatorId        String?
+  notes             String?  @db.Text
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  payments          CustomerReceivablePayment[]
+  notifications     CrediarioNotificationLog[]
+
+  @@index([customerId, status])
+  @@index([status, dueDate])
+  @@index([saleId])
+  @@map("customer_receivables")
+}
+
+model CustomerReceivablePayment {
+  id             String             @id @default(uuid())
+  requestKey     String?            @unique @db.VarChar(80)
+  receivableId   String
+  receivable     CustomerReceivable @relation(fields: [receivableId], references: [id], onDelete: Cascade)
+  customerId     String
+  customer       Customer           @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  amount         Decimal            @db.Decimal(10, 2)
+  paymentMethod  String             @default("pix") // dinheiro, pix, credito, debito
+  cashRegisterId String?
+  cashMovementId String?
+  operatorId     String?
+  notes          String?            @db.Text
+  reversedAt     DateTime?
+
+  createdAt      DateTime           @default(now())
+
+  @@index([customerId, createdAt])
+  @@index([receivableId])
+  @@map("customer_receivable_payments")
+}
+
+model CrediarioSettings {
+  id                   String   @id @default("singleton")
+  enabled              Boolean  @default(true)
+  defaultCreditLimit   Decimal  @default(500) @db.Decimal(10, 2)
+  defaultDueDays       Int      @default(30)
+  maxInstallments      Int      @default(6)
+  allowPartialPayment  Boolean  @default(true)
+  blockOverdueCustomer Boolean  @default(true)
+
+  pixKey               String?  @db.VarChar(180)
+  pixBeneficiary       String?  @db.VarChar(160)
+
+  whatsappAutoBilling  Boolean  @default(true)
+  dispatchHour         String   @default("09:00") @db.VarChar(10)
+
+  sendOnSale           Boolean  @default(true)
+  sendBeforeDue        Boolean  @default(true)
+  daysBeforeDue        Int      @default(3)
+  sendOnDueDate        Boolean  @default(true)
+  sendOverdue          Boolean  @default(true)
+  overdueIntervalDays  Int      @default(3)
+  maxOverdueReminders  Int      @default(5)
+  sendOnPayment        Boolean  @default(true)
+
+  templateOnSale       String   @default("Olá, *{cliente}*! Confirmamos sua compra no crediário na *{loja}* no valor de *{valor}* ({parcela}). Próximo vencimento: *{vencimento}*. Qualquer dúvida, estamos à disposição!") @db.Text
+  templateBeforeDue    String   @default("Olá, *{cliente}*! Lembrete amigável da *{loja}*: sua parcela ({parcela}) no valor de *{valor}* vence em *{vencimento}*. Chave PIX para pagamento: *{pix}* ({beneficiario_pix}).") @db.Text
+  templateOnDueDate    String   @default("Olá, *{cliente}*! Hoje (*{vencimento}*) é o vencimento da sua parcela ({parcela}) de *{valor}* na *{loja}*. Você pode pagar na loja ou via PIX: *{pix}* ({beneficiario_pix}).") @db.Text
+  templateOverdue      String   @default("Olá, *{cliente}*! Identificamos que a parcela ({parcela}) de *{valor}* na *{loja}*, vencida em *{vencimento}*, encontra-se em aberto (Saldo total: *{saldo_devedor}*). Para regularizar via PIX utilize a chave: *{pix}* ({beneficiario_pix}). Caso já tenha efetuado o pagamento, desconsidere.") @db.Text
+  templateOnPayment    String   @default("Olá, *{cliente}*! Recebemos seu pagamento de *{valor}* na *{loja}*. Seu saldo atualizado em aberto é de *{saldo_devedor}*. Muito obrigado pela preferência!") @db.Text
+
+  updatedAt            DateTime @updatedAt
+
+  @@map("crediario_settings")
+}
+
+model WhatsappAuthState {
+  id        String   @id @db.VarChar(160)
+  data      String   @db.Text
+  updatedAt DateTime @updatedAt
+
+  @@map("whatsapp_auth_states")
+}
+
+model CrediarioNotificationLog {
+  id                   String              @id @default(uuid())
+  customerId           String
+  customer             Customer            @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  receivableId         String?
+  receivable           CustomerReceivable? @relation(fields: [receivableId], references: [id], onDelete: SetNull)
+  paymentId            String?
+  saleId               String?
+
+  triggerType          String              @db.VarChar(40) // ON_SALE, BEFORE_DUE, ON_DUE_DATE, OVERDUE, ON_PAYMENT, MANUAL_REMINDER
+  triggerReferenceDate String              @db.VarChar(32) // YYYY-MM-DD ou UUID de evento único
+  phone                String              @db.VarChar(40)
+  message              String              @db.Text
+  status               String              @default("PENDING") @db.VarChar(20) // PENDING, SENT, FAILED
+  error                String?             @db.Text
+  sentAt               DateTime?
+  createdAt            DateTime            @default(now())
+
+  @@unique([receivableId, triggerType, triggerReferenceDate])
+  @@index([customerId, createdAt])
+  @@index([status, createdAt])
+  @@map("crediario_notification_logs")
+
 }

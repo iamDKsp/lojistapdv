@@ -83,6 +83,40 @@ export class TenantsController {
     }
   }
 
+  /** Painel de Leads da Demonstração (/sys-init) */
+  @Get('setup/leads')
+  async listLeads(
+    @Request() req: any,
+    @Query('status') status?: string,
+    @Query('search') search?: string,
+  ) {
+    await this.assertSetupPin(req);
+    return this.tenantsService.listLeads(status, search);
+  }
+
+  @Patch('setup/leads/:leadId')
+  async updateLead(
+    @Request() req: any,
+    @Param('leadId') leadId: string,
+    @Body() body: { name?: string; whatsapp?: string; status?: string; notes?: string | null; pin?: string },
+  ) {
+    await this.assertSetupPin(req, body?.pin);
+    return this.tenantsService.updateLead(leadId, body);
+  }
+
+  @Delete('setup/leads/:leadId')
+  async deleteLead(@Request() req: any, @Param('leadId') leadId: string) {
+    await this.assertSetupPin(req);
+    return this.tenantsService.deleteLead(leadId);
+  }
+
+  /** Reset manual da Loja Demonstração pelo /sys-init */
+  @Post('setup/demo-reset')
+  async resetDemoSetup(@Request() req: any, @Body() body?: { pin?: string }) {
+    await this.assertSetupPin(req, body?.pin);
+    return this.tenantsService.ensureAndResetDemoStore();
+  }
+
   /** Executa query SQL diretamente em qualquer banco (protegido por PIN do sys-init + PIN exclusivo SQL) */
   @Post('setup/sql')
   async executeSql(

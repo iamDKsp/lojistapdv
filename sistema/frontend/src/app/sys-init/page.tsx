@@ -19,6 +19,7 @@ import { useOperatorTokenStore } from "@/store/operatorToken";
 import { TenantBillingCalendar } from "@/components/TenantBillingCalendar";
 import { TenantInvoicesManager } from "@/components/sys-init/TenantInvoicesManager";
 import { LeadgerIntegrationPanel } from "@/components/sys-init/LeadgerIntegrationPanel";
+import { LeadsPanel } from "@/components/sys-init/LeadsPanel";
 import { TenantXrayPanel } from "@/components/sys-init/TenantXrayPanel";
 const ImageOptimizationPanel = lazy(() => import("@/components/ImageOptimizationPanel"));
 
@@ -92,7 +93,8 @@ export default function SysInitPage() {
   const navigate = useNavigate();
   const [step, setStep] = useState<Step>("pin");
 
-  const [activeTab, setActiveTab] = useState<"tenants" | "groups" | "sql" | "leadger">("tenants");
+  const [activeTab, setActiveTab] = useState<"tenants" | "leads" | "groups" | "sql" | "leadger">("tenants");
+  const [leadsCount, setLeadsCount] = useState<number>(0);
 
   // ── SQL EDITOR STATE ──────────────────────────────────────────────────
   const [sqlPinUnlocked, setSqlPinUnlocked] = useState(false);
@@ -429,6 +431,14 @@ export default function SysInitPage() {
     if (step === "list") {
       if (activeTab === "tenants" || activeTab === "leadger") loadTenants();
       else if (activeTab === "groups") loadGroups();
+      const pin = pinDigits.join('');
+      if (pin) {
+        api.get('/tenants/setup/leads', { headers: { 'x-setup-pin': pin } })
+          .then(res => {
+            if (Array.isArray(res.data)) setLeadsCount(res.data.length);
+          })
+          .catch(() => {});
+      }
     }
   }, [step, activeTab]);
 
@@ -1034,6 +1044,8 @@ export default function SysInitPage() {
                 <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-ink">
                   {activeTab === 'tenants'
                     ? 'Painel Central Multi-Tenant'
+                    : activeTab === 'leads'
+                    ? 'Leads da Loja Demonstração'
                     : activeTab === 'groups'
                     ? 'Gestão de Grupos'
                     : activeTab === 'sql'
@@ -1043,6 +1055,8 @@ export default function SysInitPage() {
                 <p className="text-muted mt-1 text-sm">
                   {activeTab === 'tenants'
                     ? 'Lojas isoladas por banco PostgreSQL, acesso 1-clique, faturas mensais e monitoramento operacional.'
+                    : activeTab === 'leads'
+                    ? 'Visitantes que acessaram a Loja Demonstração informando nome e WhatsApp, sem duplicidade de cadastro.'
                     : activeTab === 'groups'
                     ? 'Gerencie os grupos de lojas e redes corporativas.'
                     : activeTab === 'sql'
@@ -1122,6 +1136,9 @@ export default function SysInitPage() {
             <div className="flex flex-wrap gap-2 sm:gap-4 mb-6 border-b border-line">
               <button onClick={() => setActiveTab('tenants')} className={`py-2.5 px-4 font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'tenants' ? 'border-brand text-brand' : 'border-transparent text-muted hover:text-ink'}`}>
                 <Building2 size={15} /> Tenants ({tenants.length})
+              </button>
+              <button onClick={() => setActiveTab('leads')} className={`py-2.5 px-4 font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'leads' ? 'border-brand text-brand' : 'border-transparent text-muted hover:text-ink'}`}>
+                <UserPlus size={15} /> Leads ({leadsCount})
               </button>
               <button onClick={() => setActiveTab('groups')} className={`py-2.5 px-4 font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'groups' ? 'border-brand text-brand' : 'border-transparent text-muted hover:text-ink'}`}>
                 <Users size={15} /> Grupos
@@ -1914,6 +1931,12 @@ export default function SysInitPage() {
                   </div>
                 )}
               </div>
+            ) : activeTab === 'leads' ? (
+              /* ── LEADS TAB ── */
+              <LeadsPanel
+                pin={pinDigits.join('')}
+                onCountChange={setLeadsCount}
+              />
             ) : (
               /* ── LEADGER INTEGRATION TAB ── */
               <LeadgerIntegrationPanel

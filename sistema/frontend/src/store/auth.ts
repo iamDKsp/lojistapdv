@@ -4,6 +4,7 @@ import { useOperatorTokenStore } from './operatorToken';
 
 export type User = {
   id: string;
+  email?: string;
   name: string;
   role: string;
   tenant: string;
@@ -12,6 +13,7 @@ export type User = {
   groupId?: string | null;
   termsAccepted?: boolean;
   station?: string;
+  isDemo?: boolean;
 };
 
 interface AuthState {
@@ -25,14 +27,42 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       token: null,
       user: null,
-      login: (token, user) => set({ token, user }),
+      login: (token, user) => {
+        if (typeof window !== 'undefined' && (user?.isDemo || user?.email === 'demo@lojista.local' || user?.tenant === 'tenant-demo-retail')) {
+          try {
+            sessionStorage.setItem('lojista-demo-tab-session', '1');
+          } catch {
+            // ignore
+          }
+        }
+        set({ token, user });
+      },
       logout: () => {
+        const currentUser = get().user;
+        const isDemoSession = Boolean(
+          currentUser?.isDemo ||
+            currentUser?.email === 'demo@lojista.local' ||
+            currentUser?.tenant === 'tenant-demo-retail',
+        );
         useOperatorTokenStore.getState().clearToken();
         localStorage.removeItem('garcom_operator');
         localStorage.removeItem('lojista-currentOperator');
+        if (typeof window !== 'undefined' && isDemoSession) {
+          try {
+            sessionStorage.removeItem('lojista-demo-tab-session');
+          } catch {
+            // ignore
+          }
+          fetch('/api/auth/demo-reset', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reason: 'logout' }),
+            keepalive: true,
+          }).catch(() => {});
+        }
         set({ token: null, user: null });
       },
       setTermsAccepted: () => set((state) => ({ user: state.user ? { ...state.user, termsAccepted: true } : null })),

@@ -512,7 +512,7 @@ export function RetailGroupEditor({
             saldo; não substitui o estoque atual.
           </p>
           <div className="retail-table-wrap">
-            <table className="retail-table">
+            <table className="retail-table retail-matrix-table">
               <thead>
                 <tr>
                   <th>Tamanho</th>
@@ -529,7 +529,7 @@ export function RetailGroupEditor({
               <tbody>
                 {variants.map((v, index) => (
                   <tr key={v.id || index}>
-                    <td>
+                    <td data-label="Tamanho">
                       <input
                         aria-label={`Tamanho da variação ${index + 1}`}
                         required
@@ -538,7 +538,7 @@ export function RetailGroupEditor({
                         onChange={(e) => update(index, "size", e.target.value)}
                       />
                     </td>
-                    <td>
+                    <td data-label="Cor">
                       <input
                         aria-label={`Cor da variação ${index + 1}`}
                         required
@@ -547,7 +547,7 @@ export function RetailGroupEditor({
                         onChange={(e) => update(index, "color", e.target.value)}
                       />
                     </td>
-                    <td>
+                    <td data-label="Código de barras">
                       <input
                         aria-label={`Código da variação ${index + 1}`}
                         maxLength={80}
@@ -557,8 +557,10 @@ export function RetailGroupEditor({
                         }
                       />
                     </td>
-                    <td className="retail-number">{Number(v.stock)}</td>
-                    <td>
+                    <td data-label="Saldo" className="retail-number">
+                      {Number(v.stock)}
+                    </td>
+                    <td data-label="Entrada (+)">
                       <input
                         aria-label={`Entrada da variação ${index + 1}`}
                         type="number"
@@ -571,7 +573,7 @@ export function RetailGroupEditor({
                         }
                       />
                     </td>
-                    <td>
+                    <td data-label="Ativa">
                       <RetailSwitch
                         aria-label={`Variação ${index + 1} ativa`}
                         checked={v.active}
@@ -580,7 +582,7 @@ export function RetailGroupEditor({
                         }
                       />
                     </td>
-                    <td>
+                    <td data-label="Ações" className="retail-cell-actions">
                       {!v.id && (
                         <button
                           type="button"

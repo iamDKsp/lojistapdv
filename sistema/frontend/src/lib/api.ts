@@ -46,6 +46,8 @@ api.interceptors.response.use(
     const isAuthEndpoint =
       url.includes('/auth/operator-login') ||
       url.includes('/auth/login') ||
+      url.includes('/auth/demo-login') ||
+      url.includes('/auth/demo-reset') ||
       url.includes('/auth/station-login') ||
       url.includes('/tenants/setup') ||
       url.includes('/groups/setup') ||

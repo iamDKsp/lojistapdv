@@ -76,6 +76,7 @@ export function RetailDialog({
         aria-label={title}
         className={`retail-dialog ${wide ? "retail-dialog-wide" : ""}`}
       >
+        <div className="retail-sheet-handle" aria-hidden="true" />
         <header>
           <h2>{title}</h2>
           <button

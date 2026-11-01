@@ -21,6 +21,7 @@ import { PaymentMethodsModule } from './payment-methods/payment-methods.module';
 import { GroupsModule } from './groups/groups.module';
 import { FiscalModule } from './fiscal/fiscal.module';
 import { RetailModule } from './retail/retail.module';
+import { CrediarioModule } from './crediario/crediario.module';
 
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { TenantInterceptor } from './prisma/tenant-context.service';
@@ -55,7 +56,9 @@ import { ImageMaintenanceModule } from './maintenance/image-maintenance.module';
     BackupsModule,
     GroupsModule,
     FiscalModule,
+    FiscalModule,
     RetailModule,
+    CrediarioModule,
   ],
   controllers: [AppController],
   providers: [

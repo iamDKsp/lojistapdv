@@ -116,11 +116,17 @@ export function OperatorLoginModal({
         : undefined;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-ink/30 backdrop-blur-sm p-4">
+    <div className="pdv-mobile-sheet-backdrop fixed inset-0 z-[100] flex items-center justify-center bg-ink/30 backdrop-blur-sm p-4">
       <div
-        className="relative bg-page border border-line w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden p-8 animate-in fade-in zoom-in-95 duration-200"
+        role="dialog"
+        aria-modal="true"
+        aria-label={
+          isReauth ? "Reautenticação do Operador" : "Seleção de Operador"
+        }
+        className="pdv-mobile-sheet relative bg-page border border-line w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden p-8 animate-in fade-in zoom-in-95 duration-200"
         aria-busy={stencilBusy}
       >
+        <div className="retail-sheet-handle" aria-hidden="true" />
         {!isReauth && onClose && (
           <button
             type="button"

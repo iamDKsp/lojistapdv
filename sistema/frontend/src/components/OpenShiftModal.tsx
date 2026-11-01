@@ -72,11 +72,12 @@ export function OpenShiftModal({ onSuccess }: OpenShiftModalProps) {
   const stencilBusy = loading || isRegisterQuerying;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-ink/30 backdrop-blur-sm p-4">
+    <div className="pdv-mobile-sheet-backdrop fixed inset-0 z-[100] flex items-center justify-center bg-ink/30 backdrop-blur-sm p-4">
       <div
-        className="bg-page border border-line w-full max-w-md rounded-3xl shadow-2xl overflow-hidden p-8 animate-in fade-in slide-in-from-bottom-4 duration-200"
+        className="pdv-mobile-sheet bg-page border border-line w-full max-w-md rounded-3xl shadow-2xl overflow-hidden p-8 animate-in fade-in slide-in-from-bottom-4 duration-200"
         aria-busy={stencilBusy}
       >
+        <div className="retail-sheet-handle" aria-hidden="true" />
         <div className="text-center mb-6">
           <div className="mx-auto mb-3 flex flex-col items-center justify-center min-h-[84px]">
             <PdvLojistaLoader

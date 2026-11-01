@@ -12,6 +12,16 @@ import * as path from 'path';
 import { upgradeTenantSchema } from './tenant-schema-upgrade';
 import { ProvisionTenantDto } from './provision-tenant.dto';
 import { seedDefaultGruposStatic } from '../tributacao/tributacao.service';
+import {
+  DEMO_DATABASE_NAME,
+  DEMO_LEGACY_DB_NAMES,
+  DEMO_OPERATOR_PIN,
+  DEMO_USER_EMAIL,
+  DEMO_USER_PASSWORD,
+  isValidWhatsapp,
+  normalizeWhatsapp,
+  resetDemoDatabaseState,
+} from './demo-store.seed';
 
 const execAsync = promisify(exec);
 
@@ -28,6 +38,7 @@ function generateTvPublicId(): string {
 @Injectable()
 export class TenantsService {
   private readonly logger = new Logger(TenantsService.name);
+  private demoResetChain: Promise<any> = Promise.resolve();
 
   constructor(
     private heartPrisma: HeartPrismaService,
@@ -39,6 +50,9 @@ export class TenantsService {
 
   async findAll() {
     const tenants = await this.heartPrisma.tenant.findMany({
+      where: {
+        databaseName: { notIn: DEMO_LEGACY_DB_NAMES },
+      },
       orderBy: { createdAt: 'desc' },
       include: {
         users: {
@@ -1546,5 +1560,359 @@ export class TenantsService {
       this.logger.error(`[SQL Client] Erro no banco "${dbLabel}": ${err.message}`);
       throw new BadRequestException(err.message || 'Erro ao executar query SQL.');
     }
+  }
+
+  // ============================================================
+  //  GESTÃO DE LEADS E CONTA DE DEMONSTRAÇÃO ISOLADA
+  // ============================================================
+
+  async captureDemoLead(rawName: string, rawWhatsapp: string) {
+    const name = String(rawName || '').trim();
+    if (name.length < 2) {
+      throw new BadRequestException('Por favor, informe seu nome completo ou apelido.');
+    }
+
+    const whatsapp = normalizeWhatsapp(rawWhatsapp);
+    if (!isValidWhatsapp(whatsapp)) {
+      throw new BadRequestException('Informe um número de WhatsApp válido com DDD (10 ou 11 dígitos).');
+    }
+
+    const now = new Date();
+    const existing = await this.heartPrisma.lead.findFirst({
+      where: { whatsapp },
+    });
+
+    if (existing) {
+      return this.heartPrisma.lead.update({
+        where: { id: existing.id },
+        data: {
+          name,
+          accessCount: { increment: 1 },
+          lastAccessAt: now,
+        },
+      });
+    }
+
+    return this.heartPrisma.lead.create({
+      data: {
+        name,
+        whatsapp,
+        status: 'NOVO',
+        source: 'demo',
+        accessCount: 1,
+        lastAccessAt: now,
+      },
+    });
+  }
+
+  async listLeads(statusFilter?: string, search?: string) {
+    const where: any = {};
+    if (statusFilter && statusFilter !== 'all') {
+      where.status = statusFilter;
+    }
+    if (search && search.trim()) {
+      const term = search.trim();
+      const digits = term.replace(/\D/g, '');
+      where.OR = [
+        { name: { contains: term, mode: 'insensitive' } },
+        { notes: { contains: term, mode: 'insensitive' } },
+        ...(digits ? [{ whatsapp: { contains: digits } }] : [{ whatsapp: { contains: term } }]),
+      ];
+    }
+
+    const [leads, allLeads] = await Promise.all([
+      this.heartPrisma.lead.findMany({
+        where,
+        orderBy: [{ lastAccessAt: 'desc' }, { createdAt: 'desc' }],
+      }),
+      this.heartPrisma.lead.findMany({
+        select: { status: true, accessCount: true, createdAt: true, lastAccessAt: true },
+      }),
+    ]);
+
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const summary = {
+      total: allLeads.length,
+      today: allLeads.filter(
+        (l) => new Date(l.lastAccessAt || l.createdAt) >= startOfToday
+      ).length,
+      recurring: allLeads.filter((l) => (l.accessCount || 1) > 1).length,
+      byStatus: {
+        NOVO: allLeads.filter((l) => l.status === 'NOVO').length,
+        EM_DEMO: allLeads.filter((l) => l.status === 'EM_DEMO').length,
+        CONTATADO: allLeads.filter((l) => l.status === 'CONTATADO').length,
+        CONVERTIDO: allLeads.filter((l) => l.status === 'CONVERTIDO').length,
+        DESCARTADO: allLeads.filter((l) => l.status === 'DESCARTADO').length,
+      },
+    };
+
+    return { leads, summary };
+  }
+
+  async updateLead(
+    id: string,
+    data: { name?: string; whatsapp?: string; status?: string; notes?: string | null },
+  ) {
+    const existing = await this.heartPrisma.lead.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Lead não encontrado.');
+
+    const updateData: Record<string, any> = {};
+    if (data.name !== undefined && data.name.trim()) {
+      updateData.name = data.name.trim();
+    }
+    if (data.whatsapp !== undefined && data.whatsapp.trim()) {
+      const clean = normalizeWhatsapp(data.whatsapp);
+      if (!isValidWhatsapp(clean)) {
+        throw new BadRequestException('Número de WhatsApp inválido.');
+      }
+      const dup = await this.heartPrisma.lead.findFirst({
+        where: { whatsapp: clean, id: { not: id } },
+      });
+      if (dup) {
+        throw new BadRequestException('Já existe outro lead cadastrado com este WhatsApp.');
+      }
+      updateData.whatsapp = clean;
+    }
+    if (data.status !== undefined) {
+      const allowed = ['NOVO', 'EM_DEMO', 'CONTATADO', 'CONVERTIDO', 'DESCARTADO'];
+      const upper = String(data.status).toUpperCase();
+      if (!allowed.includes(upper)) {
+        throw new BadRequestException('Status de lead inválido.');
+      }
+      updateData.status = upper;
+    }
+    if (data.notes !== undefined) {
+      updateData.notes = data.notes === null ? null : String(data.notes);
+    }
+
+    return this.heartPrisma.lead.update({
+      where: { id },
+      data: updateData,
+    });
+  }
+
+  async deleteLead(id: string) {
+    const existing = await this.heartPrisma.lead.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Lead não encontrado.');
+    await this.heartPrisma.lead.delete({ where: { id } });
+    return { success: true };
+  }
+
+  private enqueueDemoOperation<T>(task: () => Promise<T>): Promise<T> {
+    const next = this.demoResetChain.then(task, task);
+    this.demoResetChain = next.then(
+      () => undefined,
+      () => undefined,
+    );
+    return next;
+  }
+
+  /**
+   * Garante que o banco e o tenant isolado da Loja Demonstração existam,
+   * estejam com todos os módulos liberados e reseta os dados para o estado habitual.
+   */
+  async ensureAndResetDemoStore(visitorName?: string) {
+    return this.enqueueDemoOperation(async () => {
+      const baseUrl = process.env.DATABASE_URL_HEART || process.env.DATABASE_URL_TENANT || '';
+      if (!baseUrl) {
+        throw new BadRequestException('URL de banco de dados não configurada no servidor.');
+      }
+
+      const parsedUrl = new URL(baseUrl);
+      parsedUrl.pathname = `/${DEMO_DATABASE_NAME}`;
+      const demoDbUrl = parsedUrl.toString();
+
+      // 1. Garantir banco físico PostgreSQL para a demonstração
+      const existingPgDb = await this.heartPrisma.$queryRaw<Array<{ exists: number }>>`
+        SELECT 1 AS exists FROM pg_database WHERE datname = ${DEMO_DATABASE_NAME}
+      `;
+      if (!existingPgDb.length) {
+        await this.heartPrisma.$executeRawUnsafe(
+          `CREATE DATABASE "${DEMO_DATABASE_NAME}" ENCODING 'UTF8'`,
+        );
+      }
+
+      // 2. Garantir registro do Tenant isolado no Heart (leadgerSyncEnabled = false)
+      const demoModules = {
+        nfce: true,
+        estoque: true,
+        crediario: true,
+        dashboardMobile: true,
+        importacaoXml: true,
+        vitrineDigital: true,
+        digitalSignage: true,
+        comandas: false,
+        kds: false,
+        restaurante: false,
+        carvoaria: false,
+      };
+
+      let tenant = await this.heartPrisma.tenant.findUnique({
+        where: { databaseName: DEMO_DATABASE_NAME },
+        include: { users: true },
+      });
+
+      const hashedPassword = await bcrypt.hash(DEMO_USER_PASSWORD, 10);
+
+      if (!tenant) {
+        tenant = await this.heartPrisma.tenant.create({
+          data: {
+            name: 'Loja Modelo Demonstração',
+            nomeFantasia: 'Boutique & Calçados Modelo',
+            razaoSocial: 'Comércio Varejista Modelo Demonstração LTDA',
+            databaseName: DEMO_DATABASE_NAME,
+            databaseUrl: demoDbUrl,
+            status: 'active',
+            tvPublicId: 'DEMOLOJA',
+            crt: 1,
+            logradouro: 'Av. Paulista',
+            numero: '1000',
+            bairro: 'Bela Vista',
+            municipio: 'São Paulo',
+            codMunicipio: '3550308',
+            uf: 'SP',
+            cep: '01310100',
+            telefone: '11999990000',
+            telefoneContato: '11999990000',
+            emailContato: DEMO_USER_EMAIL,
+            nfceAtivo: true,
+            nfceAmbiente: 2,
+            nfceSerie: 1,
+            modulos: demoModules,
+            mensalidadeValor: 0,
+            mensalidadeVencimento: null,
+            leadgerSyncEnabled: false,
+            termsAcceptedAt: new Date(),
+          },
+          include: { users: true },
+        });
+      } else {
+        tenant = await this.heartPrisma.tenant.update({
+          where: { id: tenant.id },
+          data: {
+            databaseUrl: demoDbUrl,
+            status: 'active',
+            modulos: demoModules,
+            nfceAtivo: true,
+            nfceAmbiente: 2,
+            leadgerSyncEnabled: false,
+            termsAcceptedAt: tenant.termsAcceptedAt || new Date(),
+          },
+          include: { users: true },
+        });
+      }
+
+      this.tenantContext.evictTenantCache(tenant.id);
+
+      // 3. Garantir usuário administrador demo@lojista.local e equipe demonstrativa
+      let adminUser = await this.heartPrisma.user.findUnique({
+        where: { email: DEMO_USER_EMAIL },
+      });
+
+      if (!adminUser) {
+        adminUser = await this.heartPrisma.user.create({
+          data: {
+            tenantId: tenant.id,
+            name: visitorName ? `${visitorName} (Demonstração)` : 'Administrador Demonstração',
+            email: DEMO_USER_EMAIL,
+            password: hashedPassword,
+            role: 'admin',
+            pin: DEMO_OPERATOR_PIN,
+            active: true,
+          },
+        });
+      } else {
+        adminUser = await this.heartPrisma.user.update({
+          where: { id: adminUser.id },
+          data: {
+            tenantId: tenant.id,
+            name: visitorName ? `${visitorName} (Demonstração)` : 'Administrador Demonstração',
+            password: hashedPassword,
+            role: 'admin',
+            pin: DEMO_OPERATOR_PIN,
+            active: true,
+          },
+        });
+      }
+
+      // Garantir usuários extras de equipe (Caixa e Estoquista) para a aba Equipe
+      const extraStaff = [
+        { email: 'caixa.demo@lojista.local', name: 'Lucas Atendimento (Caixa)', role: 'operator' },
+        { email: 'estoque.demo@lojista.local', name: 'Mariana Grade (Estoquista)', role: 'stockist' },
+      ];
+      for (const staff of extraStaff) {
+        const existingStaff = await this.heartPrisma.user.findUnique({
+          where: { email: staff.email },
+        });
+        if (!existingStaff) {
+          await this.heartPrisma.user.create({
+            data: {
+              tenantId: tenant.id,
+              name: staff.name,
+              email: staff.email,
+              password: hashedPassword,
+              role: staff.role,
+              pin: DEMO_OPERATOR_PIN,
+              active: true,
+            },
+          });
+        } else if (existingStaff.tenantId !== tenant.id || !existingStaff.active) {
+          await this.heartPrisma.user.update({
+            where: { id: existingStaff.id },
+            data: { tenantId: tenant.id, active: true, role: staff.role },
+          });
+        }
+      }
+
+      // 4. Conectar ao banco da demonstração e garantir que o schema existe
+      const client = await this.tenantManager.getTenantClient(tenant.id, demoDbUrl);
+      const tableCheck = await client.$queryRaw<Array<{ exists: number }>>`
+        SELECT 1 AS exists FROM pg_tables
+        WHERE schemaname = 'public' AND tablename = 'retail_groups'
+      `.catch(() => []);
+
+      if (!tableCheck.length) {
+        const prismaSchemaPath = path.resolve(process.cwd(), 'prisma', 'schema.prisma');
+        await upgradeTenantSchema(demoDbUrl, () =>
+          execAsync(`npx prisma migrate deploy --schema="${prismaSchemaPath}"`, {
+            env: {
+              ...process.env,
+              DATABASE_URL_TENANT: demoDbUrl,
+            },
+            timeout: 60000,
+          }),
+        );
+      }
+
+      // 5. Resetar estado habitual completo da demonstração
+      const seeded = await resetDemoDatabaseState(client, visitorName);
+
+      return {
+        tenant,
+        adminUser,
+        primaryOperator: seeded.primaryOperator,
+        openRegister: seeded.openRegister,
+      };
+    });
+  }
+
+  /**
+   * Reseta a conta de demonstração ao estado habitual quando o usuário fecha/sai da loja.
+   */
+  async resetExistingDemoStore() {
+    return this.enqueueDemoOperation(async () => {
+      const tenant = await this.heartPrisma.tenant.findUnique({
+        where: { databaseName: DEMO_DATABASE_NAME },
+      });
+      if (!tenant || !tenant.databaseUrl) {
+        return { reset: false, reason: 'demo_not_initialized' };
+      }
+
+      const client = await this.tenantManager.getTenantClient(tenant.id, tenant.databaseUrl);
+      await resetDemoDatabaseState(client);
+      return { reset: true, tenantId: tenant.id, resetAt: new Date().toISOString() };
+    });
   }
 }

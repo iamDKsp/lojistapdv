@@ -32,6 +32,7 @@ Unidade comercial e tamanho são conceitos separados. A grade aceita P/M/G/GG, n
 - Crédito não é aceito como pagamento iniciado offline. Uma venda já enviada cuja resposta se perdeu é recuperada pela identificação original.
 - Cancelar uma venda que usou crédito restitui o saldo com registro de auditoria. Uma venda que já gerou troca não pode ser cancelada e devolver o estoque de novo.
 - Trocas são restritas a perfis de administração; estoquista pode manter a grade, mas não emitir crédito.
+- O módulo **Clientes e insights** (`/dashboard/customers`), integrado em sub-abas com **Trocas e créditos**, consolida a carteira de clientes da loja, indicadores RFM (VIPs, ativos 30d, sumidos +60d, créditos em aberto), cadastro completo (`cpfCnpj`, `address`, `reference`) e o **Raio-X 360º** individual com DNA de tamanhos/cores comprados, histórico de compras, extrato de créditos e início rápido de troca.
 
 Este fluxo é o registro comercial de troca/crédito. Ele não cria automaticamente documento fiscal de devolução, nem foi homologado como fluxo fiscal de devolução. A emissão fiscal existente foi reaproveitada e precisa ser validada no ambiente próprio da empresa.
 

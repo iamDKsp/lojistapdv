@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { HeartPrismaService } from '../prisma/heart-prisma.service';
+import { DEMO_LEGACY_DB_NAMES } from './demo-store.seed';
 
 export type LeadgerEventType = 'base.upsert' | 'invoice.upsert' | 'client.upsert';
 export type LeadgerPaymentMethod = 'pix' | 'boleto' | 'credit_card' | 'bank_transfer' | 'cash';
@@ -777,6 +778,7 @@ export class LeadgerWebhookService implements OnModuleInit, OnModuleDestroy {
         _count: { _all: true },
       }),
       this.heartPrisma.tenant.findMany({
+        where: { databaseName: { notIn: DEMO_LEGACY_DB_NAMES } },
         orderBy: { createdAt: 'desc' },
         select: {
           id: true,
@@ -951,6 +953,7 @@ export class LeadgerWebhookService implements OnModuleInit, OnModuleDestroy {
 
     if (action === 'export_reconciliation') {
       const tenants = await this.heartPrisma.tenant.findMany({
+        where: { databaseName: { notIn: DEMO_LEGACY_DB_NAMES } },
         orderBy: { createdAt: 'asc' },
         include: {
           users: { orderBy: { createdAt: 'asc' }, take: 1, select: { email: true } },

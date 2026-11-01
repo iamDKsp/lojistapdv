@@ -18,6 +18,7 @@ import { RetailLoginPage } from "@/retail/RetailLoginPage";
 import { RetailPosPage } from "@/retail/RetailPosPage";
 import { RetailLayout } from "@/retail/RetailLayout";
 import { RetailCatalogPage } from "@/retail/RetailCatalogPage";
+import { RetailCustomersPage } from "@/retail/RetailCustomersPage";
 import { RetailReturnsPage } from "@/retail/RetailReturnsPage";
 import { RetailOperationsPage } from "@/retail/RetailOperationsPage";
 import { RetailDashboardPage } from "@/retail/RetailDashboardPage";
@@ -108,7 +109,52 @@ function SysInitReturnPill() {
 }
 
 function Protected() {
-  const { token, user } = useAuthStore();
+  const { token, user, logout } = useAuthStore();
+  const isDemoSession = Boolean(
+    user?.isDemo ||
+      user?.email === "demo@lojista.local" ||
+      user?.tenant === "tenant-demo-retail",
+  );
+
+  useEffect(() => {
+    if (!token || !isDemoSession || typeof window === "undefined") return;
+
+    try {
+      const hasTabSession = sessionStorage.getItem("lojista-demo-tab-session") === "1";
+      if (!hasTabSession) {
+        logout();
+        return;
+      }
+    } catch {
+      // ignore storage errors
+    }
+
+    const handlePageHide = () => {
+      try {
+        if (navigator.sendBeacon) {
+          const blob = new Blob([JSON.stringify({ reason: "pagehide" })], {
+            type: "application/json",
+          });
+          navigator.sendBeacon("/api/auth/demo-reset", blob);
+        } else {
+          fetch("/api/auth/demo-reset", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ reason: "pagehide" }),
+            keepalive: true,
+          }).catch(() => {});
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    window.addEventListener("pagehide", handlePageHide);
+    return () => {
+      window.removeEventListener("pagehide", handlePageHide);
+    };
+  }, [token, isDemoSession, logout]);
+
   if (!token || user?.station) return <Navigate to="/login" replace />;
   return (
     <ShiftProvider>
@@ -211,6 +257,7 @@ export function App() {
                   path="inventory/purchases/imports"
                   element={<XmlImportPage />}
                 />
+                <Route path="customers" element={<RetailCustomersPage />} />
                 <Route path="returns" element={<RetailReturnsPage />} />
                 <Route path="operations" element={<RetailOperationsPage />} />
                 <Route path="registers" element={<RegistersPage />} />

@@ -124,8 +124,8 @@ export function RetailTeamAvatars({
           const isCurrent = activeOperator?.id === op.id;
           const hasPhoto = Boolean(op.imageUrl && !failedImages[op.id]);
           const label = isCurrent
-            ? `${op.name} (Ativo no caixa)`
-            : `Trocar para o caixa de ${op.name}`;
+            ? `Avatar do turno ativo (${idx + 1})`
+            : `Alternar turno rápido (${idx + 1})`;
 
           return (
             <button
@@ -150,7 +150,7 @@ export function RetailTeamAvatars({
               {hasPhoto ? (
                 <img
                   src={getFullUrl(op.imageUrl)}
-                  alt={op.name}
+                  alt=""
                   className="retail-avatar-photo"
                   onError={() =>
                     setFailedImages((prev) => ({ ...prev, [op.id]: true }))
@@ -390,11 +390,13 @@ export function RetailLayout() {
             active: pathname.startsWith("/dashboard/equipe"),
           },
           {
-            name: "Trocas e créditos",
-            path: "/dashboard/returns",
+            name: "Clientes e trocas",
+            path: "/dashboard/customers",
             icon: RotateCcw,
             iconKind: "returns",
-            active: pathname.startsWith("/dashboard/returns"),
+            active:
+              pathname.startsWith("/dashboard/customers") ||
+              pathname.startsWith("/dashboard/returns"),
           },
         ],
         [
@@ -474,6 +476,15 @@ export function RetailLayout() {
       ];
     }
     if (
+      pathname.startsWith("/dashboard/customers") ||
+      pathname.startsWith("/dashboard/returns")
+    ) {
+      return [
+        { label: "Clientes e insights", path: "/dashboard/customers" },
+        { label: "Trocas e créditos", path: "/dashboard/returns" },
+      ];
+    }
+    if (
       pathname.startsWith("/dashboard/configuracoes") ||
       pathname.startsWith("/dashboard/fiscal")
     ) {
@@ -510,6 +521,8 @@ export function RetailLayout() {
     if (pathname.startsWith("/dashboard/operations")) return "Operações Locais";
     if (pathname.startsWith("/dashboard/reports")) return "Relatórios da Loja";
     if (pathname.startsWith("/dashboard/equipe")) return "Equipe e Acessos";
+    if (pathname.startsWith("/dashboard/customers"))
+      return "Clientes e Pós-Venda";
     if (pathname.startsWith("/dashboard/returns")) return "Trocas e Créditos";
     if (pathname.startsWith("/dashboard/fiscal")) return "Gestão Fiscal";
     if (pathname.startsWith("/dashboard/configuracoes"))
@@ -532,7 +545,11 @@ export function RetailLayout() {
     )
       return "registers";
     if (pathname.startsWith("/dashboard/equipe")) return "team";
-    if (pathname.startsWith("/dashboard/returns")) return "returns";
+    if (
+      pathname.startsWith("/dashboard/customers") ||
+      pathname.startsWith("/dashboard/returns")
+    )
+      return "returns";
     if (
       pathname.startsWith("/dashboard/fiscal") ||
       pathname.startsWith("/dashboard/configuracoes") ||
@@ -918,6 +935,224 @@ export function RetailLayout() {
             </div>
           )}
         </main>
+
+        {showSidebar && (
+          <>
+            <nav
+              className="retail-mobile-tabbar"
+              aria-label="Navegação rápida mobile"
+            >
+              {isStockist ? (
+                <>
+                  <NavLink
+                    to="/dashboard/inventory"
+                    end
+                    className={({ isActive }) =>
+                      `retail-mobile-tab ${isActive ? "is-active" : ""}`
+                    }
+                  >
+                    <Package size={20} strokeWidth={2} />
+                    <span>Catálogo</span>
+                  </NavLink>
+                  {moduleAllowed("/dashboard/inventory/stock-count") && (
+                    <NavLink
+                      to="/dashboard/inventory/stock-count"
+                      className={({ isActive }) =>
+                        `retail-mobile-tab ${isActive ? "is-active" : ""}`
+                      }
+                    >
+                      <ClipboardList size={20} strokeWidth={2} />
+                      <span>Balanço</span>
+                    </NavLink>
+                  )}
+                  <NavLink
+                    to="/dashboard/inventory/stock-entry"
+                    className={({ isActive }) =>
+                      `retail-mobile-tab ${isActive ? "is-active" : ""}`
+                    }
+                  >
+                    <HandCoins size={20} strokeWidth={2} />
+                    <span>Entrada</span>
+                  </NavLink>
+                  <button
+                    type="button"
+                    className={`retail-mobile-tab ${menuOpen ? "is-active" : ""}`}
+                    aria-expanded={menuOpen}
+                    onClick={() => setMenuOpen((v) => !v)}
+                  >
+                    {menuOpen ? (
+                      <X size={20} strokeWidth={2} />
+                    ) : (
+                      <Menu size={20} strokeWidth={2} />
+                    )}
+                    <span>Menu</span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <NavLink
+                    to="/"
+                    end
+                    className={`retail-mobile-tab ${pathname === "/" ? "is-active" : ""}`}
+                  >
+                    <HandCoins size={20} strokeWidth={2} />
+                    <span>Balcão</span>
+                  </NavLink>
+                  <NavLink
+                    to="/dashboard"
+                    end
+                    className={`retail-mobile-tab ${
+                      pathname === "/dashboard" ||
+                      pathname.startsWith("/dashboard/reports") ||
+                      pathname.startsWith("/dashboard/registers") ||
+                      pathname.startsWith("/dashboard/operations")
+                        ? "is-active"
+                        : ""
+                    }`}
+                  >
+                    <Home size={20} strokeWidth={2} />
+                    <span>Resumo</span>
+                  </NavLink>
+                  <NavLink
+                    to="/dashboard/inventory"
+                    className={`retail-mobile-tab ${
+                      pathname.startsWith("/dashboard/inventory")
+                        ? "is-active"
+                        : ""
+                    }`}
+                  >
+                    <Package size={20} strokeWidth={2} />
+                    <span>Estoque</span>
+                  </NavLink>
+                  <NavLink
+                    to="/dashboard/customers"
+                    className={`retail-mobile-tab ${
+                      pathname.startsWith("/dashboard/customers") ||
+                      pathname.startsWith("/dashboard/returns")
+                        ? "is-active"
+                        : ""
+                    }`}
+                  >
+                    <RotateCcw size={20} strokeWidth={2} />
+                    <span>Clientes</span>
+                  </NavLink>
+                  <button
+                    type="button"
+                    className={`retail-mobile-tab ${
+                      menuOpen ||
+                      pathname.startsWith("/dashboard/finance") ||
+                      pathname.startsWith("/dashboard/suppliers") ||
+                      pathname.startsWith("/dashboard/purchase-orders") ||
+                      pathname.startsWith("/dashboard/equipe") ||
+                      pathname.startsWith("/dashboard/fiscal") ||
+                      pathname.startsWith("/dashboard/configuracoes")
+                        ? "is-active"
+                        : ""
+                    }`}
+                    aria-expanded={menuOpen}
+                    onClick={() => setMenuOpen((v) => !v)}
+                  >
+                    {menuOpen ? (
+                      <X size={20} strokeWidth={2} />
+                    ) : (
+                      <Menu size={20} strokeWidth={2} />
+                    )}
+                    <span>Menu</span>
+                  </button>
+                </>
+              )}
+            </nav>
+
+            {menuOpen && (
+              <div
+                className="retail-mobile-drawer-overlay"
+                onClick={() => setMenuOpen(false)}
+              >
+                <div
+                  className="retail-mobile-drawer"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="Menu completo da loja"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="retail-sheet-handle" aria-hidden="true" />
+                  <div className="retail-mobile-drawer-head">
+                    <div className="retail-mobile-drawer-store">
+                      <RetailOperatorAvatar
+                        name={shift.operator?.name || user?.name}
+                      />
+                      <div>
+                        <strong>
+                          {config?.nomeFantasia ||
+                            config?.razaoSocial ||
+                            "PDV Lojista"}
+                        </strong>
+                        <small>
+                          {shift.operator?.name || user?.name || "Operador"} ·{" "}
+                          {isStockist ? "Estoquista" : "Administração"}
+                        </small>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="retail-icon-button"
+                      aria-label="Fechar menu"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+
+                  <div className="retail-mobile-drawer-grid">
+                    {railGroups.flat().map((item) => (
+                      <NavLink
+                        key={item.path}
+                        to={item.path}
+                        onClick={() => setMenuOpen(false)}
+                        className={`retail-mobile-drawer-card ${
+                          item.active ? "is-active" : ""
+                        }`}
+                      >
+                        <span className="retail-mobile-drawer-icon">
+                          <item.icon size={20} strokeWidth={1.9} />
+                        </span>
+                        <span>{item.name}</span>
+                      </NavLink>
+                    ))}
+                  </div>
+
+                  <div className="retail-mobile-drawer-foot">
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        className="retail-button"
+                        onClick={() => {
+                          setMenuOpen(false);
+                          setCashierOnlyMode(true);
+                          navigate("/");
+                        }}
+                      >
+                        <Monitor size={16} />
+                        <span>Modo Somente Caixa</span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="retail-button"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        logout();
+                      }}
+                    >
+                      <LogOut size={16} />
+                      <span>Sair da loja</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
+        )}
       </div>
     </RetailShellContext.Provider>
   );

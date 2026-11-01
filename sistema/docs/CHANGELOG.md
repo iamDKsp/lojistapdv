@@ -1,5 +1,64 @@
 # Histórico — PDV Lojista
 
+## 2026-11-01 — Replanejamento Completo da Experiência Mobile Pós-Login (iPhone iOS & Android `<= 768px`)
+
+- **Navegação Inferior Fixa (`Bottom Tab Bar`) e Gaveta `Menu` (`frontend/src/retail/RetailLayout.tsx` e `frontend/src/retail/retail.css`)**:
+  - Adicionada barra inferior fixa (`.retail-mobile-tabbar`) com suporte a `env(safe-area-inset-bottom)` para o *Home Indicator* do iPhone e barra de gestos do Android, permitindo alternar com uma mão entre **Balcão (`/`)**, **Resumo (`/dashboard`)**, **Estoque (`/dashboard/inventory`)**, **Trocas (`/dashboard/returns`)** e a gaveta **Menu** (`.retail-mobile-drawer`).
+  - A gaveta deslizante **Menu** organiza os módulos administrativos (*Financeiro/Contas a pagar*, *Histórico de caixas*, *Equipe*, *Clientes*, *Gestão de NFC-e*, *Empresa*), troca para *Modo Somente Caixa* e *Sair da loja* em formato *Bottom Sheet*.
+- **Frente de Caixa Mobile com Sacola Flutuante e Bottom Sheet (`frontend/src/retail/RetailPosPage.tsx` e `frontend/src/retail/retail.css`)**:
+  - Reestruturado o PDV em telas `<= 768px` para priorizar busca rápida, filtro horizontal de categorias por toque e catálogo em grade de 2 colunas.
+  - Adicionada **Barra Flutuante da Sacola** (`.retail-mobile-bag-bar`) acima da navegação inferior exibindo quantidade de peças, valor total e botão direto **Receber**, além de expandir o painel **Detalhes da Transação** (`.retail-order.is-mobile-open`) como um *Bottom Sheet* deslizante.
+  - Desativado o foco automático forçado na barra de busca após clicar em produtos em telas móveis (`<= 768px`), evitando abertura indesejada do teclado virtual do iOS/Android durante a seleção de peças.
+- **Modais em Bottom Sheet e Prevenção de Auto-Zoom no iPhone (`frontend/src/retail/RetailDialog.tsx`, `frontend/src/components/OperatorLoginModal.tsx`, `frontend/src/components/OpenShiftModal.tsx`, `frontend/src/components/CashMovementModal.tsx` e `frontend/src/retail/retail.css`)**:
+  - Todos os diálogos (`RetailDialog`, seleção de operador por PIN, abertura de turno, sangria/suprimento e checkout) ancoram na base da tela com alça superior (`.retail-sheet-handle`) e bordas arredondadas superiores (`24px`) em viewports `<= 768px`.
+  - Aplicado `font-size: 16px` nos campos de formulário no mobile para impedir o zoom automático do iOS Safari ao focar inputs.
+- **Tabelas Convertidas em Cartões Mobile Sem Scroll Horizontal (`frontend/src/retail/RetailCatalogPage.tsx`, `frontend/src/retail/RetailGroupEditor.tsx`, `frontend/src/retail/RetailReturnsPage.tsx`, `frontend/src/retail/RetailCustomersPage.tsx` e `frontend/src/retail/retail.css`)**:
+  - As tabelas de catálogo de grupos, matriz de variações (tamanho/cor/código/saldo/entrada), carteira de clientes e itens de troca/devolução passam a renderizar como cartões estruturados em 2 colunas com rótulos `data-label` no mobile (`<= 768px`), mantendo 100% da semântica `<table>` e `aria-label`s para acessibilidade e testes automatizados, com zero overflow horizontal (`scrollWidth <= innerWidth`).
+
+## 2026-11-01 — Módulo de Clientes e Inteligência Comercial (`CRM Lojista`) com Raio-X 360º
+
+- **Navegação Integrada Pós-Venda (`frontend/src/retail/RetailLayout.tsx` e `frontend/src/App.tsx`)**:
+  - Integrada a rota `/dashboard/customers` (`Clientes e insights`) ao lado de `/dashboard/returns` (`Trocas e créditos`) nas sub-abas de pós-venda e no menu lateral/mobile (`Clientes e trocas`).
+- **API de Inteligência Comercial e Perfil 360º (`backend/src/customers/customers.service.ts` e `backend/src/customers/customers.controller.ts`)**:
+  - `GET /api/customers/insights`: calcula KPIs executivos da carteira (total de clientes, ativos nos últimos 30 dias, clientes VIP, clientes sumidos há 60+ dias, comparativo de ticket médio identificado vs. avulso e saldo total de créditos em aberto), ranking dos Top 5 Clientes VIP, radar de reativação/créditos parados e listagem filtrável e ordenável com DNA rápido (tamanho e cor favoritos).
+  - `GET /api/customers/:id/profile`: retorna o Raio-X 360º do cliente com histórico de compras, itens detalhados, elegibilidade para troca, histórico de trocas, extrato de créditos em loja (`StoreCredit` e `StoreCreditUse`), DNA de tamanhos, cores, grupos/mercadorias, categorias, formas de pagamento preferidas e operadores que realizaram os atendimentos.
+  - `POST /api/customers` e `PUT /api/customers/:id`: validação e normalização de nome, telefone (com verificação de unicidade por tenant), CPF/CNPJ, endereço e observações/preferências (`reference`), sem exigir alterações de schema nos bancos dos clientes.
+- **Interface Administrativa e Fluxo de Troca em 1 Clique (`frontend/src/retail/RetailCustomersPage.tsx`, `frontend/src/retail/RetailReturnsPage.tsx` e `frontend/src/retail/retail.css`)**:
+  - Painéis de KPIs da base, Top Clientes VIP, Radar de Reativação com botão de WhatsApp contextualizado, filtros por pílulas de segmento (`Todos`, `Clientes VIP`, `Ativos (30d)`, `Sumidos (+60d)`, `Com crédito em loja`, `Sem compras`), modal de cadastro/edição completo e modal de Raio-X 360º.
+  - Atalho direto **Iniciar troca** no histórico de compras do cliente dentro do Raio-X 360º, redirecionando para `/dashboard/returns?sale=<codigo>` com carregamento automático da venda.
+
+## 2026-11-01 — Captura de Leads na Loja Demonstração, Aba `Leads` no `/sys-init` e Auto-Reset Completo
+
+- **Modal Interativo de 2 Etapas para Acesso à Loja Demonstração (`frontend/src/retail/DemoLeadModal.tsx`, `frontend/src/retail/RetailLoginPage.tsx`, `frontend/src/retail/RetailMobileLogin.tsx` e `frontend/src/retail/retail.css`)**:
+  - Ao clicar em **Loja Demonstração** ou **Experimente agora** na tela de login (desktop ou mobile), abre-se o modal harmonizado na paleta roxa, branca e neutra em 2 etapas:
+    1. **Etapa 1**: pergunta *"Qual seu nome?"* e avança ao clicar em **Continuar**.
+    2. **Etapa 2**: pergunta *"Qual seu WhatsApp?"* com máscara `(DD) 9XXXX-XXXX` (10 ou 11 dígitos) e, ao clicar em **Continuar**, registra o lead, restaura o estado habitual da loja de demonstração e autentica automaticamente no PDV com operador gerente e caixa já abertos.
+- **Deduplicação por WhatsApp e Reacesso Livre (`backend/prisma/heart.schema.prisma`, `backend/src/prisma/heart-prisma.service.ts` e `backend/src/tenants/tenants.service.ts`)**:
+  - Adicionado índice único `whatsapp` (`leads_whatsapp_key`), contador de acessos (`accessCount`) e data/hora do último acesso (`lastAccessAt`) na tabela `leads` do banco `heart` (provisionada de forma idempotente em `ensureHeartColumnsAndTables()`).
+  - Não permite duplicar o cadastro para o mesmo número de WhatsApp: caso o mesmo número refaça o processo no modal, o lead existente é atualizado (`name`, `accessCount + 1`, `lastAccessAt`) e o visitante entra normalmente quantas vezes desejar.
+- **Aba `Leads` no Painel Central `/sys-init` (`frontend/src/components/sys-init/LeadsPanel.tsx`, `frontend/src/app/sys-init/page.tsx` e `backend/src/tenants/tenants.controller.ts`)**:
+  - Nova aba **Leads** no `/sys-init` com cartões de indicadores (*Leads Únicos*, *Acessos Hoje*, *Retornaram (2+ acessos)* e *Convertidos*), busca instantânea, filtros por estágio comercial (`NOVO`, `EM_DEMO`, `CONTATADO`, `CONVERTIDO`, `DESCARTADO`), edição de anotações comerciais, botão de 1 clique **Chamar no WhatsApp**, exclusão e botão **Resetar Loja Demo**.
+  - A Loja Demonstração (`lojista_demonstracao`) permanece isolada da lista principal de Tenants do `/sys-init`, do cálculo de MRR e da sincronização com o Teltech Leadger.
+- **Loja Demonstração Completa com Fotos, Caixa, Financeiro e Auto-Reset (`backend/src/tenants/demo-store.seed.ts`, `backend/src/auth/auth.service.ts`, `frontend/src/store/auth.ts`, `frontend/src/App.tsx` e `scripts/demo-local.cjs`)**:
+  - Todos os módulos liberados (`estoque`, `nfce`, `dashboardMobile`, `importacaoXml`, `vitrineDigital`, `digitalSignage`).
+  - Estado habitual pré-alimentado a cada sessão: 8 grupos de mercadorias com grades de tamanho/cor, estoque nos lotes e **fotos vetoriais de estúdio nos produtos**, fornecedores, pedidos de compra recebidos/pendentes, contas a pagar (`Payable`) pagas e pendentes no módulo financeiro, clientes, histórico de vendas, troca com vale-crédito ativo e caixa aberto (`Caixa #2`) com suprimento e sangria.
+  - Sempre que o usuário sai da loja (`logout`), fecha a aba (`pagehide` / `sendBeacon('/api/auth/demo-reset')`) ou outro visitante entra na demonstração (`POST /api/auth/demo-login`), a loja retorna automaticamente ao seu estado habitual.
+
+## 2026-11-01 — Replanejamento Completo da Experiência Mobile Pós-Login (iPhone iOS & Android `<= 768px`)
+
+- **Navegação Inferior Fixa (`Bottom Tab Bar`) e Gaveta `Menu` (`frontend/src/retail/RetailLayout.tsx` e `frontend/src/retail/retail.css`)**:
+  - Adicionada barra inferior fixa (`.retail-mobile-tabbar`) com suporte a `env(safe-area-inset-bottom)` para o *Home Indicator* do iPhone e barra de gestos do Android, permitindo alternar com uma mão entre **Balcão (`/`)**, **Resumo (`/dashboard`)**, **Estoque (`/dashboard/inventory`)**, **Trocas (`/dashboard/returns`)** e a gaveta **Menu** (`.retail-mobile-drawer`).
+  - A gaveta deslizante **Menu** organiza os módulos administrativos (*Financeiro/Contas a pagar*, *Histórico de caixas*, *Equipe*, *Gestão de NFC-e*, *Empresa*), troca para *Modo Somente Caixa* e *Sair da loja* em formato *Bottom Sheet*.
+- **Frente de Caixa Mobile com Sacola Flutuante e Bottom Sheet (`frontend/src/retail/RetailPosPage.tsx` e `frontend/src/retail/retail.css`)**:
+  - Reestruturado o PDV em telas `<= 768px` para priorizar busca rápida, filtro horizontal de categorias por toque e catálogo em grade de 2 colunas.
+  - Adicionada **Barra Flutuante da Sacola** (`.retail-mobile-bag-bar`) acima da navegação inferior exibindo quantidade de peças, valor total e botão direto **Receber**, além de expandir o painel **Detalhes da Transação** (`.retail-order.is-mobile-open`) como um *Bottom Sheet* deslizante.
+  - Desativado o foco automático forçado na barra de busca após clicar em produtos em telas móveis (`<= 768px`), evitando abertura indesejada do teclado virtual do iOS/Android durante a seleção de peças.
+- **Modais em Bottom Sheet e Prevenção de Auto-Zoom no iPhone (`frontend/src/retail/RetailDialog.tsx`, `frontend/src/components/OperatorLoginModal.tsx`, `frontend/src/components/OpenShiftModal.tsx`, `frontend/src/components/CashMovementModal.tsx` e `frontend/src/retail/retail.css`)**:
+  - Todos os diálogos (`RetailDialog`, seleção de operador por PIN, abertura de turno, sangria/suprimento e checkout) ancoram na base da tela com alça superior (`.retail-sheet-handle`) e bordas arredondadas superiores (`24px`) em viewports `<= 768px`.
+  - Aplicado `font-size: 16px` nos campos de formulário no mobile para impedir o zoom automático do iOS Safari ao focar inputs.
+- **Tabelas Convertidas em Cartões Mobile Sem Scroll Horizontal (`frontend/src/retail/RetailCatalogPage.tsx`, `frontend/src/retail/RetailGroupEditor.tsx`, `frontend/src/retail/RetailReturnsPage.tsx` e `frontend/src/retail/retail.css`)**:
+  - As tabelas de catálogo de grupos, matriz de variações (tamanho/cor/código/saldo/entrada) e itens de troca/devolução passam a renderizar como cartões estruturados em 2 colunas com rótulos `data-label` no mobile (`<= 768px`), mantendo 100% da semântica `<table>` e `aria-label`s para acessibilidade e testes automatizados, com zero overflow horizontal (`scrollWidth <= innerWidth`).
+
 ## 2026-11-01 — Fotos de Funcionários, Ícones da Equipe no Topo, Troca Rápida em 1 Clique e Caixa Compartilhado
 
 - **Cadastro e Sincronização de Foto de Funcionários (`backend/prisma/heart.schema.prisma`, `backend/src/prisma/heart-prisma.service.ts`, `backend/src/users/users.service.ts`, `backend/src/operators/operators.service.ts`, `frontend/src/components/UserModal.tsx`, `frontend/src/components/OperatorsManagementModal.tsx` e `frontend/src/app/dashboard/users/page.tsx`)**:

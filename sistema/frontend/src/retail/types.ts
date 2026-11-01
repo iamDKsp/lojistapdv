@@ -32,6 +32,10 @@ export interface Customer {
   id: string;
   name: string;
   phone: string;
+  cpfCnpj?: string | null;
+  address?: string | null;
+  reference?: string | null;
+  createdAt?: string;
 }
 
 export const money = (value: number | string) =>

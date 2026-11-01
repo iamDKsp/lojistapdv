@@ -104,6 +104,26 @@ export class HeartPrismaService
       `CREATE UNIQUE INDEX IF NOT EXISTS "webhook_outbox_event_id_key" ON "webhook_outbox"("event_id")`,
       `CREATE INDEX IF NOT EXISTS "webhook_outbox_status_next_retry_at_idx" ON "webhook_outbox"("status", "next_retry_at")`,
       `CREATE INDEX IF NOT EXISTS "webhook_outbox_tenant_id_created_at_idx" ON "webhook_outbox"("tenant_id", "created_at")`,
+      `CREATE TABLE IF NOT EXISTS "leads" (
+        "id" TEXT NOT NULL,
+        "name" TEXT NOT NULL,
+        "whatsapp" TEXT NOT NULL,
+        "access_count" INTEGER NOT NULL DEFAULT 1,
+        "last_access_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "status" TEXT NOT NULL DEFAULT 'NOVO',
+        "source" TEXT NOT NULL DEFAULT 'demo',
+        "notes" TEXT,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "leads_pkey" PRIMARY KEY ("id")
+      )`,
+      `ALTER TABLE "leads" ADD COLUMN IF NOT EXISTS "access_count" INTEGER NOT NULL DEFAULT 1`,
+      `ALTER TABLE "leads" ADD COLUMN IF NOT EXISTS "last_access_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP`,
+      `UPDATE "leads" SET "whatsapp" = regexp_replace("whatsapp", '\\D', '', 'g') WHERE "whatsapp" ~ '\\D'`,
+      `DELETE FROM "leads" a USING "leads" b WHERE a."whatsapp" = b."whatsapp" AND a."createdAt" < b."createdAt"`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS "leads_whatsapp_key" ON "leads"("whatsapp")`,
+      `CREATE INDEX IF NOT EXISTS "leads_status_idx" ON "leads"("status")`,
+      `CREATE INDEX IF NOT EXISTS "leads_createdAt_idx" ON "leads"("createdAt")`,
     ];
 
     for (const sql of statements) {

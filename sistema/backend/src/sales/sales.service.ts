@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, ConflictException, Logger, NotFoundException, StreamableFile } from '@nestjs/common';
+import { Injectable, BadRequestException, ConflictException, Logger, NotFoundException, Optional, StreamableFile } from '@nestjs/common';
 import { TenantConnectionManager } from '../prisma/tenant-prisma.service';
 import { TenantContextService } from '../prisma/tenant-context.service';
 import { HeartPrismaService } from '../prisma/heart-prisma.service';
@@ -11,6 +11,7 @@ import { lockProducts } from '../prisma/lock-products';
 import archiver = require('archiver');
 import { MailService } from '../mail/mail.service';
 import { IntegrationsService } from '../integrations/integrations.service';
+import { CrediarioService } from '../crediario/crediario.service';
 import {
   normalizeIdempotencyKey,
   computeSaleFingerprint,
@@ -21,8 +22,9 @@ import {
 const TPAG_MAP: Record<string, string> = {
   dinheiro: '01',
   credito:  '03',
-  debito:   '04',
-  pix:      '17',
+  debito:    '04',
+  crediario: '05',
+  pix:       '17',
   outros:   '99',
 };
 
@@ -37,7 +39,8 @@ export class SalesService {
     private tenantContext: TenantContextService,
     private productsService: ProductsService,
     private mailService: MailService,
-    private integrationsService: IntegrationsService
+    private integrationsService: IntegrationsService,
+    @Optional() private crediarioService?: CrediarioService
   ) {}
 
   private async getPrisma() {
@@ -160,6 +163,7 @@ export class SalesService {
 
     let allProductIdsToSync: string[] = [];
     let sale: any;
+    let crediarioOutcome = null as { createdReceivables: any[]; totalCrediario: number } | null;
 
     try {
       sale = await retryTransaction(() => prisma.$transaction(async (tx: any) => {
@@ -485,6 +489,15 @@ export class SalesService {
       });
 
       await redeemStoreCredits(tx, data.payments, sale.id, data.customerId);
+      if (this.crediarioService && (data.payments || []).some((p: any) => p.method === 'crediario')) {
+        crediarioOutcome = await this.crediarioService.createReceivablesFromSale(tx, {
+          saleId: sale.id,
+          saleCode: nextSaleCode,
+          customerId: data.customerId,
+          operatorId,
+          payments: data.payments,
+        });
+      }
 
       // ─── Processar itens da COMANDA (stockDeducted=true: sem baixa, apenas FIFO para custeio) ──
       if (data.comandaId && comandaToClose) {
@@ -855,6 +868,25 @@ export class SalesService {
   // Disparo assíncrono direto da NFC-e quando solicitado pelo operador na venda
   if (sale?.emitirNfce) {
     setTimeout(() => this.dispararNfce(tenantId, databaseUrl, sale), 300);
+  }
+
+  // Disparo assíncrono de comprovante do Crediário no WhatsApp (Baileys)
+  if (
+    this.crediarioService &&
+    crediarioOutcome &&
+    crediarioOutcome.totalCrediario > 0 &&
+    crediarioOutcome.createdReceivables.length > 0 &&
+    sale?.customerId
+  ) {
+    const firstRec = crediarioOutcome.createdReceivables[0];
+    void this.crediarioService.notifySaleOnWhatsapp({
+      saleId: sale.id,
+      saleCode: sale.code,
+      customerId: sale.customerId,
+      totalCrediario: crediarioOutcome.totalCrediario,
+      installmentsCount: crediarioOutcome.createdReceivables.length,
+      firstDueDate: firstRec.dueDate,
+    });
   }
 
   return sale;
@@ -1425,6 +1457,9 @@ export class SalesService {
 
       await lockProducts(tx, existingSale.items.map((i: any) => i.productId));
       await restoreStoreCredits(tx, saleId);
+      if (this.crediarioService) {
+        await this.crediarioService.cancelSaleReceivables(tx, saleId);
+      }
       // Estornar cada item consumido de volta aos lotes e produtos
       for (const item of existingSale.items) {
         // Reduzir contagem de vendas do produto pai
@@ -1489,7 +1524,7 @@ export class SalesService {
   }
   async updatePayments(saleId: string, payments: { method: string; value: number; tPag?: string }[]) {
     const prisma = await this.getPrisma();
-    if (payments.some(p => p.method === 'credito_loja') || await prisma.storeCreditUse.count({ where: { saleId } })) throw new BadRequestException('Pagamentos com crédito da loja não podem ser editados. Cancele a venda para restituir o saldo.');
+    if (payments.some(p => p.method === 'credito_loja' || p.method === 'crediario') || await prisma.storeCreditUse.count({ where: { saleId } })) throw new BadRequestException('Pagamentos com crédito da loja ou crediário não podem ser editados diretamente.');
 
     return await prisma.$transaction(async (tx) => {
       const sale = await tx.sale.findUnique({

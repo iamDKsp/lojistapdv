@@ -298,6 +298,7 @@ export function RetailLayout() {
     if (path.includes("/fiscal/") || path.includes("/tributacao"))
       return modules.nfce !== false;
     if (path.includes("stock-count")) return modules.estoque !== false;
+    if (path.includes("/crediario")) return Boolean(modules.crediario);
     return true;
   }
 
@@ -398,6 +399,17 @@ export function RetailLayout() {
               pathname.startsWith("/dashboard/customers") ||
               pathname.startsWith("/dashboard/returns"),
           },
+          ...(moduleAllowed("/dashboard/crediario")
+            ? [
+                {
+                  name: "Crediário e cobrança",
+                  path: "/dashboard/crediario",
+                  icon: ClipboardList,
+                  iconKind: "finance",
+                  active: pathname.startsWith("/dashboard/crediario"),
+                },
+              ]
+            : []),
         ],
         [
           {
@@ -505,8 +517,15 @@ export function RetailLayout() {
           : []),
       ];
     }
+    if (pathname.startsWith("/dashboard/crediario")) {
+      return [
+        { label: "Contas de clientes", path: "/dashboard/crediario" },
+        { label: "Parcelas e vencimentos", path: "/dashboard/crediario/parcelas" },
+        { label: "WhatsApp e régua", path: "/dashboard/crediario/whatsapp" },
+      ];
+    }
     return [];
-  }, [isPosRoute, pathname, modules.nfce, modules.importacaoXml, modules.estoque]);
+  }, [isPosRoute, pathname, modules.nfce, modules.importacaoXml, modules.estoque, modules.crediario]);
 
   const sectionHeading = useMemo(() => {
     if (pathname.startsWith("/dashboard/inventory")) return "Catálogo e Estoque";
@@ -524,6 +543,7 @@ export function RetailLayout() {
     if (pathname.startsWith("/dashboard/customers"))
       return "Clientes e Pós-Venda";
     if (pathname.startsWith("/dashboard/returns")) return "Trocas e Créditos";
+    if (pathname.startsWith("/dashboard/crediario")) return "Crediário e Cobrança";
     if (pathname.startsWith("/dashboard/fiscal")) return "Gestão Fiscal";
     if (pathname.startsWith("/dashboard/configuracoes"))
       return "Configurações da Loja";
@@ -533,6 +553,7 @@ export function RetailLayout() {
   const moduleKind = useMemo(() => {
     if (pathname === "/") return "pos";
     if (pathname.startsWith("/dashboard/inventory")) return "inventory";
+    if (pathname.startsWith("/dashboard/crediario")) return "finance";
     if (
       pathname.startsWith("/dashboard/finance") ||
       pathname.startsWith("/dashboard/suppliers") ||
@@ -561,7 +582,7 @@ export function RetailLayout() {
 
   const activeTabIndex = useMemo(() => {
     return subNavTabs.findIndex((tab) =>
-      tab.path === "/dashboard" || tab.path === "/dashboard/inventory"
+      tab.path === "/dashboard" || tab.path === "/dashboard/inventory" || tab.path === "/dashboard/crediario"
         ? pathname === tab.path
         : pathname.startsWith(tab.path),
     );
@@ -891,7 +912,8 @@ export function RetailLayout() {
                   {subNavTabs.map((tab, tabIdx) => {
                     const isTabActive =
                       tab.path === "/dashboard" ||
-                      tab.path === "/dashboard/inventory"
+                      tab.path === "/dashboard/inventory" ||
+                      tab.path === "/dashboard/crediario"
                         ? pathname === tab.path
                         : pathname.startsWith(tab.path);
                     return (
@@ -900,7 +922,8 @@ export function RetailLayout() {
                         to={tab.path}
                         end={
                           tab.path === "/dashboard" ||
-                          tab.path === "/dashboard/inventory"
+                          tab.path === "/dashboard/inventory" ||
+                          tab.path === "/dashboard/crediario"
                         }
                         style={
                           { "--tab-idx": tabIdx } as React.CSSProperties

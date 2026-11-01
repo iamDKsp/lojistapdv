@@ -1,5 +1,23 @@
 # Histórico — PDV Lojista
 
+## 2026-11-01 — Módulo de Crediário (Fiado / Contas de Clientes) + Cobrança Automática via WhatsApp (Baileys)
+
+- **Modelagem Multi-Tenant e Regras de Negócio (`backend/prisma/schema.prisma` e `backend/src/crediario/crediario.rules.ts`)**:
+  - Estendido o modelo `Customer` com limite de crédito (`creditLimit`), bloqueio de crediário (`creditBlocked`), dia preferencial de vencimento (`preferredDueDay`), opt-in de WhatsApp (`whatsappOptIn`) e observações de crédito (`creditNotes`).
+  - Criados os modelos isolados por tenant: `CustomerReceivable` (`customer_receivables`), `CustomerReceivablePayment` (`customer_receivable_payments`), `CrediarioSettings` (`crediario_settings`), `WhatsappAuthState` (`whatsapp_auth_states`) e `CrediarioNotificationLog` (`crediario_notification_logs`).
+  - Implementadas regras puras e determinísticas de parcelamento em centavos (com absorção de diferença na última parcela), amortização FIFO entre títulos em aberto/vencidos, interpolação de variáveis nos templates de mensagens e avaliação da régua de cobrança (`BEFORE_DUE`, `ON_DUE_DATE` e `OVERDUE`).
+- **Sessão Multi-Tenant do WhatsApp via Baileys (`backend/src/crediario/whatsapp-baileys.service.ts`)**:
+  - Gerenciador de sessões isoladas por loja (`Map<tenantId, SessionState>`) usando `@whiskeysockets/baileys` com persistência de credenciais e chaves Signal diretamente no PostgreSQL do tenant (`whatsapp_auth_states`), geração de QR Code em DataURL na paleta aprovada (`#272321` / `#FFFFFF`), reconexão automática e desconexão com limpeza de estado.
+- **Serviço de Crediário, Integração no Checkout do PDV e Régua Automática (`backend/src/crediario/crediario.service.ts`, `backend/src/crediario/crediario-cron.service.ts` e `backend/src/sales/sales.service.ts`)**:
+  - Integração transacional com `SalesService.checkout` usando lock pessimista (`SELECT ... FOR UPDATE`) no cliente para validar bloqueio, inadimplência acima da tolerância e limite de crédito disponível sob concorrência, gerando automaticamente as parcelas (`1..N`) vinculadas à venda e disparando comprovante imediato no WhatsApp após o commit (`ON_SALE`).
+  - Estorno automático de títulos não pagos no cancelamento de venda (`cancelSale`) e bloqueio contra redução abaixo do saldo já amortizado.
+  - Baixa parcial, integral ou amortização FIFO na conta do cliente com registro opcional de entrada (`CashMovement` `IN`) no caixa aberto e envio de recibo automático via WhatsApp (`ON_PAYMENT`).
+  - Agendador (`@Cron(CronExpression.EVERY_10_MINUTES)`) e disparo manual sob demanda com idempotência diária via `CrediarioNotificationLog`.
+- **Feature Flag no `/sys-init`, Checkout do PDV e Painel Administrativo (`frontend/src/app/sys-init/page.tsx`, `frontend/src/retail/RetailCheckoutModal.tsx`, `frontend/src/retail/RetailCrediarioPage.tsx`, `frontend/src/retail/RetailLayout.tsx` e `frontend/src/App.tsx`)**:
+  - Adicionada flag `crediario` no `/sys-init` (badge na listagem de tenants e chave seletora na aba `Módulos`).
+  - No modal de recebimento do PDV (`RetailCheckoutModal`), exibida a forma **Fiado / Crediário** (quando o módulo está ativo), com consulta instantânea de limite/saldo do cliente, seletor de parcelas (`1x..Nx`) e data do 1º vencimento.
+  - Nova página `/dashboard/crediario` (`RetailCrediarioPage`) com 3 sub-abas (`Contas de clientes`, `Parcelas e vencimentos` e `WhatsApp e régua`), pareamento via QR Code em tempo real, configuração de chave PIX e mensagens, baixa/amortização, ajuste de limite, lançamento avulso e extrato completo com disparo de WhatsApp em 1 clique, 100% dentro da paleta roxa, branca e neutra aprovada.
+
 ## 2026-11-01 — Replanejamento Completo da Experiência Mobile Pós-Login (iPhone iOS & Android `<= 768px`)
 
 - **Navegação Inferior Fixa (`Bottom Tab Bar`) e Gaveta `Menu` (`frontend/src/retail/RetailLayout.tsx` e `frontend/src/retail/retail.css`)**:

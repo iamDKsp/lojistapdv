@@ -218,7 +218,7 @@ export function RetailReturnsPage() {
               {sale.status === "completed" ? (
                 <div className="retail-stack">
                   <div className="retail-table-wrap">
-                    <table className="retail-table">
+                    <table className="retail-table retail-table-cards">
                       <thead>
                         <tr>
                           <th>Mercadoria vendida</th>
@@ -241,15 +241,17 @@ export function RetailReturnsPage() {
                           };
                           return (
                             <tr key={item.id}>
-                              <td>
-                                {item.productName}
+                              <td data-label="Mercadoria" className="retail-cell-primary">
+                                <strong>{item.productName}</strong>
                                 <br />
                                 <span className="retail-muted">
                                   Preço na venda: {money(item.priceUnit)}
                                 </span>
                               </td>
-                              <td>{remaining}</td>
-                              <td>
+                              <td data-label="Disponível para troca">
+                                {remaining}
+                              </td>
+                              <td data-label="Quantidade">
                                 <input
                                   aria-label={`Quantidade a trocar de ${item.productName}`}
                                   type="number"
@@ -269,7 +271,7 @@ export function RetailReturnsPage() {
                                   }
                                 />
                               </td>
-                              <td>
+                              <td data-label="Volta ao estoque?">
                                 <RetailSwitch
                                   checked={row.restock}
                                   onCheckedChange={(checked) =>
@@ -346,7 +348,7 @@ export function RetailReturnsPage() {
       </div>
       {history.length ? (
         <div className="retail-table-wrap">
-          <table className="retail-table">
+          <table className="retail-table retail-table-cards">
             <thead>
               <tr>
                 <th>Venda</th>
@@ -359,11 +361,15 @@ export function RetailReturnsPage() {
             <tbody>
               {history.map((row) => (
                 <tr key={row.id}>
-                  <td>#{row.sale.code || row.saleId}</td>
-                  <td>{row.customer.name}</td>
-                  <td>{row.reason}</td>
-                  <td className="retail-number">{money(row.total)}</td>
-                  <td className="retail-number">
+                  <td data-label="Venda" className="retail-cell-primary">
+                    <strong>#{row.sale.code || row.saleId}</strong>
+                  </td>
+                  <td data-label="Cliente">{row.customer.name}</td>
+                  <td data-label="Motivo">{row.reason}</td>
+                  <td data-label="Crédito emitido" className="retail-number">
+                    {money(row.total)}
+                  </td>
+                  <td data-label="Saldo" className="retail-number">
                     {money(row.credit?.balance || 0)}
                   </td>
                 </tr>

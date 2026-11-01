@@ -19,6 +19,7 @@ import { RetailPosPage } from "@/retail/RetailPosPage";
 import { RetailLayout } from "@/retail/RetailLayout";
 import { RetailCatalogPage } from "@/retail/RetailCatalogPage";
 import { RetailCustomersPage } from "@/retail/RetailCustomersPage";
+import { RetailCrediarioPage } from "@/retail/RetailCrediarioPage";
 import { RetailReturnsPage } from "@/retail/RetailReturnsPage";
 import { RetailOperationsPage } from "@/retail/RetailOperationsPage";
 import { RetailDashboardPage } from "@/retail/RetailDashboardPage";
@@ -258,6 +259,9 @@ export function App() {
                   element={<XmlImportPage />}
                 />
                 <Route path="customers" element={<RetailCustomersPage />} />
+                <Route path="crediario" element={<RetailCrediarioPage />} />
+                <Route path="crediario/parcelas" element={<RetailCrediarioPage />} />
+                <Route path="crediario/whatsapp" element={<RetailCrediarioPage />} />
                 <Route path="returns" element={<RetailReturnsPage />} />
                 <Route path="operations" element={<RetailOperationsPage />} />
                 <Route path="registers" element={<RegistersPage />} />

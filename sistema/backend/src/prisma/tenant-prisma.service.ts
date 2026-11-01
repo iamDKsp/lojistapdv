@@ -65,6 +65,7 @@ export class TenantConnectionManager implements OnModuleDestroy {
             ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "preferredDueDay" INTEGER;
             ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "whatsappOptIn" BOOLEAN NOT NULL DEFAULT true;
             ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "creditNotes" TEXT;
+            ALTER TABLE "categories" ADD COLUMN IF NOT EXISTS "icon" VARCHAR(60);
           `);
         } catch {}
         this.clients.set(tenantId, { client, lastUsed: Date.now() });

@@ -23,23 +23,44 @@ export class CategoriesService {
 
   async create(data: any) {
     const prisma = await this.getPrisma();
-    return prisma.category.create({
-      data: {
-        name: data.name,
-        grupoTributacaoId: data.grupoTributacaoId || null
-      }
-    });
+    try {
+      return await (prisma.category as any).create({
+        data: {
+          name: data.name,
+          ...(data.icon !== undefined ? { icon: data.icon || null } : {}),
+          grupoTributacaoId: data.grupoTributacaoId || null
+        }
+      });
+    } catch {
+      return prisma.category.create({
+        data: {
+          name: data.name,
+          grupoTributacaoId: data.grupoTributacaoId || null
+        }
+      });
+    }
   }
 
   async update(id: string, data: any) {
     const prisma = await this.getPrisma();
-    return prisma.category.update({
-      where: { id },
-      data: {
-        name: data.name,
-        grupoTributacaoId: data.grupoTributacaoId !== undefined ? (data.grupoTributacaoId || null) : undefined
-      }
-    });
+    try {
+      return await (prisma.category as any).update({
+        where: { id },
+        data: {
+          name: data.name,
+          ...(data.icon !== undefined ? { icon: data.icon || null } : {}),
+          grupoTributacaoId: data.grupoTributacaoId !== undefined ? (data.grupoTributacaoId || null) : undefined
+        }
+      });
+    } catch {
+      return prisma.category.update({
+        where: { id },
+        data: {
+          name: data.name,
+          grupoTributacaoId: data.grupoTributacaoId !== undefined ? (data.grupoTributacaoId || null) : undefined
+        }
+      });
+    }
   }
 
   async remove(id: string) {

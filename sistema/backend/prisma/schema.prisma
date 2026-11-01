@@ -90,6 +90,7 @@ model GrupoTributacao {
 model Category {
   id                 String           @id @default(uuid())
   name               String           @unique
+  icon               String?          @db.VarChar(60)
   grupoTributacaoId  String?
   grupoTributacao    GrupoTributacao? @relation(fields: [grupoTributacaoId], references: [id], onDelete: SetNull)
   createdAt          DateTime         @default(now())

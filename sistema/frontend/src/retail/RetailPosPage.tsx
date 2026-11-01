@@ -54,6 +54,11 @@ import { CashMovementModal } from "@/components/CashMovementModal";
 import { ConnectionStatus } from "@/components/ConnectionStatus";
 import PdvLojistaLoader from "@/components/PdvLojistaLoader";
 import {
+  CategoryIconBadge,
+  CategoryIconIllustration,
+  syncCategoriesIconsToStorage,
+} from "@/components/CategoryIcons";
+import {
   useRetailShell,
   RetailTeamAvatars,
   RetailOperatorAvatar,
@@ -73,6 +78,24 @@ const QUICK_METHODS = [
  * Ilustração vetorial para mercadorias sem foto enviada, adaptada à paleta roxa, branca e neutra.
  */
 function ProductCardIllustration({
+  name,
+  categoryName,
+  compact = false,
+}: {
+  name: string;
+  categoryName?: string;
+  compact?: boolean;
+}) {
+  return (
+    <CategoryIconIllustration
+      categoryName={categoryName}
+      productName={name}
+      compact={compact}
+    />
+  );
+}
+
+function LegacyProductCardIllustrationUnused({
   name,
   categoryName,
   compact = false,
@@ -489,6 +512,12 @@ export function RetailPosPage() {
     api
       .get("/products/settings", { signal: controller.signal })
       .then((res) => setAllowNegative(res.data.allowNegativeStock === true))
+      .catch(() => {});
+    api
+      .get("/categories", { signal: controller.signal })
+      .then((res) => {
+        if (Array.isArray(res.data)) syncCategoriesIconsToStorage(res.data);
+      })
       .catch(() => {});
     return () => controller.abort();
   }, [load]);
@@ -993,6 +1022,12 @@ export function RetailPosPage() {
                         setCategory(c.id);
                       }}
                     >
+                      <CategoryIconBadge
+                        iconId={(c as any).icon}
+                        categoryId={c.id}
+                        categoryName={c.name}
+                        size={18}
+                      />
                       <span>{c.name}</span>
                       <span className="retail-cat-count retail-number">
                         {categoryStats.byCat.get(c.id) || 0}

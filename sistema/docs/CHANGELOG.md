@@ -1,5 +1,22 @@
 # Histórico — PDV Lojista
 
+## 2026-11-01 — Biblioteca Completa de Ícones de Categorias + Ícones Bônus + Seletor com Preview ao Vivo
+
+- **Biblioteca Vetorial de 28 Ícones (`frontend/src/components/CategoryIcons.tsx`)**:
+  - Criados os ícones vetoriais das categorias restantes do varejo (**18 categorias da loja**: `Camisetas & Polos`, `Camisas & Blusas`, `Calças & Jeans`, `Bermudas & Shorts`, `Jaquetas & Moletons`, `Vestidos & Macacões`, `Saias & Conjuntos`, `Calçados & Tênis`, `Bonés & Chapelaria`, `Relógios & Smartwatches`, `Óculos & Armações`, `Carteiras & Cintos`, `Bolsas & Mochilas`, `Joias & Semijoias`, `Perfumaria & Beleza`, `Moda Íntima & Meias`, `Moda Praia & Fitness` e `Moda Infantil & Bebê`) e **10 ícones bônus** (`Cabide`, `Sacola Boutique`, `Estrela / Destaques`, `Diamante / Premium`, `Etiqueta / Promoções`, `Presente / Kits`, `Raio / Lançamentos`, `Coração / Favoritos`, `Coroa / VIP` e `Inverno & Tricô`), exclusivamente com os tokens aprovados da paleta roxa, branca e neutra.
+- **Seletor Interativo com Preview em Tempo Real (`CategoryIconPicker`)**:
+  - Integrado na criação/edição de categoria em `/estoque/categorias` (`frontend/src/app/dashboard/inventory/categories/page.tsx`) e na criação rápida de categoria dentro do modal de Grupo de Mercadorias (`frontend/src/retail/RetailGroupEditor.tsx`), exibindo em tempo real como o botão de filtro do PDV e o card de produto sem foto ficam com o ícone escolhido ou no modo automático pelo nome.
+- **Exibição no PDV, Catálogo e Persistência (`RetailPosPage.tsx`, `RetailCatalogPage.tsx`, `categories.service.ts` e `demo-local.cjs`)**:
+  - Pílulas de filtro de categorias no PDV e listagem do catálogo exibem o ícone da categoria, e produtos sem foto exibem a ilustração correspondente.
+  - Suporte ao campo opcional `icon` no modelo `Category` (`schema.prisma`, `tenant-prisma.service.ts`, `categories.service.ts` e `demo-local.cjs`) com fallback resiliente.
+
+## 2026-11-01 — Tela de Login Exclusiva do `/sys-init` (Padrão Teltech Ledger)
+
+- **Seletor Rápido dos Dois Sócios e Senha Única (`frontend/src/components/sys-init/SysInitLogin.tsx` e `frontend/src/app/sys-init/page.tsx`)**:
+  - Implementada no passo de autenticação do `/sys-init` a mesma tela de login do **Teltech Ledger** (`ParticlesBackground` + `CRMBackground` em canvas + cartão glassmórfico), adaptada aos tokens aprovados da paleta roxa, branca e neutra.
+  - Seleção rápida entre os 2 perfis de sócios (**Tarcísio** `TS` e **Lucas** `LM`) com saudação dinâmica (`E aí!? {nome}`), tagline individual, opção `Lembrar-me neste dispositivo` e campo único de senha compartilhada (`SETUP_PIN` validado via `/tenants/setup/validate-pin`).
+  - Exibição do sócio autenticado no cabeçalho do `/sys-init` ao lado do botão `Bloquear Sessão`.
+
 ## 2026-11-01 — Arquitetura Semântica de URLs por Módulo e Aba (`/:modulo/:aba`)
 
 - **Mapa Central de Rotas e Redirecionamento Retrocompatível (`frontend/src/lib/routes.ts` e `frontend/src/App.tsx`)**:

@@ -1,8 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
-import { Plus, Search, Package, Pencil, RefreshCw } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Plus, Search, Package, Pencil, RefreshCw, Tag } from "lucide-react";
 import { api } from "@/lib/api";
 import { getFullUrl } from "@/lib/getFullUrl";
 import PdvLojistaLoader from "@/components/PdvLojistaLoader";
+import {
+  CategoryIconBadge,
+  CategoryIconIllustration,
+} from "@/components/CategoryIcons";
 import { RetailSwitch } from "@/components/ui/Switch";
 import { RetailGroupEditor } from "./RetailGroupEditor";
 import { apiError, money, type RetailGroup } from "./types";
@@ -74,6 +79,10 @@ export function RetailCatalogPage() {
         </button>
       </div>
       <div className="retail-row" style={{ marginBottom: 16 }}>
+        <Link to="/estoque/categorias" className="retail-button">
+          <Tag size={16} />
+          Categorias e ícones
+        </Link>
         <button
           type="button"
           className="retail-button"
@@ -195,13 +204,29 @@ export function RetailCatalogPage() {
                         {group.imageUrl ? (
                           <img src={getFullUrl(group.imageUrl)} alt="" />
                         ) : (
-                          <span className="retail-product-image-empty">
-                            <Package size={20} />
+                          <span className="retail-product-image-empty" style={{ overflow: "hidden", padding: 0 }}>
+                            <CategoryIconIllustration
+                              compact
+                              iconId={group.category?.icon}
+                              categoryId={group.categoryId}
+                              categoryName={group.category?.name}
+                              productName={group.name}
+                            />
                           </span>
                         )}
                         <div>
                           <strong>{group.name}</strong>
-                          <small>{group.category?.name}</small>
+                          <small style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                            {group.category && (
+                              <CategoryIconBadge
+                                iconId={group.category.icon}
+                                categoryId={group.categoryId}
+                                categoryName={group.category.name}
+                                size={14}
+                              />
+                            )}
+                            {group.category?.name}
+                          </small>
                         </div>
                       </div>
                     </td>

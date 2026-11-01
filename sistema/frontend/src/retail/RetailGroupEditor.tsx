@@ -1,9 +1,15 @@
 import { useEffect, useState } from "react";
-import { Plus, Trash2, Upload, Image as ImageIcon } from "lucide-react";
+import { Plus, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { getFullUrl } from "@/lib/getFullUrl";
 import PdvLojistaLoader from "@/components/PdvLojistaLoader";
+import {
+  CategoryIconIllustration,
+  CategoryIconPicker,
+  saveCategoryIconPreference,
+  syncCategoriesIconsToStorage,
+} from "@/components/CategoryIcons";
 import { RetailSelect } from "@/components/ui/Select";
 import { RetailSwitch } from "@/components/ui/Switch";
 import { RetailDialog } from "./RetailDialog";
@@ -46,7 +52,7 @@ export function RetailGroupEditor({
       },
     ],
   );
-  const [categories, setCategories] = useState<{ id: string; name: string }[]>(
+  const [categories, setCategories] = useState<{ id: string; name: string; icon?: string | null }[]>(
     [],
   );
   const [taxGroups, setTaxGroups] = useState<{ id: string; nome: string }[]>(
@@ -55,6 +61,7 @@ export function RetailGroupEditor({
   const [sizes, setSizes] = useState("P, M, G, GG");
   const [colors, setColors] = useState("Preta, Branca");
   const [categoryName, setCategoryName] = useState("");
+  const [categoryIcon, setCategoryIcon] = useState<string | null>(null);
   const [categoryEditorOpen, setCategoryEditorOpen] = useState(false);
   const [imageLinkOpen, setImageLinkOpen] = useState(false);
   const [imageLink, setImageLink] = useState(initial?.imageUrl || "");
@@ -67,7 +74,11 @@ export function RetailGroupEditor({
     api
       .get("/categories")
       .then((res) => {
-        if (active) setCategories(res.data);
+        if (active) {
+          const list = Array.isArray(res.data) ? res.data : [];
+          syncCategoriesIconsToStorage(list);
+          setCategories(list);
+        }
       })
       .catch((err) => {
         if (active) setError(apiError(err));
@@ -183,10 +194,12 @@ export function RetailGroupEditor({
     }
     setBusy(true);
     try {
-      const res = await api.post("/categories", { name });
+      const res = await api.post("/categories", { name, icon: categoryIcon || null });
+      saveCategoryIconPreference(res.data?.id || name, categoryIcon, res.data?.name || name);
       setCategories((old) => [...old, res.data]);
       setForm((prev) => ({ ...prev, categoryId: res.data.id }));
       setCategoryName("");
+      setCategoryIcon(null);
       setCategoryEditorOpen(false);
       toast.success("Categoria criada e selecionada.");
     } catch (err) {
@@ -262,7 +275,15 @@ export function RetailGroupEditor({
                 alt="Foto compartilhada do grupo"
               />
             ) : (
-              <ImageIcon size={38} aria-hidden="true" />
+              <div style={{ width: 64, height: 64, borderRadius: 12, overflow: "hidden", border: "1px solid var(--pdv-border)", flexShrink: 0 }}>
+                <CategoryIconIllustration
+                  compact
+                  iconId={categories.find((c) => c.id === form.categoryId)?.icon}
+                  categoryId={form.categoryId}
+                  categoryName={categories.find((c) => c.id === form.categoryId)?.name}
+                  productName={form.name}
+                />
+              </div>
             )}
             <div className="retail-stack">
               <label className="retail-button">
@@ -382,7 +403,7 @@ export function RetailGroupEditor({
                 Nova categoria
               </button>
               {(categoryEditorOpen || !categories.length) && (
-                <div className="retail-message">
+                <div className="retail-message" style={{ display: "grid", gap: 10 }}>
                   <label className="retail-field">
                     Nome da nova categoria
                     <input
@@ -390,7 +411,7 @@ export function RetailGroupEditor({
                       value={categoryName}
                       disabled={busy}
                       onChange={(event) => setCategoryName(event.target.value)}
-                      placeholder="Ex.: Óculos, Bonés, Bolsas"
+                      placeholder="Ex.: Relógios, Óculos, Vestidos, Promoções..."
                       onKeyDown={(event) => {
                         if (event.key === "Enter") {
                           event.preventDefault();
@@ -399,6 +420,12 @@ export function RetailGroupEditor({
                       }}
                     />
                   </label>
+                  <CategoryIconPicker
+                    compact
+                    value={categoryIcon}
+                    categoryName={categoryName}
+                    onChange={setCategoryIcon}
+                  />
                   <div className="retail-row">
                     <button
                       type="button"
@@ -416,13 +443,14 @@ export function RetailGroupEditor({
                         onClick={() => {
                           setCategoryEditorOpen(false);
                           setCategoryName("");
+                          setCategoryIcon(null);
                         }}
                       >
                         Cancelar nova categoria
                       </button>
                     )}
                   </div>
-                  <small>A categoria será selecionada sem perder os dados do produto.</small>
+                  <small>A categoria e o ícone escolhido serão selecionados sem perder os dados do produto.</small>
                 </div>
               )}
             </div>

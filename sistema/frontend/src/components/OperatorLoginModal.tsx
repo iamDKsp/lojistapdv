@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { api } from "@/lib/api";
+import { getFullUrl } from "@/lib/getFullUrl";
 import { toast } from "sonner";
 import { useShift } from "@/contexts/ShiftContext";
 import {
@@ -26,6 +27,7 @@ interface OperatorData {
   name: string;
   isManager?: boolean;
   jobTitle?: string | null;
+  imageUrl?: string | null;
   hasOpenRegister?: boolean;
 }
 
@@ -74,7 +76,13 @@ export function OperatorLoginModal({
         context: "cashier",
       });
       const { operatorToken, ...operatorData } = res.data;
-      setOperator(operatorData, operatorToken);
+      setOperator(
+        {
+          ...operatorData,
+          imageUrl: operatorData.imageUrl ?? selectedOp.imageUrl ?? null,
+        },
+        operatorToken,
+      );
       toast.success(
         isReauth
           ? "Reautenticação concluída com sucesso!"
@@ -108,7 +116,7 @@ export function OperatorLoginModal({
         : undefined;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-page/90 backdrop-blur-md p-4">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-ink/30 backdrop-blur-sm p-4">
       <div
         className="relative bg-page border border-line w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden p-8 animate-in fade-in zoom-in-95 duration-200"
         aria-busy={stencilBusy}
@@ -159,11 +167,19 @@ export function OperatorLoginModal({
                 onClick={() => setSelectedOp(op)}
                 className="bg-page hover:bg-surface border border-line hover:border-brand p-4 rounded-2xl flex items-center gap-4 transition-all text-left group cursor-pointer"
               >
-                <div className="relative w-10 h-10 bg-surface group-hover:bg-support rounded-full flex items-center justify-center shrink-0 transition-colors">
-                  <User
-                    className="text-muted group-hover:text-brand transition-colors"
-                    size={20}
-                  />
+                <div className="relative w-10 h-10 bg-surface group-hover:bg-support rounded-full flex items-center justify-center shrink-0 transition-colors overflow-hidden border border-line group-hover:border-brand">
+                  {op.imageUrl ? (
+                    <img
+                      src={getFullUrl(op.imageUrl)}
+                      alt={op.name}
+                      className="w-full h-full object-cover rounded-full"
+                    />
+                  ) : (
+                    <User
+                      className="text-muted group-hover:text-brand transition-colors"
+                      size={20}
+                    />
+                  )}
                   {op.hasOpenRegister && (
                     <span
                       className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-brand border-2 border-line rounded-full text-on-brand"
@@ -198,8 +214,16 @@ export function OperatorLoginModal({
             </button>
 
             <div className="bg-page border border-line rounded-2xl p-5 text-center">
-              <div className="w-14 h-14 bg-support rounded-full flex items-center justify-center mx-auto mb-2">
-                <User className="text-brand" size={28} />
+              <div className="w-14 h-14 bg-support border border-brand rounded-full flex items-center justify-center mx-auto mb-2 overflow-hidden">
+                {selectedOp.imageUrl ? (
+                  <img
+                    src={getFullUrl(selectedOp.imageUrl)}
+                    alt={selectedOp.name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <User className="text-brand" size={28} />
+                )}
               </div>
               <h3 className="text-lg font-bold text-ink">{selectedOp.name}</h3>
               <p className="text-muted text-xs">

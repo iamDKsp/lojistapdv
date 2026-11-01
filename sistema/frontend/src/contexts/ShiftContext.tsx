@@ -76,6 +76,7 @@ export function ShiftProvider({ children }: { children: ReactNode }) {
         useCartStore.getState().selectScope('', '');
         useOperatorTokenStore.getState().clearToken();
         usePinAuthStore.getState().clearPinAuth();
+        setOperators([]);
       }
     });
     return unsub;
@@ -89,6 +90,71 @@ export function ShiftProvider({ children }: { children: ReactNode }) {
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const operatorRef = useRef<Operator | null>(null);
   operatorRef.current = operator;
+  const cashRegisterRef = useRef<CashRegister | null>(null);
+  cashRegisterRef.current = cashRegister;
+
+  // ─── Carregamento da equipe de operadores do tenant (para avatares do topo) ──
+  const refreshOperators = useCallback(async () => {
+    const token = useAuthStore.getState().token;
+    const tenantId = useAuthStore.getState().user?.tenant;
+    if (!token || !tenantId) {
+      setOperators([]);
+      return;
+    }
+    try {
+      const res = await apiGet('/operators?context=cashier', {
+        skipAuthRedirect: true,
+        headers: { 'X-Silent-Poll': 'true' },
+      } as any);
+      const list = (Array.isArray(res.data) ? res.data : [])
+        .filter((op: any) => op.active !== false)
+        .map((op: any) => ({
+          id: op.id,
+          name: op.name,
+          role: op.jobTitle || 'Caixa',
+          jobTitle: op.jobTitle ?? null,
+          isManager: Boolean(op.isManager),
+          imageUrl: op.imageUrl ?? null,
+          active: op.active !== false,
+          hasOpenRegister: Boolean(op.hasOpenRegister),
+        }));
+      setOperators(list);
+
+      // Atualiza foto/nome do operador ativo caso tenha sido editado
+      const activeId = operatorRef.current?.id;
+      if (activeId) {
+        const updatedActive = list.find((o) => o.id === activeId);
+        if (
+          updatedActive &&
+          (updatedActive.imageUrl !== operatorRef.current?.imageUrl ||
+            updatedActive.name !== operatorRef.current?.name ||
+            updatedActive.isManager !== operatorRef.current?.isManager)
+        ) {
+          const merged = { ...operatorRef.current!, ...updatedActive };
+          operatorRef.current = merged;
+          setOperatorState(merged);
+          localStorage.setItem('lojista-currentOperator', JSON.stringify(merged));
+        }
+      }
+    } catch {
+      // ignora erro de rede silencioso
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!currentTenant) {
+      setOperators([]);
+      return;
+    }
+    void refreshOperators();
+    const onOperatorsUpdated = () => {
+      void refreshOperators();
+    };
+    window.addEventListener('operators-updated', onOperatorsUpdated);
+    return () => {
+      window.removeEventListener('operators-updated', onOperatorsUpdated);
+    };
+  }, [currentTenant, refreshOperators]);
 
   // ─── performRegisterQuery: Pipeline Único de Consulta de Caixa ──────────────
   const performRegisterQuery = useCallback(async (targetOpId: string) => {
@@ -110,17 +176,20 @@ export function ShiftProvider({ children }: { children: ReactNode }) {
     const currentReqId = ++querySeqRef.current;
 
     // 4. Cenário: Aba Oculta (document.hidden)
-    // Não dispara consulta agora nem agenda polling enquanto a aba estiver oculta;
-    // O evento 'visibilitychange' disparará assim que a aba voltar ao primeiro plano.
     if (typeof document !== 'undefined' && document.hidden) {
       return;
     }
+
+    const currentTenantId = useAuthStore.getState().user?.tenant || '';
+    const sharedCacheKey = currentTenantId ? `lojista-cached-register-shared-${currentTenantId}` : '';
 
     // 5. Cenário: Offline declarado no navegador
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       if (currentReqId === querySeqRef.current && targetOpId === operatorRef.current?.id) {
         try {
-          const cached = localStorage.getItem(`lojista-cached-register-${targetOpId}`);
+          const cached =
+            localStorage.getItem(`lojista-cached-register-${targetOpId}`) ||
+            (sharedCacheKey ? localStorage.getItem(sharedCacheKey) : null);
           if (cached) {
             setCashRegister(JSON.parse(cached));
             setIsUnconfirmedCache(true);
@@ -147,11 +216,11 @@ export function ShiftProvider({ children }: { children: ReactNode }) {
     // 6. Prepara novo AbortController
     const abortController = new AbortController();
     inFlightAbortRef.current = abortController;
-    setRegisterStatus('querying');
+    if (!cashRegisterRef.current) {
+      setRegisterStatus('querying');
+    }
 
     try {
-      // Cache-busting explícito (_t) e cabeçalhos anti-cache garantem
-      // que a resposta veio autoritativamente da rede/servidor, nunca de cache intermediário
       const res = await apiGet(`/cash-registers/current?operatorId=${targetOpId}&_t=${Date.now()}`, {
         signal: abortController.signal,
         headers: {
@@ -161,9 +230,6 @@ export function ShiftProvider({ children }: { children: ReactNode }) {
         },
       });
 
-      //  GUARDA DE CONCORRÊNCIA E TROCA DE OPERADOR:
-      // Descarte absoluto se esta requisição foi superada por outra mais nova,
-      // ou se o operador ativo não é mais o mesmo desta requisição.
       if (currentReqId !== querySeqRef.current || targetOpId !== operatorRef.current?.id) {
         return;
       }
@@ -173,18 +239,19 @@ export function ShiftProvider({ children }: { children: ReactNode }) {
       setIsUnconfirmedCache(false);
 
       if (register) {
-        // Servidor confirmou caixa aberto
         setRegisterStatus('open_confirmed');
         localStorage.setItem(`lojista-cached-register-${targetOpId}`, JSON.stringify(register));
+        if (sharedCacheKey) {
+          localStorage.setItem(sharedCacheKey, JSON.stringify(register));
+        }
       } else {
-        // Servidor confirmou expressamente que NÃO há caixa aberto
         setRegisterStatus('closed_confirmed');
         localStorage.removeItem(`lojista-cached-register-${targetOpId}`);
+        if (sharedCacheKey) {
+          localStorage.removeItem(sharedCacheKey);
+        }
       }
     } catch (err: unknown) {
-      //  GUARDA DE ERRO CONTRA CONCORRÊNCIA E TROCA DE OPERADOR:
-      // Protege contra requisições canceladas, superadas por novas consultas ou
-      // de operadores anteriores (ex: erro de A não afeta B).
       if (currentReqId !== querySeqRef.current || targetOpId !== operatorRef.current?.id) {
         return;
       }
@@ -195,19 +262,19 @@ export function ShiftProvider({ children }: { children: ReactNode }) {
         abortController.signal.aborted;
 
       if (isCanceled) {
-        // Cancelamento intencional por superação de requisição ou troca de tela: ignora silenciosamente
         return;
       }
 
-      // Falha real de rede ou timeout: marca query_failed e tenta carregar cache local não revalidado
       console.warn(`[ShiftContext] Falha na consulta de caixa do operador ${targetOpId}:`, err);
       setRegisterStatus('query_failed');
 
       try {
-        const cached = localStorage.getItem(`lojista-cached-register-${targetOpId}`);
+        const cached =
+          localStorage.getItem(`lojista-cached-register-${targetOpId}`) ||
+          (sharedCacheKey ? localStorage.getItem(sharedCacheKey) : null);
         if (cached) {
           setCashRegister(JSON.parse(cached));
-          setIsUnconfirmedCache(true); // Cache local não revalidado
+          setIsUnconfirmedCache(true);
         } else {
           setCashRegister(null);
           setIsUnconfirmedCache(false);
@@ -217,16 +284,13 @@ export function ShiftProvider({ children }: { children: ReactNode }) {
         setIsUnconfirmedCache(false);
       }
     } finally {
-      // Limpa a ref se ainda formos o controller ativo
       if (inFlightAbortRef.current === abortController) {
         inFlightAbortRef.current = null;
       }
 
       if (currentReqId === querySeqRef.current && targetOpId === operatorRef.current?.id) setIsLoading(false);
 
-      // Reagenda o próximo ciclo estritamente se esta ainda for a consulta ativa e o operador for o mesmo
       if (currentReqId === querySeqRef.current && targetOpId === operatorRef.current?.id) {
-        // Apenas agenda polling periódico se a aba não estiver oculta
         if (typeof document === 'undefined' || !document.hidden) {
           pollTimerRef.current = setTimeout(() => {
             if (operatorRef.current?.id === targetOpId) {
@@ -238,11 +302,10 @@ export function ShiftProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // ─── Transição de Operador: Desassociação Síncrona Imediata ──────────────
-  // Invalida e limpa o caixa anterior no momento exato em que o operador muda,
-  // antes mesmo de o React processar os efeitos assíncronos.
+  // ─── Transição de Operador ─────────────────────────────────────────────────
+  // Na troca de operador dentro da mesma loja, se já existe um caixa compartilhado aberto,
+  // mantém o caixa aberto ativo imediatamente para permitir vendas fluidas em nome do novo operador.
   const setOperator = useCallback((newOp: Operator | null, newToken?: string) => {
-    // 1. Cancela timer e requisições em voo do operador anterior
     if (pollTimerRef.current) {
       clearTimeout(pollTimerRef.current);
       pollTimerRef.current = null;
@@ -251,7 +314,6 @@ export function ShiftProvider({ children }: { children: ReactNode }) {
       inFlightAbortRef.current.abort();
       inFlightAbortRef.current = null;
     }
-    // 2. Invalida qualquer resposta tardia do operador anterior
     querySeqRef.current += 1;
 
     if (!newOp) {
@@ -269,7 +331,6 @@ export function ShiftProvider({ children }: { children: ReactNode }) {
       const currentTenantId = useAuthStore.getState().user?.tenant || '';
       useCartStore.getState().selectScope(currentTenantId, newOp.id);
       const restoredOperationId = useCartStore.getState().cartOperationId;
-      // A submitted order belongs to the durable recovery queue. Never rebuild it as another sale after F5.
       void getOfflineSale(currentTenantId, restoredOperationId).then(saved => {
         if (!saved || saved.operatorId !== newOp.id || operatorRef.current?.id !== newOp.id) return;
         const cart = useCartStore.getState();
@@ -282,7 +343,6 @@ export function ShiftProvider({ children }: { children: ReactNode }) {
       if (newToken) {
         useOperatorTokenStore.getState().setToken(newToken, newOp.id, currentTenantId);
       } else {
-        // Tentativa de retomada de sessão segura via sessionStorage no F5
         const restored = useOperatorTokenStore.getState().restoreFromSession(newOp.id, currentTenantId);
         if (!restored) {
           useOperatorTokenStore.getState().clearToken();
@@ -290,18 +350,55 @@ export function ShiftProvider({ children }: { children: ReactNode }) {
       }
       usePinAuthStore.getState().clearPinAuth();
 
-      // Serializa o operador SEM o token (operadorToken não pertence a este objeto)
       localStorage.setItem('lojista-currentOperator', JSON.stringify(newOp));
       operatorRef.current = newOp;
 
-      setCashRegister(null);
-      setIsUnconfirmedCache(false);
+      const existingOpenRegister =
+        cashRegisterRef.current && cashRegisterRef.current.status === 'open'
+          ? cashRegisterRef.current
+          : null;
+
+      if (existingOpenRegister) {
+        // Mantém o caixa aberto compartilhado sem interromper a operação
+        setCashRegister(existingOpenRegister);
+        setRegisterStatus('open_confirmed');
+        setIsLoading(false);
+      } else {
+        setCashRegister(null);
+        setIsUnconfirmedCache(false);
+        setRegisterStatus('querying');
+        setIsLoading(true);
+      }
 
       setOperatorState(newOp);
-      setRegisterStatus('querying');
-      setIsLoading(true);
     }
   }, []);
+
+  // ─── Troca Rápida 1-Clique pelo Avatar no Topo ─────────────────────────────
+  const quickSwitchOperator = useCallback(async (targetOp: Operator): Promise<boolean> => {
+    if (!targetOp?.id) return false;
+    try {
+      const res = await api.post('/auth/operator-switch', {
+        operatorId: targetOp.id,
+        context: 'cashier',
+      });
+      const switchedOp: Operator = {
+        id: res.data.id || targetOp.id,
+        name: res.data.name || targetOp.name,
+        role: res.data.jobTitle || targetOp.jobTitle || targetOp.role || 'Caixa',
+        jobTitle: res.data.jobTitle ?? targetOp.jobTitle ?? null,
+        isManager: Boolean(res.data.isManager ?? targetOp.isManager),
+        imageUrl: res.data.imageUrl ?? targetOp.imageUrl ?? null,
+        active: true,
+      };
+      setOperator(switchedOp, res.data.operatorToken);
+      toast.success(`Atendimento em nome de ${switchedOp.name}`);
+      return true;
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Não foi possível alternar o operador.');
+      return false;
+    }
+  }, [setOperator]);
 
   // ─── refreshShift: aceita operatorId EXPLÍCITO para evitar closure stale ───
   const refreshShift = useCallback(async (operatorId?: string) => {
@@ -319,7 +416,7 @@ export function ShiftProvider({ children }: { children: ReactNode }) {
     await performRegisterQuery(resolvedId);
   }, [performRegisterQuery]);
 
-  // ─── Inicialização: carrega apenas o operador da sessão ───────────────────
+  // ─── Inicialização: carrega o operador da sessão ───────────────────────────
   useEffect(() => {
     const IS_DEMO = import.meta.env.VITE_APP_MODE === 'demo';
 
@@ -334,20 +431,20 @@ export function ShiftProvider({ children }: { children: ReactNode }) {
         const savedOp = localStorage.getItem('lojista-currentOperator');
         let currentOp = savedOp ? JSON.parse(savedOp) : null;
 
-        // ── Demo Mode: auto-selecionar operador se não houver ──
         if (!currentOp && IS_DEMO) {
           try {
             const res = await apiGet('/operators', {
               skipAuthRedirect: true,
               headers: { 'X-Silent-Poll': 'true' },
             } as any);
-            const operators = (res.data || []).filter((u: any) => u.active);
-            if (operators.length > 0) {
+            const opsList = (res.data || []).filter((u: any) => u.active);
+            if (opsList.length > 0) {
               currentOp = {
-                id: operators[0].id,
-                name: operators[0].name,
-                role: operators[0].jobTitle || 'Caixa',
-                isManager: operators[0].isManager || false,
+                id: opsList[0].id,
+                name: opsList[0].name,
+                role: opsList[0].jobTitle || 'Caixa',
+                isManager: opsList[0].isManager || false,
+                imageUrl: opsList[0].imageUrl ?? null,
               };
             }
           } catch (e) {
@@ -356,24 +453,27 @@ export function ShiftProvider({ children }: { children: ReactNode }) {
         }
 
         if (currentOp && token) {
-          // Sincroniza dados atualizados do operador do banco
+          let freshToken: string | undefined;
           try {
-            const opRes = await apiGet(`/operators/${currentOp.id}`, {
-              skipAuthRedirect: true,
-              headers: { 'X-Silent-Poll': 'true' },
-            } as any);
-            if (opRes.data) {
+            const switchRes = await api.post('/auth/operator-switch', {
+              operatorId: currentOp.id,
+              context: 'cashier',
+            });
+            if (switchRes.data) {
               currentOp = {
                 ...currentOp,
-                name: opRes.data.name,
-                isManager: Boolean(opRes.data.isManager),
-                jobTitle: opRes.data.jobTitle,
+                name: switchRes.data.name || currentOp.name,
+                isManager: Boolean(switchRes.data.isManager),
+                jobTitle: switchRes.data.jobTitle ?? currentOp.jobTitle,
+                imageUrl: switchRes.data.imageUrl ?? currentOp.imageUrl ?? null,
               };
+              freshToken = switchRes.data.operatorToken;
             }
-          } catch { /* se falhar rede, mantém o cache local */ }
+          } catch {
+            /* se falhar rede, mantém o cache local */
+          }
 
-          // Aplica a transição inicial do operador
-          setOperator(currentOp);
+          setOperator(currentOp, freshToken);
         } else if (currentOp && !token) {
           setOperator(null);
         } else {
@@ -392,10 +492,8 @@ export function ShiftProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!operator?.id) return;
 
-    // Dispara a consulta inicial coordenada para o operador logado
     void performRegisterQuery(operator.id);
 
-    // Revalidação imediata assim que o usuário retornar à aba
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         if (operatorRef.current?.id) {
@@ -407,7 +505,7 @@ export function ShiftProvider({ children }: { children: ReactNode }) {
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      querySeqRef.current += 1; // Invalida qualquer requisição em voo para que seu finally não reagende timers
+      querySeqRef.current += 1;
       if (pollTimerRef.current) {
         clearTimeout(pollTimerRef.current);
         pollTimerRef.current = null;
@@ -427,10 +525,13 @@ export function ShiftProvider({ children }: { children: ReactNode }) {
     <ShiftContext.Provider
       value={{
         operator,
+        operators,
         cashRegister,
         registerStatus,
         isUnconfirmedCache,
         setOperator,
+        quickSwitchOperator,
+        refreshOperators,
         setCashRegister,
         isLoading,
         isRegisterQuerying: registerStatus === 'querying',
@@ -450,10 +551,13 @@ export function useShift(): ShiftContextType {
   if (context === undefined) {
     return {
       operator: null,
+      operators: [],
       cashRegister: null,
       registerStatus: 'idle',
       isUnconfirmedCache: false,
       setOperator: () => {},
+      quickSwitchOperator: async () => false,
+      refreshOperators: async () => {},
       setCashRegister: () => {},
       isLoading: false,
       isRegisterQuerying: false,

@@ -60,8 +60,47 @@ export function useRetailShell() {
   return useContext(RetailShellContext);
 }
 
+function FallbackAvatarSvg({ variant }: { variant: number }) {
+  const v = variant % 3;
+  if (v === 0) {
+    return (
+      <svg viewBox="0 0 36 36" fill="none">
+        <rect width="36" height="36" rx="18" fill="var(--pdv-support)" />
+        <circle cx="18" cy="14" r="6" fill="var(--pdv-primary)" />
+        <path
+          d="M7 33c1.8-6.2 6.1-9.5 11-9.5s9.2 3.3 11 9.5"
+          fill="var(--pdv-primary-hover)"
+        />
+      </svg>
+    );
+  }
+  if (v === 1) {
+    return (
+      <svg viewBox="0 0 36 36" fill="none">
+        <rect width="36" height="36" rx="18" fill="var(--pdv-background)" />
+        <circle cx="18" cy="14" r="6" fill="var(--pdv-text-secondary)" />
+        <path
+          d="M7 33c1.8-6.2 6.1-9.5 11-9.5s9.2 3.3 11 9.5"
+          fill="var(--pdv-text)"
+        />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 36 36" fill="none">
+      <rect width="36" height="36" rx="18" fill="var(--pdv-primary)" />
+      <circle cx="18" cy="14" r="6" fill="var(--pdv-white)" />
+      <path
+        d="M7 33c1.8-6.2 6.1-9.5 11-9.5s9.2 3.3 11 9.5"
+        fill="var(--pdv-support)"
+      />
+    </svg>
+  );
+}
+
 /**
- * Avatares estilizados da equipe dentro da paleta roxa, branca e neutra aprovada.
+ * Avatares interativos da equipe do tenant no cabeçalho superior.
+ * Cada ícone representa um funcionário ativo; clicar troca imediatamente para o caixa dele.
  */
 export function RetailTeamAvatars({
   onClick,
@@ -70,6 +109,63 @@ export function RetailTeamAvatars({
   onClick?: () => void;
   tooltip?: string;
 }) {
+  const { operators, operator: activeOperator, quickSwitchOperator } = useShift();
+  const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
+  const [switchingId, setSwitchingId] = useState<string | null>(null);
+
+  if (operators.length > 0) {
+    return (
+      <div
+        className="retail-avatar-stack"
+        role="group"
+        aria-label={tooltip}
+      >
+        {operators.map((op, idx) => {
+          const isCurrent = activeOperator?.id === op.id;
+          const hasPhoto = Boolean(op.imageUrl && !failedImages[op.id]);
+          const label = isCurrent
+            ? `${op.name} (Ativo no caixa)`
+            : `Trocar para o caixa de ${op.name}`;
+
+          return (
+            <button
+              type="button"
+              key={op.id}
+              className={`retail-avatar-item is-a${(idx % 3) + 1} ${isCurrent ? "is-active-operator" : ""}`}
+              aria-label={label}
+              aria-pressed={isCurrent}
+              data-tooltip={isCurrent ? `${op.name} · Em atendimento` : `Atender como ${op.name}`}
+              disabled={switchingId === op.id}
+              onClick={async () => {
+                if (isCurrent) return;
+                setSwitchingId(op.id);
+                try {
+                  const ok = await quickSwitchOperator(op);
+                  if (!ok && onClick) onClick();
+                } finally {
+                  setSwitchingId(null);
+                }
+              }}
+            >
+              {hasPhoto ? (
+                <img
+                  src={getFullUrl(op.imageUrl)}
+                  alt={op.name}
+                  className="retail-avatar-photo"
+                  onError={() =>
+                    setFailedImages((prev) => ({ ...prev, [op.id]: true }))
+                  }
+                />
+              ) : (
+                <FallbackAvatarSvg variant={idx} />
+              )}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
   return (
     <button
       type="button"
@@ -79,40 +175,33 @@ export function RetailTeamAvatars({
       data-tooltip={tooltip}
     >
       <span className="retail-avatar-item is-a1" aria-hidden="true">
-        <svg viewBox="0 0 36 36" fill="none">
-          <rect width="36" height="36" rx="18" fill="var(--pdv-support)" />
-          <circle cx="18" cy="14" r="6" fill="var(--pdv-primary)" />
-          <path
-            d="M7 33c1.8-6.2 6.1-9.5 11-9.5s9.2 3.3 11 9.5"
-            fill="var(--pdv-primary-hover)"
-          />
-        </svg>
+        <FallbackAvatarSvg variant={0} />
       </span>
       <span className="retail-avatar-item is-a2" aria-hidden="true">
-        <svg viewBox="0 0 36 36" fill="none">
-          <rect width="36" height="36" rx="18" fill="var(--pdv-background)" />
-          <circle cx="18" cy="14" r="6" fill="var(--pdv-text-secondary)" />
-          <path
-            d="M7 33c1.8-6.2 6.1-9.5 11-9.5s9.2 3.3 11 9.5"
-            fill="var(--pdv-text)"
-          />
-        </svg>
+        <FallbackAvatarSvg variant={1} />
       </span>
       <span className="retail-avatar-item is-a3" aria-hidden="true">
-        <svg viewBox="0 0 36 36" fill="none">
-          <rect width="36" height="36" rx="18" fill="var(--pdv-primary)" />
-          <circle cx="18" cy="14" r="6" fill="var(--pdv-white)" />
-          <path
-            d="M7 33c1.8-6.2 6.1-9.5 11-9.5s9.2 3.3 11 9.5"
-            fill="var(--pdv-support)"
-          />
-        </svg>
+        <FallbackAvatarSvg variant={2} />
       </span>
     </button>
   );
 }
 
-export function RetailOperatorAvatar({ name }: { name?: string | null }) {
+export function RetailOperatorAvatar({
+  name,
+  imageUrl,
+}: {
+  name?: string | null;
+  imageUrl?: string | null;
+}) {
+  const { operator } = useShift();
+  const resolvedPhoto = imageUrl !== undefined ? imageUrl : operator?.imageUrl;
+  const [imgError, setImgError] = useState(false);
+
+  useEffect(() => {
+    setImgError(false);
+  }, [resolvedPhoto]);
+
   const initials = useMemo(() => {
     if (!name) return "OP";
     const parts = name.trim().split(/\s+/);
@@ -124,14 +213,23 @@ export function RetailOperatorAvatar({ name }: { name?: string | null }) {
 
   return (
     <span className="retail-operator-avatar" aria-hidden="true">
-      <svg viewBox="0 0 38 38" fill="none">
-        <rect width="38" height="38" rx="19" fill="var(--pdv-support)" />
-        <circle cx="19" cy="13.5" r="5.5" fill="var(--pdv-primary)" />
-        <path
-          d="M8.5 34c1.8-5.8 5.8-8.8 10.5-8.8s8.7 3 10.5 8.8"
-          fill="var(--pdv-primary-hover)"
+      {resolvedPhoto && !imgError ? (
+        <img
+          src={getFullUrl(resolvedPhoto)}
+          alt={name || "Operador"}
+          className="retail-operator-avatar-img"
+          onError={() => setImgError(true)}
         />
-      </svg>
+      ) : (
+        <svg viewBox="0 0 38 38" fill="none">
+          <rect width="38" height="38" rx="19" fill="var(--pdv-support)" />
+          <circle cx="19" cy="13.5" r="5.5" fill="var(--pdv-primary)" />
+          <path
+            d="M8.5 34c1.8-5.8 5.8-8.8 10.5-8.8s8.7 3 10.5 8.8"
+            fill="var(--pdv-primary-hover)"
+          />
+        </svg>
+      )}
       <span className="retail-operator-initials">{initials}</span>
     </span>
   );

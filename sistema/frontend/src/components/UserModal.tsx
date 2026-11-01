@@ -1,7 +1,8 @@
 "use client";
 import { useState } from "react";
-import { X } from "lucide-react";
+import { X, Upload, UserRound, Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
+import { getFullUrl } from "@/lib/getFullUrl";
 import { toast } from "sonner";
 import { PdvLojistaLoader, RetailSelect } from "@/components/ui";
 
@@ -17,7 +18,31 @@ export default function UserModal({ onClose, onSuccess, user }: UserModalProps) 
   const [password, setPassword] = useState("");
   const [pin, setPin] = useState(user ? "" : "1234");
   const [role, setRole] = useState(user?.role || "operator");
+  const [imageUrl, setImageUrl] = useState<string | null>(user?.imageUrl || null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  const handlePhotoUpload = async (file?: File) => {
+    if (!file) return;
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error("A foto deve ter até 8 MB.");
+      return;
+    }
+    setUploadingPhoto(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await api.post("/products/upload", formData);
+      if (res.data?.imageUrl) {
+        setImageUrl(res.data.imageUrl);
+        toast.success("Foto do funcionário enviada!");
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Erro ao enviar foto do funcionário.");
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,17 +57,18 @@ export default function UserModal({ onClose, onSuccess, user }: UserModalProps) 
     
     setLoading(true);
     try {
-      const payload: any = { name, email, role };
+      const payload: any = { name, email, role, imageUrl: imageUrl || null };
       if (password) payload.password = password;
       if (pin) payload.pin = pin.trim();
 
       if (user) {
         await api.patch(`/users/${user.id}`, payload);
-        toast.success("Usuário atualizado com sucesso!");
+        toast.success("Funcionário atualizado com sucesso!");
       } else {
         await api.post("/users", payload);
-        toast.success("Usuário e Operador de Caixa criados com sucesso!");
+        toast.success("Funcionário e Operador de Caixa criados com sucesso!");
       }
+      window.dispatchEvent(new CustomEvent("operators-updated"));
       onSuccess();
     } catch (err: any) {
       toast.error(err.response?.data?.message || `Erro ao ${user ? 'atualizar' : 'criar'} usuário.`);
@@ -55,13 +81,59 @@ export default function UserModal({ onClose, onSuccess, user }: UserModalProps) 
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
       <div className="bg-page border border-line w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-[slideUp_0.3s_ease-out]">
         <div className="flex items-center justify-between p-5 border-b border-line">
-          <h2 className="text-lg font-bold text-ink">{user ? "Editar Conta de Acesso" : "Nova Conta de Acesso"}</h2>
+          <h2 className="text-lg font-bold text-ink">{user ? "Editar Funcionário" : "Novo Funcionário"}</h2>
           <button onClick={onClose} className="p-1.5 text-muted hover:text-ink rounded-lg hover:bg-surface transition-colors">
             <X size={20} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          <div className="flex items-center gap-4 p-3.5 bg-surface rounded-2xl border border-line">
+            <div className="w-16 h-16 rounded-full bg-page border-2 border-brand flex items-center justify-center overflow-hidden shrink-0">
+              {imageUrl ? (
+                <img
+                  src={getFullUrl(imageUrl)}
+                  alt={name || "Foto do funcionário"}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <UserRound className="text-brand" size={28} />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-ink">Foto do Funcionário</p>
+              <p className="text-xs text-muted mt-0.5">
+                Exibida nos ícones superiores do PDV para troca rápida de caixa.
+              </p>
+              <div className="flex flex-wrap items-center gap-2 mt-2">
+                <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-support text-brand border border-brand text-xs font-bold cursor-pointer hover:bg-brand hover:text-on-brand transition-colors">
+                  <Upload size={13} />
+                  {uploadingPhoto ? "Enviando..." : imageUrl ? "Trocar foto" : "Enviar foto"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    disabled={uploadingPhoto}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) void handlePhotoUpload(file);
+                      e.currentTarget.value = "";
+                    }}
+                  />
+                </label>
+                {imageUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setImageUrl(null)}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-page border border-line text-muted hover:text-brand hover:border-brand text-xs font-semibold transition-colors cursor-pointer"
+                  >
+                    <Trash2 size={12} /> Remover
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
           <div>
             <label className="text-sm text-muted mb-1.5 block">Nome</label>
             <input
@@ -81,7 +153,7 @@ export default function UserModal({ onClose, onSuccess, user }: UserModalProps) 
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="joao@restaurante.com.br"
+              placeholder="joao@loja.com.br"
               className="w-full px-4 py-2.5 bg-page border border-line rounded-xl focus:ring-2 focus:ring-brand focus:border-brand transition-all outline-none text-ink text-sm"
             />
           </div>

@@ -1,5 +1,11 @@
 # Histórico — PDV Lojista
 
+## 2026-11-01 — Fundo Translúcido com Blur Suave nos Modais do PDV e Escolha de Tamanho/Cor
+
+- **Sobreposição Translúcida com Blur Leve (`frontend/src/retail/retail.css`, `frontend/src/components/OperatorLoginModal.tsx`, `frontend/src/components/OpenShiftModal.tsx`, `frontend/src/components/CashMovementModal.tsx` e `frontend/src/components/CloseRegisterModal.tsx`)**:
+  - `.retail-modal-overlay` passou de fundo 100% opaco (`var(--pdv-text)`) para véu translúcido suave (`color-mix(in srgb, var(--pdv-text) 28%, transparent)`) combinado com `backdrop-filter: blur(6px)`, mantendo o Ponto de Venda visível e levemente desfocado atrás do modal de escolha de tamanhos/cores (`RetailDialog`) e dos demais diálogos do sistema.
+  - Adicionada sombra de elevação suave e borda sutil em `.retail-dialog` para destacar o cartão sobre o fundo desfocado.
+
 ## 2026-11-01 — Foto do Tenant no Menu Lateral e Upload na Criação pelo `/sys-init`
 
 - **Menu Lateral (`frontend/src/retail/RetailLayout.tsx` e `frontend/src/retail/retail.css`)**:

@@ -58,7 +58,7 @@ export function OpenShiftModal({ onSuccess }: OpenShiftModalProps) {
 
   if (!operator) {
     return (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-page/90 backdrop-blur-md">
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-ink/30 backdrop-blur-sm">
         <PdvLojistaLoader
           mode="stencil"
           size={64}
@@ -72,7 +72,7 @@ export function OpenShiftModal({ onSuccess }: OpenShiftModalProps) {
   const stencilBusy = loading || isRegisterQuerying;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-page/90 backdrop-blur-md p-4">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-ink/30 backdrop-blur-sm p-4">
       <div
         className="bg-page border border-line w-full max-w-md rounded-3xl shadow-2xl overflow-hidden p-8 animate-in fade-in slide-in-from-bottom-4 duration-200"
         aria-busy={stencilBusy}

@@ -55,6 +55,9 @@ export function RetailGroupEditor({
   const [sizes, setSizes] = useState("P, M, G, GG");
   const [colors, setColors] = useState("Preta, Branca");
   const [categoryName, setCategoryName] = useState("");
+  const [categoryEditorOpen, setCategoryEditorOpen] = useState(false);
+  const [imageLinkOpen, setImageLinkOpen] = useState(false);
+  const [imageLink, setImageLink] = useState(initial?.imageUrl || "");
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
@@ -165,17 +168,46 @@ export function RetailGroupEditor({
   }
 
   async function createCategory() {
-    if (!categoryName.trim()) return;
+    const name = categoryName.trim();
+    if (!name || busy) return;
+    setError("");
+    const existing = categories.find(
+      (category) => category.name.toLocaleLowerCase("pt-BR") === name.toLocaleLowerCase("pt-BR"),
+    );
+    if (existing) {
+      setForm((prev) => ({ ...prev, categoryId: existing.id }));
+      setCategoryName("");
+      setCategoryEditorOpen(false);
+      toast.success("Categoria existente selecionada.");
+      return;
+    }
     setBusy(true);
     try {
-      const res = await api.post("/categories", { name: categoryName.trim() });
+      const res = await api.post("/categories", { name });
       setCategories((old) => [...old, res.data]);
       setForm((prev) => ({ ...prev, categoryId: res.data.id }));
       setCategoryName("");
+      setCategoryEditorOpen(false);
+      toast.success("Categoria criada e selecionada.");
     } catch (err) {
       setError(apiError(err));
     } finally {
       setBusy(false);
+    }
+  }
+
+  function applyImageLink() {
+    try {
+      const value = imageLink.trim();
+      const url = new URL(value);
+      if (!/^https?:$/.test(url.protocol) || url.username || url.password || value.length > 2000) {
+        throw new Error("invalid image URL");
+      }
+      setForm((prev) => ({ ...prev, imageUrl: url.href }));
+      setImageLinkOpen(false);
+      setError("");
+    } catch {
+      setError("Informe um link de foto válido, começando com https:// ou http://.");
     }
   }
 
@@ -258,6 +290,41 @@ export function RetailGroupEditor({
                   onChange={(event) => void upload(event.target.files?.[0])}
                 />
               </label>
+              <button
+                type="button"
+                className="retail-button"
+                aria-expanded={imageLinkOpen}
+                disabled={uploading || busy}
+                onClick={() => {
+                  setImageLink(form.imageUrl);
+                  setImageLinkOpen((open) => !open);
+                }}
+              >
+                Usar link de foto
+              </button>
+              {imageLinkOpen && (
+                <div className="retail-stack">
+                  <label className="retail-field">
+                    Link da foto
+                    <input
+                      type="url"
+                      maxLength={2000}
+                      placeholder="https://exemplo.com/foto.jpg"
+                      value={imageLink}
+                      onChange={(event) => setImageLink(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          applyImageLink();
+                        }
+                      }}
+                    />
+                  </label>
+                  <button type="button" className="retail-button" onClick={applyImageLink}>
+                    Aplicar foto
+                  </button>
+                </div>
+              )}
               <span className="retail-muted">
                 Uma foto para todas as cores e tamanhos. As estampas podem
                 variar.
@@ -304,6 +371,60 @@ export function RetailGroupEditor({
                   })),
                 ]}
               />
+              <button
+                type="button"
+                className="retail-button"
+                aria-expanded={categoryEditorOpen || !categories.length}
+                disabled={busy || uploading}
+                onClick={() => setCategoryEditorOpen((open) => !open)}
+              >
+                <Plus size={16} aria-hidden="true" />
+                Nova categoria
+              </button>
+              {(categoryEditorOpen || !categories.length) && (
+                <div className="retail-message">
+                  <label className="retail-field">
+                    Nome da nova categoria
+                    <input
+                      maxLength={120}
+                      value={categoryName}
+                      disabled={busy}
+                      onChange={(event) => setCategoryName(event.target.value)}
+                      placeholder="Ex.: Óculos, Bonés, Bolsas"
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          void createCategory();
+                        }
+                      }}
+                    />
+                  </label>
+                  <div className="retail-row">
+                    <button
+                      type="button"
+                      className="retail-button"
+                      disabled={busy || !categoryName.trim()}
+                      onClick={() => void createCategory()}
+                    >
+                      Criar categoria
+                    </button>
+                    {categories.length > 0 && (
+                      <button
+                        type="button"
+                        className="retail-button"
+                        disabled={busy}
+                        onClick={() => {
+                          setCategoryEditorOpen(false);
+                          setCategoryName("");
+                        }}
+                      >
+                        Cancelar nova categoria
+                      </button>
+                    )}
+                  </div>
+                  <small>A categoria será selecionada sem perder os dados do produto.</small>
+                </div>
+              )}
             </div>
             <label className="retail-field">
               Preço de venda compartilhado (R$)
@@ -336,28 +457,6 @@ export function RetailGroupEditor({
               <small>Entradas anteriores mantêm o custo dos seus lotes.</small>
             </label>
           </div>
-          {!categories.length && (
-            <div className="retail-message">
-              <div className="retail-row">
-                <label className="retail-field">
-                  Primeira categoria
-                  <input
-                    value={categoryName}
-                    onChange={(e) => setCategoryName(e.target.value)}
-                    placeholder="Ex.: Camisetas"
-                  />
-                </label>
-                <button
-                  type="button"
-                  className="retail-button"
-                  disabled={busy || !categoryName.trim()}
-                  onClick={() => void createCategory()}
-                >
-                  Criar categoria
-                </button>
-              </div>
-            </div>
-          )}
           <div className="retail-section-heading">
             <h3>Grade por tamanho e cor</h3>
             <button

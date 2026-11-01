@@ -1,7 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
 import { api } from "@/lib/api";
-import { Shield, ShieldAlert, CheckCircle2, XCircle, Plus, KeyRound, Lock, Eye, EyeOff } from "lucide-react";
+import { getFullUrl } from "@/lib/getFullUrl";
+import { Shield, ShieldAlert, CheckCircle2, XCircle, Plus, KeyRound, Lock, Eye, EyeOff, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import UserModal from "@/components/UserModal";
 import OperatorsManagementModal from "@/components/OperatorsManagementModal";
@@ -12,6 +13,7 @@ interface User {
   name: string;
   email: string;
   role: string;
+  imageUrl?: string | null;
   active: boolean;
   createdAt: string;
 }
@@ -55,6 +57,7 @@ export default function UsersPage() {
     try {
       await api.patch(`/users/${id}/toggle-status`);
       toast.success(`Usuário ${active ? 'inativado' : 'ativado'} com sucesso.`);
+      window.dispatchEvent(new CustomEvent("operators-updated"));
       fetchUsers();
     } catch (err: any) {
       toast.error(err.response?.data?.message || "Erro ao alterar status.");
@@ -62,21 +65,13 @@ export default function UsersPage() {
   };
 
   const handleOpenModal = () => {
-    if (users.length >= 2) {
-      toast.error("Limite atingido: O plano permite no máximo 2 usuários por loja (1 Admin e 1 Colaborador).");
-      return;
-    }
     setEditUser(null);
     setModalOpen(true);
   };
 
   const handleRowClick = (u: User) => {
-    if (u.role === "operator") {
-      setOperatorsModalOpen(true);
-    } else {
-      setEditUser(u);
-      setModalOpen(true);
-    }
+    setEditUser(u);
+    setModalOpen(true);
   };
 
   const handleSaveDiscountPin = async () => {
@@ -169,8 +164,23 @@ export default function UsersPage() {
                 {users.map((u) => (
                   <tr key={u.id} className="hover:bg-surface transition-colors cursor-pointer group" onClick={() => handleRowClick(u)}>
                     <td className="p-4 whitespace-nowrap">
-                      <p className="font-semibold text-ink">{u.name}</p>
-                      <p className="text-sm text-muted">{u.email}</p>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-support border border-brand flex items-center justify-center overflow-hidden shrink-0">
+                          {u.imageUrl ? (
+                            <img
+                              src={getFullUrl(u.imageUrl)}
+                              alt={u.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <UserRound size={18} className="text-brand" />
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-ink">{u.name}</p>
+                          <p className="text-sm text-muted">{u.email}</p>
+                        </div>
+                      </div>
                     </td>
                     <td className="p-4 whitespace-nowrap">
                       {u.role === "admin" ? (
@@ -218,7 +228,7 @@ export default function UsersPage() {
             </table>
           </div>
           <div className="p-4 bg-page border-t border-line text-xs text-muted flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-            <span>Limites: {users.length} de 2 usuários (Máx. 1 Admin, 1 Operador)</span>
+            <span>Equipe: {users.length} {users.length === 1 ? "funcionário cadastrado" : "funcionários cadastrados"} (fotos exibidas no topo do PDV)</span>
             <div className="flex flex-wrap items-center gap-4">
               <span className="flex items-center gap-1.5 text-brand">
                 <Lock size={12} /> PIN do Caixa desbloqueia visualização/auditoria no PDV
@@ -375,7 +385,7 @@ export default function UsersPage() {
         />
       )}
       {operatorsModalOpen && (
-        <OperatorsManagementModal onClose={() => setOperatorsModalOpen(false)} />
+        <OperatorsManagementModal onClose={() => { setOperatorsModalOpen(false); fetchUsers(); }} />
       )}
     </div>
   );

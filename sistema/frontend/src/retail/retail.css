@@ -281,20 +281,45 @@ textarea:focus-visible {
   padding: 0 2px;
 }
 .retail-avatar-item {
+  position: relative;
   width: 36px;
   height: 36px;
+  padding: 0;
   border-radius: 999px;
   border: 2px solid var(--pdv-white);
+  background: var(--pdv-support);
   overflow: hidden;
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
   box-shadow: 0 2px 6px color-mix(in srgb, var(--pdv-text) 12%, transparent);
+  transition:
+    transform 150ms ease,
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+.retail-avatar-item:hover {
+  transform: translateY(-2px) scale(1.06);
+  border-color: var(--pdv-primary);
+  z-index: 4;
+}
+.retail-avatar-item.is-active-operator {
+  border-color: var(--pdv-primary);
+  box-shadow:
+    0 0 0 2px var(--pdv-support),
+    0 4px 10px color-mix(in srgb, var(--pdv-primary) 28%, transparent);
+  z-index: 3;
 }
 .retail-avatar-item + .retail-avatar-item {
-  margin-left: -10px;
+  margin-left: -8px;
 }
-.retail-avatar-item svg {
+.retail-avatar-item svg,
+.retail-avatar-photo {
   width: 100%;
   height: 100%;
+  object-fit: cover;
+  border-radius: 999px;
   display: block;
 }
 .retail-new-access-btn {
@@ -346,9 +371,12 @@ textarea:focus-visible {
   place-items: center;
   border: 1.5px solid var(--pdv-border);
 }
-.retail-operator-avatar svg {
+.retail-operator-avatar svg,
+.retail-operator-avatar-img {
   width: 100%;
   height: 100%;
+  object-fit: cover;
+  border-radius: 999px;
   display: block;
 }
 .retail-operator-initials {
@@ -713,7 +741,9 @@ textarea:focus-visible {
 .retail-modal-overlay {
   position: fixed;
   inset: 0;
-  background: var(--pdv-text);
+  background: color-mix(in srgb, var(--pdv-text) 28%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -726,7 +756,9 @@ textarea:focus-visible {
   max-height: 90dvh;
   overflow-y: auto;
   background: var(--pdv-white);
-  border-radius: 14px;
+  border: 1px solid var(--pdv-border);
+  border-radius: 18px;
+  box-shadow: 0 24px 60px color-mix(in srgb, var(--pdv-text) 22%, transparent);
   color: var(--pdv-text);
   outline: none;
 }

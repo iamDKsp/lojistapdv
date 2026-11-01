@@ -268,7 +268,7 @@ export function CloseRegisterModal({
 
   if (!registerId) {
     const fallbackContent = (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-ink/90 backdrop-blur-md p-4">
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-ink/35 backdrop-blur-sm p-4">
         <div className="bg-page border border-line rounded-3xl w-full max-w-md p-8 text-center shadow-2xl">
           <p className="text-muted text-lg">Nenhum caixa aberto no momento.</p>
           <button onClick={() => onClose(false)} className="mt-6 px-6 py-3 rounded-xl bg-surface hover:bg-support text-ink font-bold transition">Fechar</button>
@@ -413,7 +413,7 @@ export function CloseRegisterModal({
   };
 
   const modalBody = (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-ink/90 backdrop-blur-md p-4 lg:p-8 transition-all">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-ink/35 backdrop-blur-sm p-4 lg:p-8 transition-all">
       <div className="bg-page border border-line rounded-[2rem] w-full max-w-6xl shadow-[0_0_100px_color-mix(in srgb, #7C3AED 10%, transparent)] overflow-hidden animate-in fade-in zoom-in-95 duration-300 flex flex-col h-full max-h-[95vh] lg:max-h-[90vh]">
         <div className="flex justify-between items-center p-4 md:p-6 border-b border-line bg-page/50 shrink-0">
           <h2 className="text-xl md:text-2xl font-bold flex items-center gap-3"><FileText className="text-brand" /> Auditoria de Fechamento</h2>
@@ -472,8 +472,13 @@ export function CloseRegisterModal({
                     </div>
                   )}
 
-                  <div className="flex justify-between items-center text-xs text-muted pb-2 border-b border-line">
-                    <span>Abertura: <strong className="text-muted text-sm ml-1">{new Date(data.register.openingTime).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}</strong></span>
+                  <div className="flex flex-wrap justify-between items-center gap-2 text-xs text-muted pb-2 border-b border-line">
+                    <span>
+                      Abertura: <strong className="text-muted text-sm ml-1">{new Date(data.register.openingTime).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}</strong>
+                      {data.register.operator?.name && (
+                        <span className="ml-1.5 text-brand font-semibold">({data.register.operator.name})</span>
+                      )}
+                    </span>
                     <span>Vendas do Turno: <strong className="text-muted text-sm ml-1">{data.report.countSales}</strong></span>
                   </div>
                 
@@ -531,7 +536,28 @@ export function CloseRegisterModal({
                   <div className="space-y-2 p-4 bg-page/50 rounded-2xl border border-line text-sm">
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-muted font-bold uppercase text-[10px] tracking-widest">Recebimentos Digitais (Em Conta)</p>
-                      {canSeeTotals && (
+                      {Array.isArray(data.report.salesByOperator) && data.report.salesByOperator.length > 0 && (
+                    <div className="space-y-2 p-4 bg-page/50 rounded-2xl border border-line text-sm">
+                      <p className="text-muted font-bold uppercase text-[10px] tracking-widest mb-1">
+                        Vendas por Funcionário neste Turno
+                      </p>
+                      {data.report.salesByOperator.map((opStat: any) => (
+                        <div key={opStat.operatorId} className="flex justify-between items-center text-ink">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="font-semibold truncate">{opStat.operatorName}</span>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-support text-brand border border-brand">
+                              {opStat.countSales} {opStat.countSales === 1 ? 'venda' : 'vendas'}
+                            </span>
+                          </div>
+                          <span className="font-bold text-brand whitespace-nowrap">
+                            {renderMoney(opStat.totalSales)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {canSeeTotals && (
                         <button
                           type="button"
                           onClick={openAdjustModal}
@@ -595,6 +621,27 @@ export function CloseRegisterModal({
                       </div>
                     )}
                   </div>
+
+                  {Array.isArray(data.report.salesByOperator) && data.report.salesByOperator.length > 0 && (
+                    <div className="space-y-2 p-4 bg-page/50 rounded-2xl border border-line text-sm">
+                      <p className="text-muted font-bold uppercase text-[10px] tracking-widest mb-1">
+                        Vendas por Funcionário neste Turno
+                      </p>
+                      {data.report.salesByOperator.map((opStat: any) => (
+                        <div key={opStat.operatorId} className="flex justify-between items-center text-ink">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="font-semibold truncate">{opStat.operatorName}</span>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-support text-brand border border-brand">
+                              {opStat.countSales} {opStat.countSales === 1 ? 'venda' : 'vendas'}
+                            </span>
+                          </div>
+                          <span className="font-bold text-brand whitespace-nowrap">
+                            {renderMoney(opStat.totalSales)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
                   {canSeeTotals && (
                     <div className="flex justify-between p-4 bg-surface text-ink rounded-2xl border border-line mt-4">
@@ -704,7 +751,28 @@ export function CloseRegisterModal({
                   </div>
                 ) : (
                   <div className="flex gap-2 mt-4">
-                    {canSeeTotals && (
+                    {Array.isArray(data.report.salesByOperator) && data.report.salesByOperator.length > 0 && (
+                    <div className="space-y-2 p-4 bg-page/50 rounded-2xl border border-line text-sm">
+                      <p className="text-muted font-bold uppercase text-[10px] tracking-widest mb-1">
+                        Vendas por Funcionário neste Turno
+                      </p>
+                      {data.report.salesByOperator.map((opStat: any) => (
+                        <div key={opStat.operatorId} className="flex justify-between items-center text-ink">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="font-semibold truncate">{opStat.operatorName}</span>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-support text-brand border border-brand">
+                              {opStat.countSales} {opStat.countSales === 1 ? 'venda' : 'vendas'}
+                            </span>
+                          </div>
+                          <span className="font-bold text-brand whitespace-nowrap">
+                            {renderMoney(opStat.totalSales)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {canSeeTotals && (
                       <button 
                         type="button"
                         onClick={handleSaveDraft}
@@ -753,6 +821,11 @@ export function CloseRegisterModal({
                              {new Date(s.createdAt).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit', second:'2-digit'})}
                           </span>
                           <span className="text-muted text-[11px] font-mono bg-page px-2 py-0.5 rounded">ID: {s.id.split('-')[0]}</span>
+                          {s.operator?.name && (
+                            <span className="bg-support text-brand text-[11px] font-bold px-2.5 py-0.5 rounded-full border border-brand">
+                              Vendedor: {s.operator.name}
+                            </span>
+                          )}
                           {s.status === 'cancelled' && (
                             <span className="bg-support text-brand text-[10px] uppercase font-bold px-2 py-0.5 rounded border border-brand">
                               Cancelada
@@ -946,6 +1019,27 @@ export function CloseRegisterModal({
                       <span className="text-brand font-medium">{renderMoney(data.report.totalSangrias, { sign: '-' })}</span>
                     </div>
                   )}
+                  {Array.isArray(data.report.salesByOperator) && data.report.salesByOperator.length > 0 && (
+                    <div className="space-y-2 p-4 bg-page/50 rounded-2xl border border-line text-sm">
+                      <p className="text-muted font-bold uppercase text-[10px] tracking-widest mb-1">
+                        Vendas por Funcionário neste Turno
+                      </p>
+                      {data.report.salesByOperator.map((opStat: any) => (
+                        <div key={opStat.operatorId} className="flex justify-between items-center text-ink">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="font-semibold truncate">{opStat.operatorName}</span>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-support text-brand border border-brand">
+                              {opStat.countSales} {opStat.countSales === 1 ? 'venda' : 'vendas'}
+                            </span>
+                          </div>
+                          <span className="font-bold text-brand whitespace-nowrap">
+                            {renderMoney(opStat.totalSales)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   {canSeeTotals && (
                     <div className="border-t border-line pt-2.5 mt-2.5 flex justify-between items-center">
                       <span className="text-muted text-xs font-bold">Total Esperado</span>

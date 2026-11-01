@@ -291,7 +291,7 @@ export function OperatorLoginModal({
           <div className="flex flex-wrap items-center justify-center gap-3">
             <button
               type="button"
-              onClick={() => navigate("/dashboard")}
+              onClick={() => navigate("/inicio")}
               className="text-muted hover:text-ink font-semibold text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer"
             >
               <LayoutDashboard size={16} /> Voltar ao Painel Administrativo

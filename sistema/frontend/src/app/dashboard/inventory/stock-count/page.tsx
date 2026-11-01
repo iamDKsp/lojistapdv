@@ -242,7 +242,7 @@ export default function StockCountPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex items-center gap-3">
-          <Link to="/dashboard/inventory" className="p-2 rounded-xl bg-surface hover:bg-support text-muted hover:text-ink transition">
+          <Link to="/estoque" className="p-2 rounded-xl bg-surface hover:bg-support text-muted hover:text-ink transition">
             <ArrowLeft size={20} />
           </Link>
           <div>
@@ -482,7 +482,7 @@ export default function StockCountPage() {
                 </table>
               </div>
               <div className="flex gap-3 justify-end">
-                <Link to="/dashboard/inventory" className="flex items-center gap-2 bg-surface hover:bg-support text-muted font-bold px-5 py-2.5 rounded-xl transition">
+                <Link to="/estoque" className="flex items-center gap-2 bg-surface hover:bg-support text-muted font-bold px-5 py-2.5 rounded-xl transition">
                   <Package size={16} /> Ver Estoque
                 </Link>
                 <button onClick={() => { setStep(1); setImportRows([]); setImportResults(null); setSelectedCategories(new Set()); setSelectedProducts(new Set()); }}

@@ -90,7 +90,7 @@ export function RetailDashboardPage() {
         >
           Atualizar
         </button>
-        <Link className="retail-button" to="/dashboard/reports">
+        <Link className="retail-button" to="/inicio/relatorios">
           Relatórios de vendas
         </Link>
       </div>
@@ -160,7 +160,7 @@ export function RetailDashboardPage() {
                 <strong className="retail-summary-value retail-number">
                   {data.openRegisters}
                 </strong>
-                <Link className="retail-muted" to="/dashboard/registers">
+                <Link className="retail-muted" to="/inicio/historico-de-caixas">
                   Consultar caixas
                 </Link>
               </article>

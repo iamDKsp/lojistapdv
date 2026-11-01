@@ -729,7 +729,7 @@ export function RetailPosPage() {
                 </button>
                 {isAdmin && (
                   <Link
-                    to="/dashboard/operations"
+                    to="/inicio/operacoes"
                     onClick={() => setOpenMenu(null)}
                   >
                     <Package size={15} />
@@ -907,7 +907,7 @@ export function RetailPosPage() {
                         ? "Ativar Menu Lateral (Admin)"
                         : "Simular Visão Caixa (Sem Menu)"}
                     </button>
-                    <Link to="/dashboard" onClick={() => setOpenMenu(null)}>
+                    <Link to="/inicio" onClick={() => setOpenMenu(null)}>
                       <LayoutDashboard size={15} />
                       Painel de Gestão
                     </Link>
@@ -941,7 +941,7 @@ export function RetailPosPage() {
 
       {reviewCount > 0 && (
         <div className="retail-message">
-          <Link to="/dashboard/operations">
+          <Link to="/inicio/operacoes">
             {reviewCount} operação(ões) precisam de conferência. Abrir
             registros.
           </Link>
@@ -1147,7 +1147,7 @@ export function RetailPosPage() {
                     : "Cadastre os grupos de mercadorias e suas grades na gestão."}
                 </p>
                 {isAdmin && (
-                  <Link className="retail-button" to="/dashboard/inventory">
+                  <Link className="retail-button" to="/estoque">
                     Abrir mercadorias e grades
                   </Link>
                 )}

@@ -1,5 +1,21 @@
 # Histórico — PDV Lojista
 
+## 2026-11-01 — Arquitetura Semântica de URLs por Módulo e Aba (`/:modulo/:aba`)
+
+- **Mapa Central de Rotas e Redirecionamento Retrocompatível (`frontend/src/lib/routes.ts` e `frontend/src/App.tsx`)**:
+  - Criado o dicionário central `ROUTES` e a tabela declarativa `LEGACY_AND_ALIAS_REDIRECTS` (com preservação de query string via `PreserveSearchRedirect`), padronizando todas as URLs em português por módulo e aba:
+    - **Início (`/inicio`)**: `/inicio` (Visão geral), `/inicio/historico-de-caixas` (com alias `/inicio/historicodecaixas`), `/inicio/relatorios` e `/inicio/operacoes`.
+    - **Estoque (`/estoque`)**: `/estoque` (Mercadorias e grades), `/estoque/contagem`, `/estoque/categorias`, `/estoque/entrada-manual` e `/estoque/entrada-xml` (com sub-abas `/estoque/entrada-xml/pendentes` e `/estoque/entrada-xml/historico`).
+    - **Financeiro e Compras (`/financeiro`)**: `/financeiro/contas-a-pagar` (com sub-abas `/financeiro/contas-a-pagar/fixas` e `/financeiro/contas-a-pagar/variaveis`), `/financeiro/pedidos-de-compra` e `/financeiro/fornecedores`.
+    - **Equipe (`/equipe`)**: `/equipe`.
+    - **Clientes e Pós-Venda (`/clientes`)**: `/clientes` (Clientes e insights) e `/clientes/trocas` (Trocas e créditos).
+    - **Crediário (`/crediario`)**: `/crediario`, `/crediario/parcelas` e `/crediario/whatsapp`.
+    - **Configurações e Fiscal (`/configuracoes`)**: `/configuracoes/empresa` (com sub-abas `/configuracoes/empresa/dados`, `/configuracoes/empresa/endereco`, `/configuracoes/empresa/nfce` e `/configuracoes/empresa/certificado`), `/configuracoes/pagamentos`, `/configuracoes/tributacao` e `/configuracoes/nfce`.
+    - **Portal do Grupo (`/grupo-portal`)**: `/grupo-portal/visao-geral`, `/grupo-portal/previsao`, `/grupo-portal/estoque`, `/grupo-portal/produtos`, `/grupo-portal/produtos/criar` e `/grupo-portal/transferencias`.
+  - Mantidos redirecionamentos automáticos (`<Navigate replace />`) para todas as rotas legadas `/dashboard/*` e variações sem hífen.
+- **Sincronização de Abas de Layout e Abas Internas (`frontend/src/retail/RetailLayout.tsx`, `EmpresaConfigPage`, `PayablesPage`, `XmlImportPage` e `GroupPortalPage`)**:
+  - Atualizados `railGroups`, `subNavTabs`, `retail-mobile-tabbar` e todos os links internos para navegar diretamente para as novas URLs semânticas.
+
 ## 2026-11-01 — Módulo de Crediário (Fiado / Contas de Clientes) + Cobrança Automática via WhatsApp (Baileys)
 
 - **Modelagem Multi-Tenant e Regras de Negócio (`backend/prisma/schema.prisma` e `backend/src/crediario/crediario.rules.ts`)**:

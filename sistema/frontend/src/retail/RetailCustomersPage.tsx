@@ -1154,7 +1154,7 @@ export function RetailCustomersPage() {
                                       const ref = String(sale.code || sale.id);
                                       setSelectedCustomerId(null);
                                       navigate(
-                                        `/dashboard/returns?sale=${encodeURIComponent(ref)}`,
+                                        `/clientes/trocas?sale=${encodeURIComponent(ref)}`,
                                       );
                                     }}
                                   >

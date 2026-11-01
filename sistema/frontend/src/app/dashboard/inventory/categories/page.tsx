@@ -75,7 +75,7 @@ export default function CategoriesPage() {
       
       <div className="flex justify-between items-center mb-6">
         <div>
-          <Link to="/dashboard/inventory" className="text-muted hover:text-brand flex items-center gap-2 text-sm font-semibold mb-2 transition-colors">
+          <Link to="/estoque" className="text-muted hover:text-brand flex items-center gap-2 text-sm font-semibold mb-2 transition-colors">
             <ArrowLeft size={16} /> Voltar ao Catálogo
           </Link>
           <h1 className="text-3xl font-black tracking-tight text-ink flex items-center gap-3">

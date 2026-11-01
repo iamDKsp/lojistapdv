@@ -5,12 +5,14 @@ import {
   Outlet,
   Route,
   Routes,
+  useLocation,
   useNavigate,
 } from "react-router-dom";
 import { ShieldCheck } from "lucide-react";
 import { Toaster } from "sonner";
 import { useAuthStore } from "@/store/auth";
 import { ShiftProvider } from "@/contexts/ShiftContext";
+import { LEGACY_AND_ALIAS_REDIRECTS, ROUTES } from "@/lib/routes";
 import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
 import { OverduePaymentBanner } from "@/components/OverduePaymentBanner";
 import { TermsAcceptanceModal } from "@/components/TermsAcceptanceModal";
@@ -180,9 +182,23 @@ function Management() {
 function Pos() {
   const role = useAuthStore((s) => s.user?.role);
   return role === "stockist" ? (
-    <Navigate to="/dashboard/inventory" replace />
+    <Navigate to={ROUTES.estoque.mercadorias} replace />
   ) : (
     <RetailPosPage />
+  );
+}
+
+function PreserveSearchRedirect({ to }: { to: string }) {
+  const location = useLocation();
+  return (
+    <Navigate
+      to={{
+        pathname: to,
+        search: location.search,
+        hash: location.hash,
+      }}
+      replace
+    />
   );
 }
 
@@ -238,49 +254,109 @@ export function App() {
           <Route path="/login" element={<RetailLoginPage />} />
           <Route path="/sys-init" element={<SysInitPage />} />
           <Route element={<Protected />}>
-            <Route path="/grupo-portal" element={<GroupPortalPage />} />
+            <Route path="/grupo-portal/:tab" element={<GroupPortalPage />} />
+            <Route
+              path="/grupo-portal/produtos/:subTab"
+              element={<GroupPortalPage />}
+            />
             <Route element={<RetailLayout />}>
               <Route path="/" element={<Pos />} />
-              <Route path="/dashboard" element={<Management />}>
-                <Route index element={<RetailDashboardPage />} />
-                <Route path="reports" element={<DashboardPage />} />
-                <Route path="inventory" element={<RetailCatalogPage />} />
-                <Route path="inventory/categories" element={<CategoriesPage />} />
+              <Route element={<Management />}>
+                {/* Módulo Início */}
+                <Route path="/inicio" element={<RetailDashboardPage />} />
                 <Route
-                  path="inventory/stock-entry"
+                  path="/inicio/historico-de-caixas"
+                  element={<RegistersPage />}
+                />
+                <Route path="/inicio/relatorios" element={<DashboardPage />} />
+                <Route
+                  path="/inicio/operacoes"
+                  element={<RetailOperationsPage />}
+                />
+
+                {/* Módulo Estoque */}
+                <Route path="/estoque" element={<RetailCatalogPage />} />
+                <Route path="/estoque/contagem" element={<StockCountPage />} />
+                <Route
+                  path="/estoque/categorias"
+                  element={<CategoriesPage />}
+                />
+                <Route
+                  path="/estoque/entrada-manual"
                   element={<StockEntryPage />}
                 />
+                <Route path="/estoque/entrada-xml" element={<XmlImportPage />} />
                 <Route
-                  path="inventory/stock-count"
-                  element={<StockCountPage />}
-                />
-                <Route
-                  path="inventory/purchases/imports"
+                  path="/estoque/entrada-xml/:tab"
                   element={<XmlImportPage />}
                 />
-                <Route path="customers" element={<RetailCustomersPage />} />
-                <Route path="crediario" element={<RetailCrediarioPage />} />
-                <Route path="crediario/parcelas" element={<RetailCrediarioPage />} />
-                <Route path="crediario/whatsapp" element={<RetailCrediarioPage />} />
-                <Route path="returns" element={<RetailReturnsPage />} />
-                <Route path="operations" element={<RetailOperationsPage />} />
-                <Route path="registers" element={<RegistersPage />} />
-                <Route path="suppliers" element={<SuppliersPage />} />
-                <Route path="purchase-orders" element={<PurchaseOrdersPage />} />
-                <Route path="finance/payables" element={<PayablesPage />} />
-                <Route path="configuracoes/empresa" element={<EmpresaPage />} />
+
+                {/* Módulo Financeiro e Compras */}
                 <Route
-                  path="configuracoes/tributacao"
+                  path="/financeiro/contas-a-pagar"
+                  element={<PayablesPage />}
+                />
+                <Route
+                  path="/financeiro/contas-a-pagar/:tab"
+                  element={<PayablesPage />}
+                />
+                <Route
+                  path="/financeiro/pedidos-de-compra"
+                  element={<PurchaseOrdersPage />}
+                />
+                <Route
+                  path="/financeiro/fornecedores"
+                  element={<SuppliersPage />}
+                />
+
+                {/* Módulo Equipe */}
+                <Route path="/equipe" element={<UsersPage />} />
+
+                {/* Módulo Clientes e Pós-Venda */}
+                <Route path="/clientes" element={<RetailCustomersPage />} />
+                <Route path="/clientes/trocas" element={<RetailReturnsPage />} />
+
+                {/* Módulo Crediário e Cobrança */}
+                <Route path="/crediario" element={<RetailCrediarioPage />} />
+                <Route
+                  path="/crediario/parcelas"
+                  element={<RetailCrediarioPage />}
+                />
+                <Route
+                  path="/crediario/whatsapp"
+                  element={<RetailCrediarioPage />}
+                />
+
+                {/* Módulo Configurações e Fiscal */}
+                <Route
+                  path="/configuracoes/empresa"
+                  element={<EmpresaPage />}
+                />
+                <Route
+                  path="/configuracoes/empresa/:tab"
+                  element={<EmpresaPage />}
+                />
+                <Route
+                  path="/configuracoes/pagamentos"
+                  element={<PaymentMethodsPage />}
+                />
+                <Route
+                  path="/configuracoes/tributacao"
                   element={<TributacaoPage />}
                 />
                 <Route
-                  path="configuracoes/payment-methods"
-                  element={<PaymentMethodsPage />}
+                  path="/configuracoes/nfce"
+                  element={<FiscalManagementPage />}
                 />
-                <Route path="fiscal/gestao" element={<FiscalManagementPage />} />
-                <Route path="equipe" element={<UsersPage />} />
               </Route>
             </Route>
+            {LEGACY_AND_ALIAS_REDIRECTS.map((item) => (
+              <Route
+                key={item.from}
+                path={item.from}
+                element={<PreserveSearchRedirect to={item.to} />}
+              />
+            ))}
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

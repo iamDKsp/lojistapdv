@@ -293,17 +293,22 @@ export function RetailLayout() {
   })();
 
   function moduleAllowed(path: string) {
-    if (path.includes("purchases/imports"))
+    if (path.includes("entrada-xml") || path.includes("purchases/imports"))
       return modules.nfce !== false || modules.importacaoXml === true;
-    if (path.includes("/fiscal/") || path.includes("/tributacao"))
+    if (
+      path.includes("/configuracoes/nfce") ||
+      path.includes("/fiscal/") ||
+      path.includes("/tributacao")
+    )
       return modules.nfce !== false;
-    if (path.includes("stock-count")) return modules.estoque !== false;
+    if (path.includes("/estoque/contagem") || path.includes("stock-count"))
+      return modules.estoque !== false;
     if (path.includes("/crediario")) return Boolean(modules.crediario);
     return true;
   }
 
-  if (isStockist && !location.pathname.startsWith("/dashboard/inventory")) {
-    return <Navigate to="/dashboard/inventory" replace />;
+  if (isStockist && !location.pathname.startsWith("/estoque")) {
+    return <Navigate to="/estoque" replace />;
   }
 
   const pathname = location.pathname;
@@ -314,25 +319,23 @@ export function RetailLayout() {
         [
           {
             name: "Mercadorias e grades",
-            path: "/dashboard/inventory",
+            path: "/estoque",
             icon: Package,
             iconKind: "inventory",
             active:
-              pathname === "/dashboard/inventory" ||
-              pathname.startsWith("/dashboard/inventory/categories") ||
-              pathname.startsWith("/dashboard/inventory/stock-entry") ||
-              pathname.startsWith("/dashboard/inventory/purchases"),
+              pathname === "/estoque" ||
+              pathname.startsWith("/estoque/categorias") ||
+              pathname.startsWith("/estoque/entrada-manual") ||
+              pathname.startsWith("/estoque/entrada-xml"),
           },
-          ...(moduleAllowed("/dashboard/inventory/stock-count")
+          ...(moduleAllowed("/estoque/contagem")
             ? [
                 {
                   name: "Contagem de estoque",
-                  path: "/dashboard/inventory/stock-count",
+                  path: "/estoque/contagem",
                   icon: ClipboardList,
                   iconKind: "inventory",
-                  active: pathname.startsWith(
-                    "/dashboard/inventory/stock-count",
-                  ),
+                  active: pathname.startsWith("/estoque/contagem"),
                 },
               ]
             : []),
@@ -342,10 +345,10 @@ export function RetailLayout() {
         [
           {
             name: "Visão geral",
-            path: "/dashboard",
+            path: "/inicio",
             icon: Home,
             iconKind: "home",
-            active: pathname === "/dashboard",
+            active: pathname === "/inicio",
           },
           {
             name: "Frente de caixa",
@@ -356,233 +359,194 @@ export function RetailLayout() {
           },
           {
             name: "Mercadorias e grades",
-            path: "/dashboard/inventory",
+            path: "/estoque",
             icon: Package,
             iconKind: "inventory",
-            active: pathname.startsWith("/dashboard/inventory"),
+            active: pathname.startsWith("/estoque"),
           },
           {
             name: "Contas a pagar",
-            path: "/dashboard/finance/payables",
+            path: "/financeiro/contas-a-pagar",
             icon: Banknote,
             iconKind: "finance",
-            active:
-              pathname.startsWith("/dashboard/finance") ||
-              pathname.startsWith("/dashboard/suppliers") ||
-              pathname.startsWith("/dashboard/purchase-orders"),
+            active: pathname.startsWith("/financeiro"),
           },
         ],
         [
           {
             name: "Histórico de caixas",
-            path: "/dashboard/registers",
+            path: "/inicio/historico-de-caixas",
             icon: History,
             iconKind: "registers",
             active:
-              pathname.startsWith("/dashboard/registers") ||
-              pathname.startsWith("/dashboard/operations") ||
-              pathname.startsWith("/dashboard/reports"),
+              pathname.startsWith("/inicio/historico-de-caixas") ||
+              pathname.startsWith("/inicio/operacoes") ||
+              pathname.startsWith("/inicio/relatorios"),
           },
           {
             name: "Equipe",
-            path: "/dashboard/equipe",
+            path: "/equipe",
             icon: UserPlus,
             iconKind: "team",
-            active: pathname.startsWith("/dashboard/equipe"),
+            active: pathname.startsWith("/equipe"),
           },
           {
             name: "Clientes e trocas",
-            path: "/dashboard/customers",
+            path: "/clientes",
             icon: RotateCcw,
             iconKind: "returns",
-            active:
-              pathname.startsWith("/dashboard/customers") ||
-              pathname.startsWith("/dashboard/returns"),
+            active: pathname.startsWith("/clientes"),
           },
-          ...(moduleAllowed("/dashboard/crediario")
+          ...(moduleAllowed("/crediario")
             ? [
                 {
                   name: "Crediário e cobrança",
-                  path: "/dashboard/crediario",
+                  path: "/crediario",
                   icon: ClipboardList,
                   iconKind: "finance",
-                  active: pathname.startsWith("/dashboard/crediario"),
+                  active: pathname.startsWith("/crediario"),
                 },
               ]
             : []),
         ],
         [
-          {
-            name: moduleAllowed("/dashboard/fiscal/gestao")
-              ? "Gestão de NFC-e"
-              : "Auditoria e segurança",
-            path: moduleAllowed("/dashboard/fiscal/gestao")
-              ? "/dashboard/fiscal/gestao"
-              : "/dashboard/audit",
-            icon: ShieldCheck,
-            iconKind: "fiscal",
-            active:
-              pathname.startsWith("/dashboard/fiscal") ||
-              pathname.includes("/tributacao") ||
-              pathname.startsWith("/dashboard/audit"),
-          },
+          ...(moduleAllowed("/configuracoes/nfce")
+            ? [
+                {
+                  name: "Gestão de NFC-e",
+                  path: "/configuracoes/nfce",
+                  icon: ShieldCheck,
+                  iconKind: "fiscal",
+                  active:
+                    pathname.startsWith("/configuracoes/nfce") ||
+                    pathname.startsWith("/configuracoes/tributacao"),
+                },
+              ]
+            : []),
           {
             name: "Empresa",
-            path: "/dashboard/configuracoes/empresa",
+            path: "/configuracoes/empresa",
             icon: HelpCircle,
             iconKind: "settings",
             active:
-              pathname.startsWith("/dashboard/configuracoes") &&
-              !pathname.includes("/tributacao"),
+              pathname.startsWith("/configuracoes/empresa") ||
+              pathname.startsWith("/configuracoes/pagamentos"),
           },
         ],
       ];
 
   const subNavTabs = useMemo(() => {
     if (isPosRoute) return [];
-    if (pathname.startsWith("/dashboard/inventory")) {
+    if (pathname.startsWith("/estoque")) {
       return [
-        { label: "Mercadorias e grades", path: "/dashboard/inventory" },
-        ...(moduleAllowed("/dashboard/inventory/stock-count")
+        { label: "Mercadorias e grades", path: "/estoque" },
+        ...(moduleAllowed("/estoque/contagem")
           ? [
               {
                 label: "Contagem de estoque",
-                path: "/dashboard/inventory/stock-count",
+                path: "/estoque/contagem",
               },
             ]
           : []),
-        { label: "Categorias", path: "/dashboard/inventory/categories" },
-        { label: "Entrada manual", path: "/dashboard/inventory/stock-entry" },
-        ...(moduleAllowed("/dashboard/inventory/purchases/imports")
+        { label: "Categorias", path: "/estoque/categorias" },
+        { label: "Entrada manual", path: "/estoque/entrada-manual" },
+        ...(moduleAllowed("/estoque/entrada-xml")
           ? [
               {
                 label: "Entrada por XML",
-                path: "/dashboard/inventory/purchases/imports",
+                path: "/estoque/entrada-xml",
               },
             ]
           : []),
       ];
     }
-    if (
-      pathname.startsWith("/dashboard/finance") ||
-      pathname.startsWith("/dashboard/suppliers") ||
-      pathname.startsWith("/dashboard/purchase-orders")
-    ) {
+    if (pathname.startsWith("/financeiro")) {
       return [
-        { label: "Contas a pagar", path: "/dashboard/finance/payables" },
-        { label: "Pedidos de compra", path: "/dashboard/purchase-orders" },
-        { label: "Fornecedores", path: "/dashboard/suppliers" },
+        { label: "Contas a pagar", path: "/financeiro/contas-a-pagar" },
+        { label: "Pedidos de compra", path: "/financeiro/pedidos-de-compra" },
+        { label: "Fornecedores", path: "/financeiro/fornecedores" },
       ];
     }
-    if (
-      pathname.startsWith("/dashboard/registers") ||
-      pathname.startsWith("/dashboard/operations") ||
-      pathname.startsWith("/dashboard/reports") ||
-      pathname === "/dashboard"
-    ) {
+    if (pathname.startsWith("/inicio")) {
       return [
-        { label: "Visão geral", path: "/dashboard" },
-        { label: "Histórico de caixas", path: "/dashboard/registers" },
-        { label: "Relatórios de vendas", path: "/dashboard/reports" },
-        { label: "Operações locais", path: "/dashboard/operations" },
+        { label: "Visão geral", path: "/inicio" },
+        { label: "Histórico de caixas", path: "/inicio/historico-de-caixas" },
+        { label: "Relatórios de vendas", path: "/inicio/relatorios" },
+        { label: "Operações locais", path: "/inicio/operacoes" },
       ];
     }
-    if (
-      pathname.startsWith("/dashboard/customers") ||
-      pathname.startsWith("/dashboard/returns")
-    ) {
+    if (pathname.startsWith("/clientes")) {
       return [
-        { label: "Clientes e insights", path: "/dashboard/customers" },
-        { label: "Trocas e créditos", path: "/dashboard/returns" },
+        { label: "Clientes e insights", path: "/clientes" },
+        { label: "Trocas e créditos", path: "/clientes/trocas" },
       ];
     }
-    if (
-      pathname.startsWith("/dashboard/configuracoes") ||
-      pathname.startsWith("/dashboard/fiscal")
-    ) {
+    if (pathname.startsWith("/configuracoes")) {
       return [
-        { label: "Empresa", path: "/dashboard/configuracoes/empresa" },
+        { label: "Empresa", path: "/configuracoes/empresa" },
         {
           label: "Pagamentos",
-          path: "/dashboard/configuracoes/payment-methods",
+          path: "/configuracoes/pagamentos",
         },
-        ...(moduleAllowed("/dashboard/configuracoes/tributacao")
+        ...(moduleAllowed("/configuracoes/tributacao")
           ? [
               {
                 label: "Tributação",
-                path: "/dashboard/configuracoes/tributacao",
+                path: "/configuracoes/tributacao",
               },
-              { label: "Gestão de NFC-e", path: "/dashboard/fiscal/gestao" },
+              { label: "Gestão de NFC-e", path: "/configuracoes/nfce" },
             ]
           : []),
       ];
     }
-    if (pathname.startsWith("/dashboard/crediario")) {
+    if (pathname.startsWith("/crediario")) {
       return [
-        { label: "Contas de clientes", path: "/dashboard/crediario" },
-        { label: "Parcelas e vencimentos", path: "/dashboard/crediario/parcelas" },
-        { label: "WhatsApp e régua", path: "/dashboard/crediario/whatsapp" },
+        { label: "Contas de clientes", path: "/crediario" },
+        { label: "Parcelas e vencimentos", path: "/crediario/parcelas" },
+        { label: "WhatsApp e régua", path: "/crediario/whatsapp" },
       ];
     }
     return [];
   }, [isPosRoute, pathname, modules.nfce, modules.importacaoXml, modules.estoque, modules.crediario]);
 
   const sectionHeading = useMemo(() => {
-    if (pathname.startsWith("/dashboard/inventory")) return "Catálogo e Estoque";
-    if (
-      pathname.startsWith("/dashboard/finance") ||
-      pathname.startsWith("/dashboard/suppliers") ||
-      pathname.startsWith("/dashboard/purchase-orders")
-    )
-      return "Compras e Financeiro";
-    if (pathname.startsWith("/dashboard/registers"))
+    if (pathname.startsWith("/estoque")) return "Catálogo e Estoque";
+    if (pathname.startsWith("/financeiro")) return "Compras e Financeiro";
+    if (pathname.startsWith("/inicio/historico-de-caixas"))
       return "Histórico de Caixas";
-    if (pathname.startsWith("/dashboard/operations")) return "Operações Locais";
-    if (pathname.startsWith("/dashboard/reports")) return "Relatórios da Loja";
-    if (pathname.startsWith("/dashboard/equipe")) return "Equipe e Acessos";
-    if (pathname.startsWith("/dashboard/customers"))
-      return "Clientes e Pós-Venda";
-    if (pathname.startsWith("/dashboard/returns")) return "Trocas e Créditos";
-    if (pathname.startsWith("/dashboard/crediario")) return "Crediário e Cobrança";
-    if (pathname.startsWith("/dashboard/fiscal")) return "Gestão Fiscal";
-    if (pathname.startsWith("/dashboard/configuracoes"))
-      return "Configurações da Loja";
+    if (pathname.startsWith("/inicio/operacoes")) return "Operações Locais";
+    if (pathname.startsWith("/inicio/relatorios")) return "Relatórios da Loja";
+    if (pathname.startsWith("/equipe")) return "Equipe e Acessos";
+    if (pathname.startsWith("/clientes/trocas")) return "Trocas e Créditos";
+    if (pathname.startsWith("/clientes")) return "Clientes e Pós-Venda";
+    if (pathname.startsWith("/crediario")) return "Crediário e Cobrança";
+    if (pathname.startsWith("/configuracoes/nfce")) return "Gestão Fiscal";
+    if (pathname.startsWith("/configuracoes")) return "Configurações da Loja";
     return config?.nomeFantasia || config?.razaoSocial || "Painel da Loja";
   }, [pathname, config?.nomeFantasia, config?.razaoSocial]);
 
   const moduleKind = useMemo(() => {
     if (pathname === "/") return "pos";
-    if (pathname.startsWith("/dashboard/inventory")) return "inventory";
-    if (pathname.startsWith("/dashboard/crediario")) return "finance";
+    if (pathname.startsWith("/estoque")) return "inventory";
+    if (pathname.startsWith("/crediario")) return "finance";
+    if (pathname.startsWith("/financeiro")) return "finance";
     if (
-      pathname.startsWith("/dashboard/finance") ||
-      pathname.startsWith("/dashboard/suppliers") ||
-      pathname.startsWith("/dashboard/purchase-orders")
-    )
-      return "finance";
-    if (
-      pathname.startsWith("/dashboard/registers") ||
-      pathname.startsWith("/dashboard/operations")
+      pathname.startsWith("/inicio/historico-de-caixas") ||
+      pathname.startsWith("/inicio/operacoes")
     )
       return "registers";
-    if (pathname.startsWith("/dashboard/equipe")) return "team";
-    if (
-      pathname.startsWith("/dashboard/customers") ||
-      pathname.startsWith("/dashboard/returns")
-    )
-      return "returns";
-    if (
-      pathname.startsWith("/dashboard/fiscal") ||
-      pathname.startsWith("/dashboard/configuracoes") ||
-      pathname.startsWith("/dashboard/audit")
-    )
-      return "settings";
+    if (pathname.startsWith("/equipe")) return "team";
+    if (pathname.startsWith("/clientes")) return "returns";
+    if (pathname.startsWith("/configuracoes")) return "settings";
     return "overview";
   }, [pathname]);
 
   const activeTabIndex = useMemo(() => {
     return subNavTabs.findIndex((tab) =>
-      tab.path === "/dashboard" || tab.path === "/dashboard/inventory" || tab.path === "/dashboard/crediario"
+      tab.path === "/inicio" ||
+      tab.path === "/estoque" ||
+      tab.path === "/clientes" ||
+      tab.path === "/crediario"
         ? pathname === tab.path
         : pathname.startsWith(tab.path),
     );
@@ -661,7 +625,7 @@ export function RetailLayout() {
           >
             <div className="retail-rail-top">
               <Link
-                to={isStockist ? "/dashboard/inventory" : "/"}
+                to={isStockist ? "/estoque" : "/"}
                 className="retail-rail-logo"
                 aria-label={
                   config?.nomeFantasia ||
@@ -808,7 +772,7 @@ export function RetailLayout() {
                 <div className="retail-header-actions">
                   {!isStockist && (
                     <Link
-                      to="/dashboard/operations"
+                      to="/inicio/operacoes"
                       className="retail-circle-icon-btn"
                       aria-label="Notificações e operações locais"
                       data-tooltip="Operações locais"
@@ -820,7 +784,7 @@ export function RetailLayout() {
 
                   {!isStockist && (
                     <Link
-                      to="/dashboard/configuracoes/empresa"
+                      to="/configuracoes/empresa"
                       className="retail-circle-icon-btn"
                       aria-label="Configurações da empresa"
                       data-tooltip="Configurações da empresa"
@@ -831,7 +795,7 @@ export function RetailLayout() {
 
                   {!isStockist && (
                     <RetailTeamAvatars
-                      onClick={() => navigate("/dashboard/equipe")}
+                      onClick={() => navigate("/equipe")}
                       tooltip="Gerenciar equipe e acessos"
                     />
                   )}
@@ -910,21 +874,19 @@ export function RetailLayout() {
                   aria-label="Seções do módulo"
                 >
                   {subNavTabs.map((tab, tabIdx) => {
-                    const isTabActive =
-                      tab.path === "/dashboard" ||
-                      tab.path === "/dashboard/inventory" ||
-                      tab.path === "/dashboard/crediario"
-                        ? pathname === tab.path
-                        : pathname.startsWith(tab.path);
+                    const isExactRoot =
+                      tab.path === "/inicio" ||
+                      tab.path === "/estoque" ||
+                      tab.path === "/clientes" ||
+                      tab.path === "/crediario";
+                    const isTabActive = isExactRoot
+                      ? pathname === tab.path
+                      : pathname.startsWith(tab.path);
                     return (
                       <NavLink
                         key={tab.path}
                         to={tab.path}
-                        end={
-                          tab.path === "/dashboard" ||
-                          tab.path === "/dashboard/inventory" ||
-                          tab.path === "/dashboard/crediario"
-                        }
+                        end={isExactRoot}
                         style={
                           { "--tab-idx": tabIdx } as React.CSSProperties
                         }
@@ -968,7 +930,7 @@ export function RetailLayout() {
               {isStockist ? (
                 <>
                   <NavLink
-                    to="/dashboard/inventory"
+                    to="/estoque"
                     end
                     className={({ isActive }) =>
                       `retail-mobile-tab ${isActive ? "is-active" : ""}`
@@ -977,9 +939,9 @@ export function RetailLayout() {
                     <Package size={20} strokeWidth={2} />
                     <span>Catálogo</span>
                   </NavLink>
-                  {moduleAllowed("/dashboard/inventory/stock-count") && (
+                  {moduleAllowed("/estoque/contagem") && (
                     <NavLink
-                      to="/dashboard/inventory/stock-count"
+                      to="/estoque/contagem"
                       className={({ isActive }) =>
                         `retail-mobile-tab ${isActive ? "is-active" : ""}`
                       }
@@ -989,7 +951,7 @@ export function RetailLayout() {
                     </NavLink>
                   )}
                   <NavLink
-                    to="/dashboard/inventory/stock-entry"
+                    to="/estoque/entrada-manual"
                     className={({ isActive }) =>
                       `retail-mobile-tab ${isActive ? "is-active" : ""}`
                     }
@@ -1022,13 +984,10 @@ export function RetailLayout() {
                     <span>Balcão</span>
                   </NavLink>
                   <NavLink
-                    to="/dashboard"
+                    to="/inicio"
                     end
                     className={`retail-mobile-tab ${
-                      pathname === "/dashboard" ||
-                      pathname.startsWith("/dashboard/reports") ||
-                      pathname.startsWith("/dashboard/registers") ||
-                      pathname.startsWith("/dashboard/operations")
+                      pathname.startsWith("/inicio")
                         ? "is-active"
                         : ""
                     }`}
@@ -1037,9 +996,9 @@ export function RetailLayout() {
                     <span>Resumo</span>
                   </NavLink>
                   <NavLink
-                    to="/dashboard/inventory"
+                    to="/estoque"
                     className={`retail-mobile-tab ${
-                      pathname.startsWith("/dashboard/inventory")
+                      pathname.startsWith("/estoque")
                         ? "is-active"
                         : ""
                     }`}
@@ -1048,10 +1007,9 @@ export function RetailLayout() {
                     <span>Estoque</span>
                   </NavLink>
                   <NavLink
-                    to="/dashboard/customers"
+                    to="/clientes"
                     className={`retail-mobile-tab ${
-                      pathname.startsWith("/dashboard/customers") ||
-                      pathname.startsWith("/dashboard/returns")
+                      pathname.startsWith("/clientes")
                         ? "is-active"
                         : ""
                     }`}
@@ -1063,12 +1021,10 @@ export function RetailLayout() {
                     type="button"
                     className={`retail-mobile-tab ${
                       menuOpen ||
-                      pathname.startsWith("/dashboard/finance") ||
-                      pathname.startsWith("/dashboard/suppliers") ||
-                      pathname.startsWith("/dashboard/purchase-orders") ||
-                      pathname.startsWith("/dashboard/equipe") ||
-                      pathname.startsWith("/dashboard/fiscal") ||
-                      pathname.startsWith("/dashboard/configuracoes")
+                      pathname.startsWith("/financeiro") ||
+                      pathname.startsWith("/equipe") ||
+                      pathname.startsWith("/crediario") ||
+                      pathname.startsWith("/configuracoes")
                         ? "is-active"
                         : ""
                     }`}

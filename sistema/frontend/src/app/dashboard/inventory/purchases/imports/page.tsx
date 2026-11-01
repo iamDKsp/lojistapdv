@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuthStore } from '@/store/auth';
 import { 
   ArrowLeft, 
@@ -85,9 +85,17 @@ interface NfeEntrada {
 export default function XmlImportPage() {
   const { user } = useAuthStore();
   const isStockist = user?.role === 'stockist';
+  const { tab } = useParams<{ tab?: string }>();
+  const navigate = useNavigate();
+  const resolvedTab: 'pendentes' | 'historico' =
+    tab === 'historico' ? 'historico' : 'pendentes';
   const [pendentes, setPendentes] = useState<NfeEntrada[]>([]);
   const [historico, setHistorico] = useState<NfeEntrada[]>([]);
-  const [activeTab, setActiveTab] = useState<'pendentes' | 'historico'>('pendentes');
+  const [activeTab, setActiveTab] = useState<'pendentes' | 'historico'>(resolvedTab);
+
+  useEffect(() => {
+    setActiveTab(resolvedTab);
+  }, [resolvedTab]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -566,7 +574,7 @@ export default function XmlImportPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <Link to="/dashboard/inventory" className="text-muted hover:text-brand flex items-center gap-2 text-sm font-semibold mb-2 transition-colors">
+          <Link to="/estoque" className="text-muted hover:text-brand flex items-center gap-2 text-sm font-semibold mb-2 transition-colors">
             <ArrowLeft size={16} /> Voltar ao Controle de Estoque
           </Link>
           <h1 className="text-3xl font-black tracking-tight text-ink flex items-center gap-3">
@@ -749,14 +757,20 @@ export default function XmlImportPage() {
       {/* Tabs */}
       <div className="flex gap-2 bg-page p-1.5 rounded-2xl border border-line">
         <button
-          onClick={() => setActiveTab('pendentes')}
+          onClick={() => {
+            setActiveTab('pendentes');
+            navigate('/estoque/entrada-xml/pendentes');
+          }}
           className={`flex-1 py-3 px-4 rounded-xl text-xs font-black tracking-wider uppercase transition flex items-center justify-center gap-2 ${activeTab === 'pendentes' ? 'bg-page text-ink shadow-md border border-line' : 'text-muted hover:text-muted'}`}
         >
           <FileSpreadsheet size={14} className={activeTab === 'pendentes' ? 'text-brand' : ''} />
           Fila de Importação ({pendentes.length})
         </button>
         <button
-          onClick={() => setActiveTab('historico')}
+          onClick={() => {
+            setActiveTab('historico');
+            navigate('/estoque/entrada-xml/historico');
+          }}
           className={`flex-1 py-3 px-4 rounded-xl text-xs font-black tracking-wider uppercase transition flex items-center justify-center gap-2 ${activeTab === 'historico' ? 'bg-page text-ink shadow-md border border-line' : 'text-muted hover:text-muted'}`}
         >
           <CheckCircle2 size={14} className={activeTab === 'historico' ? 'text-brand' : ''} />

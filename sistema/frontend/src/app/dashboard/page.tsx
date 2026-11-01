@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { ReemitNfceModal } from '@/components/ReemitNfceModal';
 import { PeriodReportModal } from '@/components/PeriodReportModal';
@@ -719,9 +720,9 @@ export default function SalesDashboard() {
               </p>
             </div>
           </div>
-          <a href="/dashboard/finance/payables" className="shrink-0 bg-brand hover:bg-brand text-on-brand font-bold py-2 px-4 rounded-xl shadow-lg transition text-sm hover:text-on-brand">
+          <Link to="/financeiro/contas-a-pagar" className="shrink-0 bg-brand hover:bg-brand text-on-brand font-bold py-2 px-4 rounded-xl shadow-lg transition text-sm hover:text-on-brand">
             Ver Contas a Pagar
-          </a>
+          </Link>
         </div>
       )}
 

@@ -679,6 +679,13 @@ export class TenantsService {
         },
         timeout: 60000,
       });
+      await execAsync(`npx prisma db push --schema="${prismaSchemaPath}" --skip-generate`, {
+        env: {
+          ...process.env,
+          DATABASE_URL_TENANT: tenantDbUrl,
+        },
+        timeout: 60000,
+      });
     } catch (err: any) {
       try {
         await this.heartPrisma.$queryRaw`

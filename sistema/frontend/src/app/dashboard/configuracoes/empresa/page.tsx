@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { Building2, MapPin, Receipt, ShieldCheck, Save, Upload, CheckCircle, AlertCircle } from 'lucide-react';
@@ -19,7 +20,17 @@ const CRT_OPTIONS = [
 ];
 
 export default function EmpresaConfigPage() {
-  const [activeTab, setActiveTab] = useState('dados');
+  const { tab } = useParams<{ tab?: string }>();
+  const navigate = useNavigate();
+  const validTab =
+    tab === 'endereco' || tab === 'nfce' || tab === 'certificado' || tab === 'dados'
+      ? tab
+      : 'dados';
+  const [activeTab, setActiveTab] = useState(validTab);
+
+  useEffect(() => {
+    setActiveTab(validTab);
+  }, [validTab]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [nfceHealth, setNfceHealth] = useState<boolean | null>(null);
@@ -173,8 +184,9 @@ export default function EmpresaConfigPage() {
   useEffect(() => {
     if (modules.nfce === false && (activeTab === 'nfce' || activeTab === 'certificado')) {
       setActiveTab('dados');
+      navigate('/configuracoes/empresa', { replace: true });
     }
-  }, [modules, activeTab]);
+  }, [modules, activeTab, navigate]);
 
   if (loading) return (
     <div className="flex items-center justify-center h-full py-20">
@@ -204,7 +216,14 @@ export default function EmpresaConfigPage() {
         {activeTabs.map(tab => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => {
+              setActiveTab(tab.id);
+              navigate(
+                tab.id === 'dados'
+                  ? '/configuracoes/empresa'
+                  : `/configuracoes/empresa/${tab.id}`,
+              );
+            }}
             className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl font-semibold text-sm transition-all whitespace-nowrap ${
               activeTab === tab.id
                 ? 'bg-brand text-on-brand shadow-lg'

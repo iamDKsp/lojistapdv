@@ -450,11 +450,11 @@ export function RetailLoginPage() {
       triggerSessionEntryTransition();
       navigate(
         res.data.user.role === "group_owner" || res.data.user.groupId
-          ? "/grupo-portal"
+          ? "/grupo-portal/visao-geral"
           : res.data.user.role === "superadmin"
             ? "/sys-init"
             : res.data.user.role === "stockist"
-              ? "/dashboard/inventory"
+              ? "/estoque"
               : "/",
       );
     } catch (err) {
@@ -492,11 +492,11 @@ export function RetailLoginPage() {
       login(res.data.access_token, res.data.user);
       const targetPath =
         res.data.user.role === "group_owner" || res.data.user.groupId
-          ? "/grupo-portal"
+          ? "/grupo-portal/visao-geral"
           : res.data.user.role === "superadmin"
             ? "/sys-init"
             : res.data.user.role === "stockist"
-              ? "/dashboard/inventory"
+              ? "/estoque"
               : "/";
       return {
         targetPath,

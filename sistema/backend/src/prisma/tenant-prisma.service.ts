@@ -58,6 +58,15 @@ export class TenantConnectionManager implements OnModuleDestroy {
     const connectPromise = (async () => {
       try {
         await client.$connect();
+        try {
+          await client.$executeRawUnsafe(`
+            ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "creditLimit" DECIMAL(10,2) NOT NULL DEFAULT 0;
+            ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "creditBlocked" BOOLEAN NOT NULL DEFAULT false;
+            ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "preferredDueDay" INTEGER;
+            ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "whatsappOptIn" BOOLEAN NOT NULL DEFAULT true;
+            ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "creditNotes" TEXT;
+          `);
+        } catch {}
         this.clients.set(tenantId, { client, lastUsed: Date.now() });
         return client;
       } catch (error) {

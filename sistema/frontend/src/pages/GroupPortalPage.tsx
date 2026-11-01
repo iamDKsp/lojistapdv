@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAuthStore } from '@/store/auth';
 import {
   BarChart2, Package, Tag, ArrowLeftRight, LogOut, Building2,
@@ -805,7 +805,15 @@ function TabEstoque() {
 // ─── Tab: Produtos ─────────────────────────────────────────────────────────────
 
 function TabProdutos() {
-  const [subTab, setSubTab] = useState<'catalog' | 'create'>('catalog');
+  const { subTab: routeSubTab } = useParams<{ subTab?: string }>();
+  const navigate = useNavigate();
+  const resolvedSubTab: 'catalog' | 'create' =
+    routeSubTab === 'criar' ? 'create' : 'catalog';
+  const [subTab, setSubTab] = useState<'catalog' | 'create'>(resolvedSubTab);
+
+  useEffect(() => {
+    setSubTab(resolvedSubTab);
+  }, [resolvedSubTab]);
   const [catalog, setCatalog] = useState<CatalogData | null>(null);
   const [loadingCatalog, setLoadingCatalog] = useState(true);
   const [search, setSearch] = useState('');
@@ -897,7 +905,18 @@ function TabProdutos() {
       {/* Sub-tabs */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', borderBottom: '1px solid color-mix(in srgb, #272321 50%, transparent)', paddingBottom: '1rem' }}>
         {[{ id: 'catalog' as const, label: 'Catálogo do Grupo', icon: Tag }, { id: 'create' as const, label: 'Criar Produto', icon: Plus }].map(st => (
-          <button key={st.id} onClick={() => setSubTab(st.id)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', border: 'none', background: 'transparent', color: subTab === st.id ? '#7C3AED' : '#272321', fontWeight: subTab === st.id ? 700 : 500, fontSize: '0.9rem', cursor: 'pointer', borderBottom: subTab === st.id ? '2px solid #7C3AED' : '2px solid transparent', transition: 'all 0.2s', marginBottom: '-1rem' }}>
+          <button
+            key={st.id}
+            onClick={() => {
+              setSubTab(st.id);
+              navigate(
+                st.id === 'create'
+                  ? '/grupo-portal/produtos/criar'
+                  : '/grupo-portal/produtos',
+              );
+            }}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', border: 'none', background: 'transparent', color: subTab === st.id ? '#7C3AED' : '#272321', fontWeight: subTab === st.id ? 700 : 500, fontSize: '0.9rem', cursor: 'pointer', borderBottom: subTab === st.id ? '2px solid #7C3AED' : '2px solid transparent', transition: 'all 0.2s', marginBottom: '-1rem' }}
+          >
             <st.icon size={16} />{st.label}
           </button>
         ))}
@@ -1127,17 +1146,45 @@ type TabId = typeof TABS[number]['id'];
 
 export default function GroupPortalPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { tab: routeTab } = useParams<{ tab?: string }>();
   const { user, logout } = useAuthStore();
-  const [activeTab, setActiveTab] = useState<TabId>('dashboard');
+  const resolvedTab: TabId = location.pathname.startsWith('/grupo-portal/produtos')
+    ? 'produtos'
+    : routeTab === 'previsao'
+      ? 'forecast'
+      : routeTab === 'estoque'
+        ? 'estoque'
+        : routeTab === 'produtos'
+          ? 'produtos'
+          : routeTab === 'transferencias'
+            ? 'transferencias'
+            : 'dashboard';
+  const [activeTab, setActiveTab] = useState<TabId>(resolvedTab);
   const [tabKey, setTabKey] = useState(0);
   const [dateFilter, setDateFilter] = useState('30d');
+
+  useEffect(() => {
+    setActiveTab(resolvedTab);
+  }, [resolvedTab]);
 
   useEffect(() => {
     const token = getToken();
     if (!token || !user || (user.role !== 'group_owner' && !user.groupId)) navigate('/login', { replace: true });
   }, [user, navigate]);
 
-  const handleTabChange = (id: TabId) => { setActiveTab(id); setTabKey(k => k + 1); };
+  const handleTabChange = (id: TabId) => {
+    setActiveTab(id);
+    setTabKey(k => k + 1);
+    const slugMap: Record<TabId, string> = {
+      dashboard: '/grupo-portal/visao-geral',
+      forecast: '/grupo-portal/previsao',
+      estoque: '/grupo-portal/estoque',
+      produtos: '/grupo-portal/produtos',
+      transferencias: '/grupo-portal/transferencias',
+    };
+    navigate(slugMap[id]);
+  };
   const handleLogout = () => { logout(); navigate('/login', { replace: true }); };
 
   if (!user) return null;

@@ -325,10 +325,10 @@ export default function FiscalManagementPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-page border border-line p-6 rounded-2xl shadow-xl">
         <div>
           <button
-            onClick={() => navigate('/dashboard')}
+            onClick={() => navigate('/inicio')}
             className="text-muted hover:text-brand flex items-center gap-2 text-xs font-bold mb-2 transition-colors"
           >
-            <ArrowLeft size={14} /> Voltar ao Dashboard
+            <ArrowLeft size={14} /> Voltar ao Início
           </button>
           <h1 className="text-2xl md:text-3xl font-black text-ink tracking-tight flex items-center gap-3">
             <ReceiptText className="text-brand shrink-0" size={32} />

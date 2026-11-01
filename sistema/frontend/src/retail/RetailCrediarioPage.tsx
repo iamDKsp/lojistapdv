@@ -471,7 +471,7 @@ export function RetailCrediarioPage() {
             type="button"
             className="retail-button retail-button-primary"
             disabled={busy}
-            onClick={() => navigate("/dashboard/crediario/whatsapp")}
+            onClick={() => navigate("/crediario/whatsapp")}
           >
             <MessageCircle size={17} />
             {whatsappState?.status === "CONNECTED"

@@ -21,6 +21,7 @@ import { TenantInvoicesManager } from "@/components/sys-init/TenantInvoicesManag
 import { LeadgerIntegrationPanel } from "@/components/sys-init/LeadgerIntegrationPanel";
 import { LeadsPanel } from "@/components/sys-init/LeadsPanel";
 import { TenantXrayPanel } from "@/components/sys-init/TenantXrayPanel";
+import { SysInitLogin, SYS_INIT_PROFILES, type SysInitProfile } from "@/components/sys-init/SysInitLogin";
 const ImageOptimizationPanel = lazy(() => import("@/components/ImageOptimizationPanel"));
 
 
@@ -188,11 +189,19 @@ export default function SysInitPage() {
 
   // ── PIN step ──────────────────────────────────────────────────────────
   const [pinDigits, setPinDigits] = useState<string[]>([]);
-  const [showPin, setShowPin] = useState(false);
   const [pinError, setpinError] = useState("");
   const [pinShake, setPinShake] = useState(false);
   const [pinLoading, setPinLoading] = useState(false);
-  const pinRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const [sysInitUser, setSysInitUser] = useState<SysInitProfile>(() => {
+    try {
+      const saved = sessionStorage.getItem("lojista-sysinit-user");
+      if (saved) return JSON.parse(saved);
+      const savedEmail = localStorage.getItem("lojista_sysinit_remember_profile");
+      const found = SYS_INIT_PROFILES.find(p => p.email === savedEmail);
+      if (found) return found;
+    } catch {}
+    return SYS_INIT_PROFILES[0];
+  });
 
   // ── Create Form step ──────────────────────────────────────────────────
   const [tenantName, setTenantName] = useState("");
@@ -328,9 +337,9 @@ export default function SysInitPage() {
         if (res.data.user.role === 'operator') {
           navigate('/');
         } else if (res.data.user.role === 'stockist') {
-          navigate('/dashboard/inventory');
+          navigate('/estoque');
         } else {
-          navigate('/dashboard');
+          navigate('/inicio');
         }
       }
     } catch (err: any) {
@@ -364,6 +373,7 @@ export default function SysInitPage() {
     try {
       sessionStorage.removeItem('lojista-sysinit-pin');
       sessionStorage.removeItem('7bar_sysinit_pin');
+      sessionStorage.removeItem('lojista-sysinit-user');
     } catch {}
     setPinDigits([]);
     setStep('pin');
@@ -520,17 +530,20 @@ export default function SysInitPage() {
 
   const triggerShake = () => { setPinShake(true); setTimeout(() => setPinShake(false), 600); };
 
-  const handleValidatePin = async () => {
+  const handleValidatePin = async (profile?: SysInitProfile) => {
+    if (profile) {
+      setSysInitUser(profile);
+    }
     const pin = pinDigits.join("").trim();
-    if (pin.length < 4) { setpinError("Digite o PIN completo."); triggerShake(); return; }
+    if (pin.length < 4) { setpinError("Digite a senha completa."); triggerShake(); return; }
     setPinLoading(true); setpinError("");
     try {
       await api.post("/tenants/setup/validate-pin", { pin });
       try { sessionStorage.setItem('lojista-sysinit-pin', pin); } catch {}
       setStep("list");
     } catch {
-      setpinError("PIN incorreto. Acesso negado."); triggerShake();
-      setPinDigits([]); pinRefs.current[0]?.focus();
+      setpinError("Credenciais inválidas. Acesso negado."); triggerShake();
+      setPinDigits([]);
     } finally {
       setPinLoading(false);
     }
@@ -984,57 +997,16 @@ export default function SysInitPage() {
       </div>
 
       <div className="relative z-10 w-full min-w-0 flex-1 flex flex-col">
-        {/* — PIN STEP — */}
+        {/* — PIN STEP (Login Teltech Ledger) — */}
         {step === "pin" && (
-          <div className={`transition-all duration-300 max-w-md mx-auto mt-20 ${pinShake ? "animate-[shake_0.4s_ease]" : ""}`}>
-            <div className="p-8 rounded-3xl bg-page/70 backdrop-blur-xl border border-line shadow-2xl">
-              <div className="flex flex-col items-center mb-8">
-                <div className="w-16 h-16 rounded-2xl bg-support border border-brand flex items-center justify-center mb-4 shadow-lg shadow-line">
-                  <ShieldCheck size={30} className="text-brand" />
-                </div>
-                <h1 className="text-2xl font-bold tracking-tight">Painel Central</h1>
-                <p className="text-muted text-sm mt-2 text-center">
-                  Digite o PIN de administração para acessar o gerenciador de Tenants
-                </p>
-              </div>
-              <div className="mb-6">
-                <div className="relative flex items-center">
-                  <LockKeyhole size={18} className="absolute left-4 text-brand pointer-events-none" />
-                  <input
-                    ref={(el) => { pinRefs.current[0] = el; }}
-                    type={showPin ? "text" : "password"}
-                    value={pinDigits.join("")}
-                    onChange={(e) => setPinValue(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") handleValidatePin(); }}
-                    placeholder="Digite a senha do Sys-Init"
-                    aria-label="Senha do Sys-Init"
-                    className="w-full h-12 pl-11 pr-11 text-base font-semibold rounded-xl border-2 bg-support border-brand text-ink placeholder:text-muted transition-all outline-none focus:border-brand focus:ring-2 focus:ring-brand"
-                    autoFocus
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPin((v) => !v)}
-                    aria-label={showPin ? "Ocultar senha" : "Mostrar senha"}
-                    className="absolute right-3 p-1.5 rounded-lg text-brand hover:bg-page transition-colors"
-                  >
-                    {showPin ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
-                </div>
-              </div>
-              {pinError && (
-                <div className="flex items-center gap-2 text-brand text-sm mb-4 bg-support border border-brand rounded-xl px-4 py-3">
-                  <AlertCircle size={16} /> {pinError}
-                </div>
-              )}
-              <button
-                onClick={handleValidatePin}
-                disabled={pinLoading}
-                className="w-full bg-brand hover:bg-brand disabled:opacity-60 text-on-brand font-semibold py-3 px-4 rounded-xl transition-all shadow-lg shadow-line active:scale-95 flex justify-center items-center gap-2 hover:text-on-brand"
-              >
-                {pinLoading ? <Loader2 className="animate-spin" size={20} /> : <>Acessar Painel <ArrowRight size={18} /></>}
-              </button>
-            </div>
-          </div>
+          <SysInitLogin
+            password={pinDigits.join("")}
+            onPasswordChange={setPinValue}
+            onSubmit={handleValidatePin}
+            loading={pinLoading}
+            error={pinError}
+            shake={pinShake}
+          />
         )}
 
         {/* — LIST STEP — */}
@@ -1065,7 +1037,15 @@ export default function SysInitPage() {
                     : 'Sincronize bases, clientes e faturas com a plataforma financeira Teltech Leadger (Webhook v1).'}
                 </p>
               </div>
-              <div className="flex flex-wrap gap-2.5">
+              <div className="flex flex-wrap items-center gap-2.5">
+                {sysInitUser && (
+                  <div className="flex h-11 shrink-0 items-center gap-2 rounded-xl border border-line bg-surface px-3 text-xs">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand text-[10px] font-bold text-on-brand">
+                      {sysInitUser.initials}
+                    </span>
+                    <span className="font-bold text-ink">{sysInitUser.name}</span>
+                  </div>
+                )}
                 <button
                   onClick={handleLockSession}
                   className="flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl border border-line bg-surface px-3.5 text-xs font-bold text-muted hover:bg-support hover:text-brand transition"

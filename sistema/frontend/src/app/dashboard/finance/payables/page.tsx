@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { Plus, Search, CheckCircle2, AlertCircle, Calendar, Banknote } from 'lucide-react';
@@ -33,10 +34,18 @@ export default function PayablesPage() {
   const [stats, setStats] = useState<any>(null);
 
   // Filters
+  const { tab } = useParams<{ tab?: string }>();
+  const navigate = useNavigate();
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState<'FIXED' | 'VARIABLE'>('FIXED');
+  const resolvedTab: 'FIXED' | 'VARIABLE' =
+    tab === 'variaveis' ? 'VARIABLE' : 'FIXED';
+  const [activeTab, setActiveTab] = useState<'FIXED' | 'VARIABLE'>(resolvedTab);
+
+  useEffect(() => {
+    setActiveTab(resolvedTab);
+  }, [resolvedTab]);
 
   const fetchPayables = useCallback(async (signal?: AbortSignal) => {
     if (!mounted.current) return;
@@ -174,13 +183,19 @@ export default function PayablesPage() {
       <div className="bg-page border border-line rounded-2xl overflow-hidden shadow-xl">
         <div className="flex bg-page/80 p-1 border-b border-line">
           <button 
-            onClick={() => setActiveTab('FIXED')}
+            onClick={() => {
+              setActiveTab('FIXED');
+              navigate('/financeiro/contas-a-pagar/fixas');
+            }}
             className={`flex-1 py-3 text-sm font-bold text-center rounded-xl transition ${activeTab === 'FIXED' ? 'bg-surface text-ink shadow' : 'text-muted hover:text-muted hover:bg-page/50'}`}
           >
             Contas Fixas (Mensais)
           </button>
           <button 
-            onClick={() => setActiveTab('VARIABLE')}
+            onClick={() => {
+              setActiveTab('VARIABLE');
+              navigate('/financeiro/contas-a-pagar/variaveis');
+            }}
             className={`flex-1 py-3 text-sm font-bold text-center rounded-xl transition ${activeTab === 'VARIABLE' ? 'bg-surface text-ink shadow' : 'text-muted hover:text-muted hover:bg-page/50'}`}
           >
             Contas Variáveis (Boletos/Avulsas)

@@ -1,5 +1,16 @@
 # Histórico — PDV Lojista
 
+## 2026-11-01 — Correção de Concorrência, Auto-DDL de Schema e Cards KPI no Módulo de Crediário (`/crediario`)
+
+- **Auto-DDL Idempotente em Bloco PL/pgSQL (`backend/src/prisma/tenant-prisma.service.ts`)**:
+  - Substituída a execução múltipla de `ALTER TABLE` separada por `;` (que falhava silenciosamente no protocolo *extended query* do PostgreSQL) por um bloco único `DO $crediario_schema$ BEGIN ... END $crediario_schema$;` em `ensureTenantRuntimeSchema`, garantindo de forma idempotente as colunas de `customers`/`categories` e as 5 tabelas do módulo (`customer_receivables`, `customer_receivable_payments`, `crediario_settings`, `whatsapp_auth_states` e `crediario_notification_logs`), índices, chaves estrangeiras e o registro padrão `'singleton'` (`ON CONFLICT DO NOTHING`).
+- **Eliminação de Race Condition (`P2002`) e Recuperação Automática (`backend/src/crediario/crediario.service.ts`, `crediario-cron.service.ts`, `whatsapp-baileys.service.ts` e `crediario.controller.ts`)**:
+  - Corrigida a condição de corrida em `getOrCreateSettings()` quando `/crediario/overview` e `/crediario/customers` eram chamados em paralelo no primeiro acesso (que disparava `P2002 Unique constraint failed on the fields: (id)` no `upsert` concorrente de `'singleton'`, gerando `500 Internal server error` em uma das chamadas).
+  - Adicionado `runWithSchemaRecovery` nos métodos do `CrediarioService` para auto-reparo transparente caso um banco de tenant ainda não tenha recebido todas as tabelas.
+- **Estilização dos Indicadores KPI e Busca sem Perda de Foco (`frontend/src/retail/retail.css` e `frontend/src/retail/RetailCrediarioPage.tsx`)**:
+  - Adicionadas as classes `.retail-kpis` e `.retail-kpi` em `retail.css` seguindo a paleta roxa, branca e neutra aprovada.
+  - Desacoplados os `useEffect` de busca de clientes e parcelas do carregamento inicial em `RetailCrediarioPage.tsx`, evitando desmontar o campo de busca a cada tecla digitada.
+
 ## 2026-11-01 — Biblioteca Completa de Ícones de Categorias + Ícones Bônus + Seletor com Preview ao Vivo
 
 - **Biblioteca Vetorial de 28 Ícones (`frontend/src/components/CategoryIcons.tsx`)**:

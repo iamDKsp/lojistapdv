@@ -5489,6 +5489,58 @@ textarea:focus-visible {
 }
 
 /* ── Módulo de Clientes e Inteligência Comercial (CRM Lojista) ─────────────── */
+.retail-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 16px;
+}
+
+.retail-dialog .retail-kpis {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.retail-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 18px 20px;
+  border: 1px solid var(--pdv-border);
+  border-radius: 12px;
+  background: var(--pdv-white);
+  min-width: 0;
+}
+
+.retail-kpi > span {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--pdv-text-secondary);
+}
+
+.retail-kpi > strong {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--pdv-text);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.retail-dialog .retail-kpi {
+  padding: 14px 16px;
+  background: var(--pdv-background);
+}
+
+.retail-dialog .retail-kpi > strong {
+  font-size: 19px;
+}
+
+.retail-kpi > small {
+  font-size: 12.5px;
+  color: var(--pdv-text-secondary);
+  line-height: 1.35;
+}
+
 .retail-customers-kpi-grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   margin-bottom: 18px;

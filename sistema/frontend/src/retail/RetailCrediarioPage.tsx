@@ -124,6 +124,7 @@ export function RetailCrediarioPage() {
       setOverview(res.data);
       setWhatsappState(res.data.whatsapp);
       setSettingsForm((prev: any) => prev || res.data.settings);
+      setError("");
     } catch (err) {
       setError(apiError(err));
     }
@@ -173,26 +174,32 @@ export function RetailCrediarioPage() {
 
   useEffect(() => {
     let active = true;
-    setLoading(true);
     setError("");
-    const tasks: Promise<any>[] = [loadOverview()];
-    if (activeSection === "customers") tasks.push(loadCustomers());
-    if (activeSection === "receivables") tasks.push(loadReceivables());
-    if (activeSection === "whatsapp") tasks.push(loadWhatsappAndSettings());
-
-    Promise.all(tasks).finally(() => {
+    void loadOverview().finally(() => {
       if (active) setLoading(false);
     });
     return () => {
       active = false;
     };
-  }, [
-    activeSection,
-    loadOverview,
-    loadCustomers,
-    loadReceivables,
-    loadWhatsappAndSettings,
-  ]);
+  }, [activeSection, loadOverview]);
+
+  useEffect(() => {
+    if (activeSection === "customers") {
+      void loadCustomers();
+    }
+  }, [activeSection, loadCustomers]);
+
+  useEffect(() => {
+    if (activeSection === "receivables") {
+      void loadReceivables();
+    }
+  }, [activeSection, loadReceivables]);
+
+  useEffect(() => {
+    if (activeSection === "whatsapp") {
+      void loadWhatsappAndSettings();
+    }
+  }, [activeSection, loadWhatsappAndSettings]);
 
   // Auto-polling do status do WhatsApp enquanto estiver aguardando leitura do QR Code ou reconectando
   useEffect(() => {

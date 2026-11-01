@@ -122,11 +122,22 @@ export class WhatsappBaileysService implements OnModuleDestroy {
 
     const writeData = async (id: string, value: any) => {
       const serialized = JSON.stringify(value, BufferJSON.replacer);
-      await prisma.whatsappAuthState.upsert({
-        where: { id },
-        update: { data: serialized },
-        create: { id, data: serialized },
-      });
+      try {
+        await prisma.whatsappAuthState.upsert({
+          where: { id },
+          update: { data: serialized },
+          create: { id, data: serialized },
+        });
+      } catch (err: any) {
+        if (err?.code === 'P2002') {
+          await prisma.whatsappAuthState.update({
+            where: { id },
+            data: { data: serialized },
+          });
+          return;
+        }
+        throw err;
+      }
     };
 
     const removeData = async (id: string) => {

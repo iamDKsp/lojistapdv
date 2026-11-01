@@ -16,7 +16,9 @@ import { CrediarioService } from './crediario.service';
 import { CrediarioCronService } from './crediario-cron.service';
 
 function requireRole(req: any, roles: string[]) {
-  if (!roles.includes(req.user?.role)) {
+  const userRole = String(req.user?.role || '').toLowerCase();
+  const normalizedAllowed = roles.map((r) => r.toLowerCase());
+  if (!normalizedAllowed.includes(userRole)) {
     throw new ForbiddenException(
       'Seu perfil não tem permissão para esta operação.',
     );
@@ -34,7 +36,7 @@ export class CrediarioController {
 
   @Get('overview')
   getOverview(@Request() req: any) {
-    requireRole(req, ['admin', 'superadmin', 'manager']);
+    requireRole(req, ['admin', 'superadmin', 'manager', 'operator']);
     return this.crediarioService.getOverview();
   }
 

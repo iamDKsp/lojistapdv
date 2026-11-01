@@ -105,14 +105,30 @@ export class CrediarioCronService {
       databaseUrl,
     );
 
-    const settings = await prisma.crediarioSettings.upsert({
+    let settings = await prisma.crediarioSettings.findUnique({
       where: { id: 'singleton' },
-      update: {},
-      create: {
-        id: 'singleton',
-        ...DEFAULT_CREDIARIO_TEMPLATES,
-      },
     });
+    if (!settings) {
+      try {
+        settings = await prisma.crediarioSettings.create({
+          data: {
+            id: 'singleton',
+            ...DEFAULT_CREDIARIO_TEMPLATES,
+          },
+        });
+      } catch (err: any) {
+        if (err?.code === 'P2002') {
+          settings = await prisma.crediarioSettings.findUnique({
+            where: { id: 'singleton' },
+          });
+        } else {
+          throw err;
+        }
+      }
+    }
+    if (!settings) {
+      return { evaluated: 0, sent: 0, failed: 0, skippedAlreadySent: 0 };
+    }
 
     if (!settings.enabled || !settings.whatsappAutoBilling) {
       return { evaluated: 0, sent: 0, failed: 0, skippedAlreadySent: 0 };

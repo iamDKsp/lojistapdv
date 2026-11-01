@@ -101,8 +101,19 @@ export class CrediarioService {
     return { storeName, tenant };
   }
 
+  private isSchemaError(error: any): boolean {
+    if (['P2021', 'P2022', 'P2010'].includes(error?.code)) return true;
+    const msg = String(error?.message || '').toLowerCase();
+    return (
+      msg.includes('does not exist') ||
+      msg.includes('unknown field') ||
+      msg.includes('unknown column') ||
+      ['42P01', '42703'].includes(String(error?.meta?.code || ''))
+    );
+  }
+
   private handleSchemaError(error: any): never {
-    if (['P2021', 'P2022'].includes(error?.code)) {
+    if (this.isSchemaError(error)) {
       throw new BadRequestException(
         'O banco de dados desta loja ainda não possui as tabelas do Módulo de Crediário. Acesse /sys-init, selecione a loja e clique em "Atualizar Bancos".',
       );
@@ -110,20 +121,51 @@ export class CrediarioService {
     throw error;
   }
 
-  async getOrCreateSettings(prismaClient?: any) {
-    const prisma = prismaClient || (await this.getPrisma());
+  private async runWithSchemaRecovery<T>(
+    prisma: any,
+    fn: () => Promise<T>,
+  ): Promise<T> {
     try {
-      return await prisma.crediarioSettings.upsert({
-        where: { id: 'singleton' },
-        update: {},
-        create: {
-          id: 'singleton',
-          ...DEFAULT_CREDIARIO_TEMPLATES,
-        },
-      });
+      return await fn();
     } catch (error: any) {
+      if (this.isSchemaError(error) && typeof prisma?.$executeRawUnsafe === 'function') {
+        try {
+          const { tenantId } = this.tenantContext.get();
+          await this.tenantManager.ensureTenantRuntimeSchema(prisma, tenantId);
+          return await fn();
+        } catch (retryErr: any) {
+          this.handleSchemaError(retryErr);
+        }
+      }
       this.handleSchemaError(error);
     }
+  }
+
+  async getOrCreateSettings(prismaClient?: any) {
+    const prisma = prismaClient || (await this.getPrisma());
+    return this.runWithSchemaRecovery(prisma, async () => {
+      const existing = await prisma.crediarioSettings.findUnique({
+        where: { id: 'singleton' },
+      });
+      if (existing) return existing;
+
+      try {
+        return await prisma.crediarioSettings.create({
+          data: {
+            id: 'singleton',
+            ...DEFAULT_CREDIARIO_TEMPLATES,
+          },
+        });
+      } catch (createErr: any) {
+        if (createErr?.code === 'P2002') {
+          const afterRace = await prisma.crediarioSettings.findUnique({
+            where: { id: 'singleton' },
+          });
+          if (afterRace) return afterRace;
+        }
+        throw createErr;
+      }
+    });
   }
 
   async getSettings() {
@@ -243,17 +285,19 @@ export class CrediarioService {
       data.templateOnPayment = body.templateOnPayment.trim();
     }
 
-    return prisma.crediarioSettings.update({
-      where: { id: 'singleton' },
-      data,
-    });
+    return this.runWithSchemaRecovery(prisma, () =>
+      prisma.crediarioSettings.update({
+        where: { id: 'singleton' },
+        data,
+      }),
+    );
   }
 
   async getOverview() {
     await this.requireModuleEnabled();
     const { tenantId, databaseUrl } = this.tenantContext.get();
     const prisma = await this.getPrisma();
-    try {
+    return this.runWithSchemaRecovery(prisma, async () => {
       const settings = await this.getOrCreateSettings(prisma);
       const whatsapp = await this.whatsappService.getStatus(
         tenantId,
@@ -298,7 +342,7 @@ export class CrediarioService {
         totalOpenCents += remCents;
         customersWithDebt.add(r.customerId);
 
-        const dueIso = r.dueDate.toISOString().slice(0, 10);
+        const dueIso = new Date(r.dueDate).toISOString().slice(0, 10);
         const diff = diffDaysIso(dueIso, todayIso);
         if (diff < 0) {
           totalOverdueCents += remCents;
@@ -323,9 +367,7 @@ export class CrediarioService {
         },
         recentLogs,
       };
-    } catch (error: any) {
-      this.handleSchemaError(error);
-    }
+    });
   }
 
   private computeCustomerCreditMetrics(
@@ -399,7 +441,7 @@ export class CrediarioService {
   async listCustomers(query?: { search?: string; filter?: string }) {
     await this.requireModuleEnabled();
     const prisma = await this.getPrisma();
-    try {
+    return this.runWithSchemaRecovery(prisma, async () => {
       const settings = await this.getOrCreateSettings(prisma);
       const todayIso = todayIsoSaoPaulo();
       const search = query?.search?.trim();
@@ -448,15 +490,13 @@ export class CrediarioService {
         return enriched.filter((c) => c.creditBlocked);
       }
       return enriched;
-    } catch (error: any) {
-      this.handleSchemaError(error);
-    }
+    });
   }
 
   async getCustomerAccount(customerId: string) {
     await this.requireModuleEnabled();
     const prisma = await this.getPrisma();
-    try {
+    return this.runWithSchemaRecovery(prisma, async () => {
       const settings = await this.getOrCreateSettings(prisma);
       const todayIso = todayIsoSaoPaulo();
 
@@ -537,15 +577,13 @@ export class CrediarioService {
         payments: customer.receivablePayments,
         logs: customer.crediarioLogs,
       };
-    } catch (error: any) {
-      this.handleSchemaError(error);
-    }
+    });
   }
 
   async updateCustomerCredit(customerId: string, body: any) {
     await this.requireModuleEnabled();
     const prisma = await this.getPrisma();
-    try {
+    return this.runWithSchemaRecovery(prisma, async () => {
       const existing = await prisma.customer.findUnique({
         where: { id: customerId },
       });
@@ -600,9 +638,7 @@ export class CrediarioService {
       });
 
       return this.getCustomerAccount(customerId);
-    } catch (error: any) {
-      this.handleSchemaError(error);
-    }
+    });
   }
 
   async listReceivables(query?: {
@@ -612,7 +648,7 @@ export class CrediarioService {
   }) {
     await this.requireModuleEnabled();
     const prisma = await this.getPrisma();
-    try {
+    return this.runWithSchemaRecovery(prisma, async () => {
       const todayIso = todayIsoSaoPaulo();
       const where: any = {};
 
@@ -683,9 +719,7 @@ export class CrediarioService {
           }
           return true;
         });
-    } catch (error: any) {
-      this.handleSchemaError(error);
-    }
+    });
   }
 
   /**
@@ -1279,7 +1313,7 @@ export class CrediarioService {
 
     const settings = await this.getOrCreateSettings(prisma);
     const todayIso = todayIsoSaoPaulo();
-    const dueIso = receivable.dueDate.toISOString().slice(0, 10);
+    const dueIso = new Date(receivable.dueDate).toISOString().slice(0, 10);
     const daysDiff = diffDaysIso(dueIso, todayIso);
 
     const remainingAgg = await prisma.customerReceivable.aggregate({
@@ -1363,8 +1397,8 @@ export class CrediarioService {
   async getLogs(limit = 50) {
     await this.requireModuleEnabled();
     const prisma = await this.getPrisma();
-    try {
-      return await prisma.crediarioNotificationLog.findMany({
+    return this.runWithSchemaRecovery(prisma, () =>
+      prisma.crediarioNotificationLog.findMany({
         orderBy: { createdAt: 'desc' },
         take: Math.min(200, Math.max(1, Number(limit) || 50)),
         include: {
@@ -1379,10 +1413,8 @@ export class CrediarioService {
             },
           },
         },
-      });
-    } catch (error: any) {
-      this.handleSchemaError(error);
-    }
+      }),
+    );
   }
 
   async getWhatsappStatus() {

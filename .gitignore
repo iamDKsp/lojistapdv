@@ -1,0 +1,15 @@
+node_modules/
+dist/
+dev-dist/
+*.tsbuildinfo
+*.log
+.env
+.env.local
+.local/
+coverage/
+sistema/backend/src/generated/
+sistema/backend/prisma/generated/
+sistema/backend/uploads/
+sistema/backups/
+sistema/frontend/test-results/
+sistema/frontend/playwright-report/

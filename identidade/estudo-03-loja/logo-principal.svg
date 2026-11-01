@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="416" height="144" viewBox="0 0 416 144" role="img" aria-label="PDV Lojista: L com fachada de loja"><g transform="translate(8 8) scale(2)"><rect width="64" height="64" rx="16" fill="#C2410C"/><path d="M16 15H26V39H48V49H16Z" fill="#FFFFFF"/><g transform="translate(30 12) scale(.96)">
+ <path d="M3 12H21V23H3Z" fill="#FFFFFF"/>
+ <path d="M6 23V16Q6 15 7 15H10Q11 15 11 16V23Z" fill="#C2410C"/>
+ <rect x="14" y="15" width="4" height="5" rx=".7" fill="#C2410C"/>
+ <path d="M4 2H9L8 9C7.5 12 0 12 1 9Z M10 2H14L15 9C16 12 8 12 9 9Z M15 2H20L23 9C24 12 16.5 12 16 9Z" fill="#FFFFFF"/>
+ </g></g><text x="163" y="50" font-family="Segoe UI,Arial,sans-serif" font-size="25" font-weight="600" letter-spacing="5" fill="#272321">PDV</text><text x="159" y="113" font-family="Segoe UI,Arial,sans-serif" font-size="65" font-weight="600" letter-spacing="-2" fill="#272321">lojista</text></svg>

@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1000" viewBox="0 0 1200 1000">
+<rect width="1200" height="1000" fill="#FAF7F2"/>
+<g font-family="Segoe UI,Arial,sans-serif" fill="#272321">
+<text x="56" y="48" font-size="15" font-weight="600" letter-spacing="2">PDV LOJISTA / PRIMEIRO ESTUDO</text>
+<text x="1144" y="48" font-size="14" text-anchor="end">DIREÇÃO: SIMPLES E CONFIÁVEL</text>
+<svg x="56" y="110" width="640" height="144" viewBox="0 0 640 144"><g transform="translate(8 8) scale(2)"><rect width="64" height="64" rx="16" fill="#C2410C"/><path d="M16 15H26V39H48V49H16Z" fill="#FFFFFF"/><rect x="34" y="15" width="14" height="15" rx="3" fill="#FFFFFF"/></g><text x="163" y="50" font-family="Segoe UI,Arial,sans-serif" font-size="25" font-weight="600" letter-spacing="5" fill="#272321">PDV</text><text x="159" y="113" font-family="Segoe UI,Arial,sans-serif" font-size="65" font-weight="600" letter-spacing="-2" fill="#272321">lojista</text></svg>
+<text x="62" y="307" font-size="23">Seu balcão. Sua loja. Tudo em dia.</text>
+<text x="62" y="339" font-size="15" fill="#625951">Assinatura em estudo · nome e símbolo sujeitos a refinamento</text>
+<rect x="824" y="105" width="320" height="238" rx="16" fill="#272321"/>
+<svg x="859" y="174" width="250" height="57" viewBox="0 0 640 144"><g transform="translate(8 8) scale(2)"><rect width="64" height="64" rx="16" fill="#C2410C"/><path d="M16 15H26V39H48V49H16Z" fill="#FFFFFF"/><rect x="34" y="15" width="14" height="15" rx="3" fill="#FFFFFF"/></g><text x="163" y="50" font-family="Segoe UI,Arial,sans-serif" font-size="25" font-weight="600" letter-spacing="5" fill="#FFFFFF">PDV</text><text x="159" y="113" font-family="Segoe UI,Arial,sans-serif" font-size="65" font-weight="600" letter-spacing="-2" fill="#FFFFFF">lojista</text></svg>
+<text x="56" y="406" font-size="14" font-weight="600" letter-spacing="1.5">PALETA DE BASE</text>
+<rect x="56" y="430" width="260" height="70" rx="9" fill="#C2410C" stroke="#C2410C"/><text x="56" y="527" font-size="15" font-weight="600">Principal</text><text x="56" y="550" font-size="14">#C2410C</text><rect x="332" y="430" width="260" height="70" rx="9" fill="#272321" stroke="#272321"/><text x="332" y="527" font-size="15" font-weight="600">Texto</text><text x="332" y="550" font-size="14">#272321</text><rect x="608" y="430" width="260" height="70" rx="9" fill="#FAF7F2" stroke="#E4DDD5"/><text x="608" y="527" font-size="15" font-weight="600">Fundo</text><text x="608" y="550" font-size="14">#FAF7F2</text><rect x="884" y="430" width="260" height="70" rx="9" fill="#FFEDD5" stroke="#FFEDD5"/><text x="884" y="527" font-size="15" font-weight="600">Apoio</text><text x="884" y="550" font-size="14">#FFEDD5</text>
+<text x="56" y="614" font-size="14" font-weight="600" letter-spacing="1.5">APLICAÇÃO NO CAIXA / EXEMPLO VISUAL</text>
+<rect x="56" y="638" width="700" height="302" rx="14" fill="#FFFFFF" stroke="#E4DDD5"/>
+<text x="82" y="678" font-size="19" font-weight="600">Nova venda</text>
+<text x="730" y="678" font-size="14" text-anchor="end" fill="#625951">Caixa 01</text>
+<path d="M82 698H730" stroke="#E4DDD5"/>
+<text x="82" y="733" font-size="16">Camiseta básica · M</text><text x="730" y="733" font-size="16" text-anchor="end">R$ 49,90</text>
+<text x="82" y="769" font-size="16">Boné</text><text x="730" y="769" font-size="16" text-anchor="end">R$ 39,90</text>
+<text x="82" y="821" font-size="17">Total</text><text x="730" y="825" font-size="30" font-weight="600" text-anchor="end">R$ 89,80</text>
+<rect x="82" y="850" width="648" height="62" rx="9" fill="#C2410C"/>
+<text x="406" y="889" font-size="19" text-anchor="middle" font-weight="600" fill="#FFFFFF">Finalizar venda · F2</text>
+<text x="800" y="614" font-size="14" font-weight="600" letter-spacing="1.5">SÍMBOLO / FAVICON</text>
+<g transform="translate(800 650) scale(1.5)"><rect width="64" height="64" rx="16" fill="#C2410C"/><path d="M16 15H26V39H48V49H16Z" fill="#FFFFFF"/><rect x="34" y="15" width="14" height="15" rx="3" fill="#FFFFFF"/></g>
+<g transform="translate(938 705) scale(.5)"><rect width="64" height="64" rx="16" fill="#C2410C"/><path d="M16 15H26V39H48V49H16Z" fill="#FFFFFF"/><rect x="34" y="15" width="14" height="15" rx="3" fill="#FFFFFF"/></g>
+<g transform="translate(1006 721) scale(.25)"><rect width="64" height="64" rx="16" fill="#C2410C"/><path d="M16 15H26V39H48V49H16Z" fill="#FFFFFF"/><rect x="34" y="15" width="14" height="15" rx="3" fill="#FFFFFF"/></g>
+<text x="800" y="776" font-size="14">96 px</text><text x="938" y="776" font-size="14">32 px</text><text x="1006" y="776" font-size="14">16 px</text>
+<text x="800" y="832" font-size="17" font-weight="600">L + módulo de produto</text>
+<text x="800" y="861" font-size="15">Forma simples, sem detalhes finos.</text>
+<text x="800" y="886" font-size="15">Tipografia: Segoe UI.</text>
+<text x="800" y="911" font-size="15">Cor concentrada nas ações principais.</text>
+</g></svg>

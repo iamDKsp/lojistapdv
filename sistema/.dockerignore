@@ -1,0 +1,15 @@
+**/node_modules
+**/dist
+**/coverage
+backend/src/generated
+/backend/backups
+!backend/src/backups/
+!backend/src/backups/**
+.git
+.gitignore
+*.log
+**/.env
+**/.env.*
+!**/.env.example
+.local-demo-db.json
+scripts/demo-local.cjs

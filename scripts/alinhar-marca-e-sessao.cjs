@@ -1,0 +1,3 @@
+const fs=require('fs');const path=require('path');const root=path.resolve(__dirname,'../sistema/frontend/src');
+function walk(dir){for(const entry of fs.readdirSync(dir,{withFileTypes:true})){const p=path.join(dir,entry.name);if(entry.isDirectory())walk(p);else if(/\.(tsx?|css)$/.test(p)){const source=fs.readFileSync(p,'utf8');let s=source.replaceAll('7bar-cart-v2','lojista-cart-v1').replaceAll('7bar-auth','lojista-auth').replaceAll('Backups_7bar_','Backups_Lojista_').replaceAll('telemetria-7bar-','telemetria-lojista-').replaceAll('Ex: 7Bar','Ex: Minha Loja').replaceAll('O sistema 7Bar','O sistema PDV Lojista');if(s!==source)fs.writeFileSync(p,s);}}}walk(root);
+console.log('Referências de sessão da versão anterior alinhadas ao produto lojista.');

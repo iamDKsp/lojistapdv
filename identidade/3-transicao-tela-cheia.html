@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PDV Lojista — 3. Transição de Tela Cheia (Canvas Motion)</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #F8F7FC;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.25s ease;
+    }
+    body.dark { background: #13111C; }
+    canvas { width: 100%; height: 100%; display: block; }
+    .toolbar {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 10;
+      display: flex;
+      gap: 8px;
+      background: rgba(255,255,255,0.9);
+      backdrop-filter: blur(8px);
+      padding: 8px 12px;
+      border-radius: 12px;
+      border: 1px solid #E5E1ED;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+    }
+    .toolbar button {
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 8px;
+      border: 1px solid #E5E1ED;
+      background: #FFFFFF;
+      color: #272321;
+      cursor: pointer;
+    }
+    .toolbar button:hover { border-color: #7C3AED; color: #7C3AED; }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  <div class="toolbar">
+    <button id="btnBg">Alternar Fundo (Claro/Escuro)</button>
+    <button id="btnExport">Exportar WebM</button>
+  </div>
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const PATH_L = new Path2D('M16 15H26V39H48V49H16Z');
+    const PATH_STORE_WALL = new Path2D(
+      'M3 12H21V23H3Z M6 23V16Q6 15 7 15H10Q11 15 11 16V23Z M14.7 15H17.3Q18 15 18 15.7V19.3Q18 20 17.3 20H14.7Q14 20 14 19.3V15.7Q14 15 14.7 15Z'
+    );
+    const AWNING = [
+      new Path2D('M4 2H9L8 9C7.5 12 0 12 1 9Z'),
+      new Path2D('M10 2H14L15 9C16 12 8 12 9 9Z'),
+      new Path2D('M15 2H20L23 9C24 12 16.5 12 16 9Z')
+    ];
+
+    const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
+    const norm = (v, a, b) => clamp((v - a) / (b - a));
+    const easeOutCubic = x => 1 - Math.pow(1 - x, 3);
+    const easeInCubic = x => x * x * x;
+    const easeInOutCubic = x => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+    const easeOutBack = (x, s = 1.45) => 1 + (s + 1) * Math.pow(x - 1, 3) + s * Math.pow(x - 1, 2);
+
+    function resize() {
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = window.innerWidth * dpr;
+      canvas.height = window.innerHeight * dpr;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    let progress = 0, last = performance.now();
+
+    function render(now) {
+      const dt = (now - last) / 1000;
+      last = now;
+      progress = (progress + dt / 2.4) % 1;
+      const t = progress;
+
+      const dpr = window.devicePixelRatio || 1;
+      const w = canvas.width / dpr, h = canvas.height / dpr;
+      ctx.save();
+      ctx.scale(dpr, dpr);
+      ctx.clearRect(0, 0, w, h);
+
+      let bgScale = 1, bgAlpha = 1, bgRadius = 16;
+      let lS = { x: 0, scaleX: 1, scaleY: 1, alpha: 1 };
+      let sS = { x: 0, scaleX: 1, scaleY: 1, alpha: 1, phase: 0, amp: 0 };
+
+      const maxExpandScale = Math.ceil(Math.hypot(w, h) / 96) + 4;
+
+      if (t < 0.30) {
+        bgScale = easeOutBack(norm(t, 0, 0.22), 1.4);
+        const pL = norm(t, 0.05, 0.27);
+        lS.x = (1 - easeOutBack(pL, 1.35)) * -58;
+        lS.alpha = easeOutCubic(norm(t, 0.05, 0.14));
+        const pS = norm(t, 0.09, 0.30);
+        sS.x = (1 - easeOutBack(pS, 1.35)) * 58;
+        sS.alpha = easeOutCubic(norm(t, 0.09, 0.18));
+        sS.phase = pS * Math.PI * 3;
+        sS.amp = (1 - pS) * 2.2;
+      } else if (t < 0.55) {
+        bgScale = 1 + Math.sin(norm(t, 0.30, 0.55) * Math.PI) * 0.04;
+      } else if (t < 0.85) {
+        const pE = norm(t, 0.55, 0.82);
+        bgScale = pE < 0.2
+          ? 1 - easeInOutCubic(pE / 0.2) * 0.1
+          : 0.9 + Math.pow((pE - 0.2) / 0.8, 2.5) * maxExpandScale;
+        bgRadius = 16 * (1 - clamp((pE - 0.2) / 0.8));
+        const pF = norm(t, 0.65, 0.79);
+        lS.alpha = 1 - easeInCubic(pF);
+        sS.alpha = 1 - easeInCubic(pF);
+        lS.x = -easeInCubic(pF) * 22;
+        sS.x = easeInCubic(pF) * 22;
+      } else {
+        bgScale = maxExpandScale + 1;
+        bgRadius = 0;
+        bgAlpha = 1 - easeInOutCubic(norm(t, 0.85, 0.98));
+        lS.alpha = 0;
+        sS.alpha = 0;
+      }
+
+      const size = 128, uScale = size / 64;
+      ctx.save();
+      ctx.translate(w / 2 - size / 2, h / 2 - size / 2);
+      ctx.scale(uScale, uScale);
+
+      if (bgScale > 0.001 && bgAlpha > 0.001) {
+        ctx.save();
+        ctx.globalAlpha = bgAlpha;
+        ctx.translate(32, 32);
+        ctx.scale(bgScale, bgScale);
+        ctx.translate(-32, -32);
+
+        ctx.beginPath();
+        ctx.roundRect(0, 0, 64, 64, Math.min(bgRadius, 32));
+        ctx.fillStyle = '#7C3AED';
+        ctx.fill();
+        ctx.clip();
+
+        ctx.translate(32, 32);
+        ctx.scale(1 / bgScale, 1 / bgScale);
+        ctx.translate(-32, -32);
+
+        ctx.fillStyle = '#FFFFFF';
+        if (lS.alpha > 0.001) {
+          ctx.save();
+          ctx.globalAlpha *= lS.alpha;
+          ctx.translate(26 + lS.x, 32);
+          ctx.scale(lS.scaleX, lS.scaleY);
+          ctx.translate(-26, -32);
+          ctx.fill(PATH_L);
+          ctx.restore();
+        }
+        if (sS.alpha > 0.001) {
+          ctx.save();
+          ctx.globalAlpha *= sS.alpha;
+          ctx.translate(30 + sS.x, 12);
+          ctx.scale(0.96 * sS.scaleX, 0.96 * sS.scaleY);
+          ctx.fill(PATH_STORE_WALL, 'evenodd');
+          for (let i = 0; i < 3; i++) {
+            ctx.save();
+            ctx.translate(0, Math.sin(sS.phase - i * 0.65) * sS.amp);
+            ctx.fill(AWNING[i]);
+            ctx.restore();
+          }
+          ctx.restore();
+        }
+        ctx.restore();
+      }
+      ctx.restore();
+      ctx.restore();
+      requestAnimationFrame(render);
+    }
+    requestAnimationFrame(render);
+
+    document.getElementById('btnBg').onclick = () => document.body.classList.toggle('dark');
+    document.getElementById('btnExport').onclick = (e) => {
+      const btn = e.target;
+      const rec = new MediaRecorder(canvas.captureStream(60), { mimeType: 'video/webm;codecs=vp9' });
+      const chunks = [];
+      rec.ondataavailable = ev => chunks.push(ev.data);
+      rec.onstop = () => {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob(chunks, { type: 'video/webm' }));
+        a.download = '3-transicao-tela-cheia.webm';
+        a.click();
+        btn.textContent = 'Exportar WebM';
+      };
+      progress = 0;
+      btn.textContent = 'Gravando...';
+      rec.start();
+      setTimeout(() => rec.stop(), 2400);
+    };
+  </script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+**/node_modules
+**/dist
+**/coverage
+sistema/backend/src/generated
+sistema/backend/backups
+!sistema/backend/src/backups/
+!sistema/backend/src/backups/**
+.git
+.gitignore
+*.log
+**/.env
+**/.env.*
+!**/.env.example
+sistema/.local
+sistema/scripts/demo-local.cjs
+identidade/

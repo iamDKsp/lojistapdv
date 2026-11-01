@@ -1,0 +1,14 @@
+{
+  "product": "PDV Lojista",
+  "direction": "Roxo e branco",
+  "colors": {
+    "primary": "#7C3AED",
+    "primaryHover": "#6D28D9",
+    "white": "#FFFFFF",
+    "background": "#F8F7FC",
+    "support": "#F3E8FF",
+    "text": "#272321",
+    "textSecondary": "#665F70",
+    "border": "#E5E1ED"
+  }
+}

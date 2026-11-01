@@ -1,0 +1,13 @@
+{
+  "whiteOnPrimaryContrast": 5.7,
+  "icons": [
+    16,
+    32,
+    48,
+    64,
+    180,
+    192,
+    512
+  ],
+  "previousStudiesPreserved": true
+}

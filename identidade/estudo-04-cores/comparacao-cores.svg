@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="620" viewBox="0 0 1200 620" role="img" aria-label="A mesma logo PDV Lojista em laranja queimado, laranja vivo e violeta">
+<rect width="1200" height="620" fill="#F6F6F6"/>
+<g font-family="Segoe UI,Arial,sans-serif" fill="#272321">
+<text x="42" y="43" font-size="15" font-weight="600" letter-spacing="2">PDV LOJISTA / COMPARAÇÃO DE CORES</text>
+<text x="42" y="74" font-size="16">Mesmo símbolo, mesma tipografia e mesmos fundos nas três opções.</text>
+<text x="42" y="129" font-size="12" letter-spacing="1.5">COR ATUAL</text>
+ <text x="42" y="161" font-size="23" font-weight="600">Laranja queimado</text>
+ <rect x="42" y="185" width="328" height="169" rx="12" fill="#FFFFFF"/>
+ <g transform="translate(59 216) scale(.7)"><g transform="translate(8 8) scale(2)"><rect width="64" height="64" rx="16" fill="#C2410C"/><path d="M16 15H26V39H48V49H16Z" fill="#FFFFFF"/><g transform="translate(30 12) scale(.96)">
+ <path d="M3 12H21V23H3Z" fill="#FFFFFF"/>
+ <path d="M6 23V16Q6 15 7 15H10Q11 15 11 16V23Z" fill="#C2410C"/>
+ <rect x="14" y="15" width="4" height="5" rx=".7" fill="#C2410C"/>
+ <path d="M4 2H9L8 9C7.5 12 0 12 1 9Z M10 2H14L15 9C16 12 8 12 9 9Z M15 2H20L23 9C24 12 16.5 12 16 9Z" fill="#FFFFFF"/>
+ </g></g><text x="163" y="50" font-family="Segoe UI,Arial,sans-serif" font-size="25" font-weight="600" letter-spacing="5" fill="#272321">PDV</text><text x="159" y="113" font-family="Segoe UI,Arial,sans-serif" font-size="65" font-weight="600" letter-spacing="-2" fill="#272321">lojista</text></g>
+ <rect x="42" y="373" width="328" height="141" rx="12" fill="#272321"/>
+ <g transform="translate(59 393) scale(.7)"><g transform="translate(8 8) scale(2)"><rect width="64" height="64" rx="16" fill="#C2410C"/><path d="M16 15H26V39H48V49H16Z" fill="#FFFFFF"/><g transform="translate(30 12) scale(.96)">
+ <path d="M3 12H21V23H3Z" fill="#FFFFFF"/>
+ <path d="M6 23V16Q6 15 7 15H10Q11 15 11 16V23Z" fill="#C2410C"/>
+ <rect x="14" y="15" width="4" height="5" rx=".7" fill="#C2410C"/>
+ <path d="M4 2H9L8 9C7.5 12 0 12 1 9Z M10 2H14L15 9C16 12 8 12 9 9Z M15 2H20L23 9C24 12 16.5 12 16 9Z" fill="#FFFFFF"/>
+ </g></g><text x="163" y="50" font-family="Segoe UI,Arial,sans-serif" font-size="25" font-weight="600" letter-spacing="5" fill="#FFFFFF">PDV</text><text x="159" y="113" font-family="Segoe UI,Arial,sans-serif" font-size="65" font-weight="600" letter-spacing="-2" fill="#FFFFFF">lojista</text></g>
+ <rect x="42" y="539" width="26" height="26" rx="6" fill="#C2410C"/>
+ <text x="80" y="558" font-size="16" font-weight="600">#C2410C</text>
+ <text x="42" y="590" font-size="15">Mais sóbrio e terroso.</text><text x="436" y="129" font-size="12" letter-spacing="1.5">ALTERNATIVA</text>
+ <text x="436" y="161" font-size="23" font-weight="600">Laranja vivo</text>
+ <rect x="436" y="185" width="328" height="169" rx="12" fill="#FFFFFF"/>
+ <g transform="translate(453 216) scale(.7)"><g transform="translate(8 8) scale(2)"><rect width="64" height="64" rx="16" fill="#EA580C"/><path d="M16 15H26V39H48V49H16Z" fill="#FFFFFF"/><g transform="translate(30 12) scale(.96)">
+ <path d="M3 12H21V23H3Z" fill="#FFFFFF"/>
+ <path d="M6 23V16Q6 15 7 15H10Q11 15 11 16V23Z" fill="#EA580C"/>
+ <rect x="14" y="15" width="4" height="5" rx=".7" fill="#EA580C"/>
+ <path d="M4 2H9L8 9C7.5 12 0 12 1 9Z M10 2H14L15 9C16 12 8 12 9 9Z M15 2H20L23 9C24 12 16.5 12 16 9Z" fill="#FFFFFF"/>
+ </g></g><text x="163" y="50" font-family="Segoe UI,Arial,sans-serif" font-size="25" font-weight="600" letter-spacing="5" fill="#272321">PDV</text><text x="159" y="113" font-family="Segoe UI,Arial,sans-serif" font-size="65" font-weight="600" letter-spacing="-2" fill="#272321">lojista</text></g>
+ <rect x="436" y="373" width="328" height="141" rx="12" fill="#272321"/>
+ <g transform="translate(453 393) scale(.7)"><g transform="translate(8 8) scale(2)"><rect width="64" height="64" rx="16" fill="#EA580C"/><path d="M16 15H26V39H48V49H16Z" fill="#FFFFFF"/><g transform="translate(30 12) scale(.96)">
+ <path d="M3 12H21V23H3Z" fill="#FFFFFF"/>
+ <path d="M6 23V16Q6 15 7 15H10Q11 15 11 16V23Z" fill="#EA580C"/>
+ <rect x="14" y="15" width="4" height="5" rx=".7" fill="#EA580C"/>
+ <path d="M4 2H9L8 9C7.5 12 0 12 1 9Z M10 2H14L15 9C16 12 8 12 9 9Z M15 2H20L23 9C24 12 16.5 12 16 9Z" fill="#FFFFFF"/>
+ </g></g><text x="163" y="50" font-family="Segoe UI,Arial,sans-serif" font-size="25" font-weight="600" letter-spacing="5" fill="#FFFFFF">PDV</text><text x="159" y="113" font-family="Segoe UI,Arial,sans-serif" font-size="65" font-weight="600" letter-spacing="-2" fill="#FFFFFF">lojista</text></g>
+ <rect x="436" y="539" width="26" height="26" rx="6" fill="#EA580C"/>
+ <text x="474" y="558" font-size="16" font-weight="600">#EA580C</text>
+ <text x="436" y="590" font-size="15">Mais luminoso e chamativo.</text><text x="830" y="129" font-size="12" letter-spacing="1.5">ALTERNATIVA</text>
+ <text x="830" y="161" font-size="23" font-weight="600">Violeta</text>
+ <rect x="830" y="185" width="328" height="169" rx="12" fill="#FFFFFF"/>
+ <g transform="translate(847 216) scale(.7)"><g transform="translate(8 8) scale(2)"><rect width="64" height="64" rx="16" fill="#7C3AED"/><path d="M16 15H26V39H48V49H16Z" fill="#FFFFFF"/><g transform="translate(30 12) scale(.96)">
+ <path d="M3 12H21V23H3Z" fill="#FFFFFF"/>
+ <path d="M6 23V16Q6 15 7 15H10Q11 15 11 16V23Z" fill="#7C3AED"/>
+ <rect x="14" y="15" width="4" height="5" rx=".7" fill="#7C3AED"/>
+ <path d="M4 2H9L8 9C7.5 12 0 12 1 9Z M10 2H14L15 9C16 12 8 12 9 9Z M15 2H20L23 9C24 12 16.5 12 16 9Z" fill="#FFFFFF"/>
+ </g></g><text x="163" y="50" font-family="Segoe UI,Arial,sans-serif" font-size="25" font-weight="600" letter-spacing="5" fill="#272321">PDV</text><text x="159" y="113" font-family="Segoe UI,Arial,sans-serif" font-size="65" font-weight="600" letter-spacing="-2" fill="#272321">lojista</text></g>
+ <rect x="830" y="373" width="328" height="141" rx="12" fill="#272321"/>
+ <g transform="translate(847 393) scale(.7)"><g transform="translate(8 8) scale(2)"><rect width="64" height="64" rx="16" fill="#7C3AED"/><path d="M16 15H26V39H48V49H16Z" fill="#FFFFFF"/><g transform="translate(30 12) scale(.96)">
+ <path d="M3 12H21V23H3Z" fill="#FFFFFF"/>
+ <path d="M6 23V16Q6 15 7 15H10Q11 15 11 16V23Z" fill="#7C3AED"/>
+ <rect x="14" y="15" width="4" height="5" rx=".7" fill="#7C3AED"/>
+ <path d="M4 2H9L8 9C7.5 12 0 12 1 9Z M10 2H14L15 9C16 12 8 12 9 9Z M15 2H20L23 9C24 12 16.5 12 16 9Z" fill="#FFFFFF"/>
+ </g></g><text x="163" y="50" font-family="Segoe UI,Arial,sans-serif" font-size="25" font-weight="600" letter-spacing="5" fill="#FFFFFF">PDV</text><text x="159" y="113" font-family="Segoe UI,Arial,sans-serif" font-size="65" font-weight="600" letter-spacing="-2" fill="#FFFFFF">lojista</text></g>
+ <rect x="830" y="539" width="26" height="26" rx="6" fill="#7C3AED"/>
+ <text x="868" y="558" font-size="16" font-weight="600">#7C3AED</text>
+ <text x="830" y="590" font-size="15">Minha preferência para esta marca.</text>
+</g></svg>

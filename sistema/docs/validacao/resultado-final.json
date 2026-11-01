@@ -1,0 +1,35 @@
+{
+  "date": "2026-11-01",
+  "product": "PDV Lojista",
+  "backendBuild": "passed",
+  "compiledModuleImportWithoutStartingServer": "passed",
+  "frontendBuildAndTypecheck": "passed",
+  "prismaSchemaValidationAndLocalClientGeneration": "passed",
+  "backendTests": {
+    "suites": 9,
+    "passed": 81,
+    "command": "npm test -- --runInBand --testPathPatterns=retail|sales-resilience|tenant-schema-upgrade|transaction-retry"
+  },
+  "browser": {
+    "checks": 13,
+    "result": "passed",
+    "mode": "API simulada; dados fictícios; sem banco real",
+    "report": "browser-result.json"
+  },
+  "brandGuard": {
+    "filesChecked": 118,
+    "result": "passed",
+    "unapprovedColors": 0
+  },
+  "originalProjectModified": false,
+  "realDatabaseConnectedOrMigrated": false,
+  "productionDeploymentPerformed": false,
+  "remainingValidation": [
+    "MySQL real e provisionamento/atualização pelo Sys-Init",
+    "Concorrência entre terminais em banco real",
+    "Recebimento por XML com documentos da loja",
+    "Cancelamentos e relatórios de caixa em operação real",
+    "Emissão fiscal e fluxo fiscal de devolução",
+    "Leitor, impressora e operação presencial"
+  ]
+}

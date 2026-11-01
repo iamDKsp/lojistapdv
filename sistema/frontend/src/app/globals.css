@@ -1,0 +1,655 @@
+@import "tailwindcss";
+@import "../brand-tokens.css";
+
+@theme {
+  --color-brand: var(--pdv-primary);
+  --color-brand-hover: var(--pdv-primary-hover);
+  --color-on-brand: var(--pdv-white);
+  --color-page: var(--pdv-background);
+  --color-surface: var(--pdv-white);
+  --color-support: var(--pdv-support);
+  --color-ink: var(--pdv-text);
+  --color-muted: var(--pdv-text-secondary);
+  --color-line: var(--pdv-border);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+html,
+body {
+  background-color: var(--pdv-background);
+  color: var(--pdv-text);
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Transições discretas padronizadas (120-180ms para controles simples) */
+button,
+a,
+input,
+textarea,
+[role="switch"],
+[role="option"],
+[role="tab"] {
+  transition-property: background-color, border-color, color, opacity, box-shadow, transform;
+  transition-duration: 150ms;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+[role="switch"]:focus-visible,
+[role="option"]:focus-visible {
+  outline: 2px solid var(--pdv-primary);
+  outline-offset: 2px;
+}
+
+button:disabled,
+input:disabled,
+textarea:disabled {
+  cursor: not-allowed;
+}
+
+/* ============================================================================
+   SVG Compact Loader (simbolo-animado.svg)
+   ============================================================================ */
+.pdv-svg-badge {
+  transform-origin: 32px 32px;
+  animation: pdvScaleBg 2.4s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+}
+
+.pdv-svg-l {
+  transform-origin: 26px 32px;
+  animation: pdvSlideL 2.4s cubic-bezier(0.34, 1.45, 0.64, 1) infinite;
+}
+
+.pdv-svg-store {
+  animation: pdvSlideStore 2.4s cubic-bezier(0.34, 1.45, 0.64, 1) infinite;
+}
+
+@keyframes pdvScaleBg {
+  0%, 95%, 100% { transform: scale(0); opacity: 0; }
+  8% { opacity: 1; }
+  24%, 68% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.03); opacity: 1; }
+  88% { opacity: 1; }
+}
+
+@keyframes pdvSlideL {
+  0%, 5%, 92%, 100% { transform: translateX(-56px) scaleX(1.15); opacity: 0; }
+  12% { opacity: 1; }
+  28%, 68% { transform: translateX(0px) scaleX(1); opacity: 1; }
+  82% { opacity: 1; }
+  90% { transform: translateX(-56px) scaleX(1.1); opacity: 0; }
+}
+
+@keyframes pdvSlideStore {
+  0%, 9%, 94%, 100% { transform: translate(86px, 12px) scale(0.96); opacity: 0; }
+  16% { opacity: 1; }
+  32%, 68% { transform: translate(30px, 12px) scale(0.96); opacity: 1; }
+  84% { opacity: 1; }
+  92% { transform: translate(86px, 12px) scale(0.96); opacity: 0; }
+}
+
+/* ============================================================================
+   Tooltip do Sistema (Portal)
+   ============================================================================ */
+.pdv-tooltip {
+  position: fixed;
+  z-index: 10050;
+  max-width: 280px;
+  padding: 6px 11px;
+  border-radius: 8px;
+  background-color: var(--pdv-text);
+  color: var(--pdv-white);
+  border: 1px solid var(--pdv-border);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+  pointer-events: none;
+  box-shadow: 0 10px 24px rgba(39, 35, 33, 0.16);
+  animation: pdvPopoverIn 160ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ============================================================================
+   Menus Suspensos e Seletores (RetailSelect)
+   ============================================================================ */
+.pdv-select-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--pdv-border);
+  background-color: var(--pdv-white);
+  color: var(--pdv-text);
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pdv-select-trigger:hover:not(:disabled) {
+  border-color: var(--pdv-primary);
+}
+
+.pdv-select-trigger[data-open="true"] {
+  border-color: var(--pdv-primary);
+  box-shadow: 0 0 0 3px var(--pdv-support);
+}
+
+.pdv-select-trigger:disabled {
+  background-color: var(--pdv-background);
+  color: var(--pdv-text-secondary);
+  opacity: 0.65;
+}
+
+.pdv-select-value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pdv-select-chevron {
+  flex-shrink: 0;
+  color: var(--pdv-text-secondary);
+  transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1), color 160ms ease;
+}
+
+.pdv-select-chevron.is-open {
+  transform: rotate(180deg);
+  color: var(--pdv-primary);
+}
+
+.pdv-select-popover {
+  position: fixed;
+  z-index: 10020;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--pdv-white);
+  border: 1px solid var(--pdv-border);
+  border-radius: 10px;
+  box-shadow: 0 16px 36px rgba(39, 35, 33, 0.14);
+  overflow: hidden;
+  animation: pdvPopoverIn 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.pdv-select-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--pdv-border);
+  background-color: var(--pdv-background);
+  flex-shrink: 0;
+}
+
+.pdv-select-search-icon {
+  color: var(--pdv-text-secondary);
+  flex-shrink: 0;
+}
+
+.pdv-select-search-input {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--pdv-text);
+  font-size: 13px;
+  outline: none;
+}
+
+.pdv-select-search-input:focus-visible {
+  outline: none;
+}
+
+.pdv-select-options {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pdv-select-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--pdv-text);
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pdv-select-option.is-active:not(:disabled),
+.pdv-select-option:hover:not(:disabled) {
+  background-color: var(--pdv-background);
+}
+
+.pdv-select-option.is-selected {
+  background-color: var(--pdv-support);
+  color: var(--pdv-primary);
+  font-weight: 700;
+}
+
+.pdv-select-option:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.pdv-select-option-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.pdv-select-option-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pdv-select-option-desc {
+  font-size: 11px;
+  color: var(--pdv-text-secondary);
+  font-weight: 400;
+}
+
+.pdv-select-option-check {
+  flex-shrink: 0;
+  color: var(--pdv-primary);
+}
+
+.pdv-select-empty {
+  padding: 14px 10px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--pdv-text-secondary);
+}
+
+/* ============================================================================
+   Switches Personalizados (RetailSwitch)
+   ============================================================================ */
+.pdv-switch-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.pdv-switch-row.is-disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.pdv-switch-track {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 42px;
+  height: 24px;
+  padding: 2px;
+  border-radius: 999px;
+  border: 1px solid var(--pdv-border);
+  background-color: var(--pdv-background);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color 150ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 150ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.pdv-switch-track.pdv-switch-sm {
+  width: 36px;
+  height: 20px;
+}
+
+.pdv-switch-track:hover:not(:disabled) {
+  border-color: var(--pdv-primary);
+}
+
+.pdv-switch-track.is-checked {
+  background-color: var(--pdv-primary);
+  border-color: var(--pdv-primary);
+}
+
+.pdv-switch-track.is-checked:hover:not(:disabled) {
+  background-color: var(--pdv-primary-hover);
+  border-color: var(--pdv-primary-hover);
+}
+
+.pdv-switch-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background-color: var(--pdv-white);
+  border: 1px solid var(--pdv-border);
+  transform: translateX(0);
+  transition: transform 150ms cubic-bezier(0.22, 1, 0.36, 1), border-color 150ms ease;
+}
+
+.pdv-switch-track.pdv-switch-sm .pdv-switch-thumb {
+  width: 14px;
+  height: 14px;
+}
+
+.pdv-switch-track.is-checked .pdv-switch-thumb {
+  transform: translateX(18px);
+  border-color: var(--pdv-white);
+}
+
+.pdv-switch-track.pdv-switch-sm.is-checked .pdv-switch-thumb {
+  transform: translateX(16px);
+}
+
+.pdv-switch-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.pdv-switch-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--pdv-text);
+  line-height: 1.3;
+  cursor: inherit;
+}
+
+.pdv-switch-desc {
+  font-size: 12px;
+  color: var(--pdv-text-secondary);
+  line-height: 1.35;
+}
+
+/* ============================================================================
+   Calendário / Date Picker do Sistema (RetailDatePicker)
+   ============================================================================ */
+.pdv-datepicker {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 100%;
+  min-height: 40px;
+  border-radius: 8px;
+  border: 1px solid var(--pdv-border);
+  background-color: var(--pdv-white);
+  color: var(--pdv-text);
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.pdv-datepicker:hover:not(.is-disabled) {
+  border-color: var(--pdv-primary);
+}
+
+.pdv-datepicker[data-open="true"],
+.pdv-datepicker:focus-within {
+  border-color: var(--pdv-primary);
+  box-shadow: 0 0 0 3px var(--pdv-support);
+}
+
+.pdv-datepicker.has-error {
+  border-color: var(--pdv-primary-hover);
+  background-color: var(--pdv-support);
+}
+
+.pdv-datepicker.is-disabled {
+  background-color: var(--pdv-background);
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.pdv-datepicker-input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  height: 38px;
+  padding: 8px 8px 8px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--pdv-text);
+  font-size: 14px;
+  font-weight: 500;
+  outline: none;
+}
+
+.pdv-datepicker-input:focus-visible {
+  outline: none;
+}
+
+.pdv-datepicker-input::placeholder {
+  color: var(--pdv-text-secondary);
+}
+
+.pdv-datepicker-clear,
+.pdv-datepicker-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin-right: 3px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--pdv-text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.pdv-datepicker-clear:hover,
+.pdv-datepicker-trigger:hover:not(:disabled) {
+  background-color: var(--pdv-support);
+  color: var(--pdv-primary);
+}
+
+.pdv-calendar-popover {
+  position: fixed;
+  z-index: 10030;
+  width: 296px;
+  padding: 14px;
+  background-color: var(--pdv-white);
+  border: 1px solid var(--pdv-border);
+  border-radius: 12px;
+  box-shadow: 0 18px 40px rgba(39, 35, 33, 0.16);
+  animation: pdvPopoverIn 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  user-select: none;
+}
+
+.pdv-calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.pdv-calendar-nav-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.pdv-calendar-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  border: 1px solid var(--pdv-border);
+  background-color: var(--pdv-white);
+  color: var(--pdv-text-secondary);
+  cursor: pointer;
+}
+
+.pdv-calendar-nav-btn:hover {
+  background-color: var(--pdv-support);
+  border-color: var(--pdv-primary);
+  color: var(--pdv-primary);
+}
+
+.pdv-calendar-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--pdv-text);
+  text-align: center;
+}
+
+.pdv-calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  margin-bottom: 6px;
+}
+
+.pdv-calendar-weekday {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--pdv-text-secondary);
+  padding: 4px 0;
+}
+
+.pdv-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+
+.pdv-calendar-day {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  background-color: transparent;
+  color: var(--pdv-text);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pdv-calendar-day:hover:not(:disabled):not(.is-selected) {
+  background-color: var(--pdv-support);
+  color: var(--pdv-primary);
+}
+
+.pdv-calendar-day.is-outside {
+  color: var(--pdv-text-secondary);
+  opacity: 0.45;
+}
+
+.pdv-calendar-day.is-today:not(.is-selected) {
+  border-color: var(--pdv-primary);
+  color: var(--pdv-primary);
+  font-weight: 800;
+}
+
+.pdv-calendar-day.is-in-range:not(.is-selected) {
+  background-color: var(--pdv-support);
+  color: var(--pdv-primary);
+}
+
+.pdv-calendar-day.is-selected {
+  background-color: var(--pdv-primary);
+  border-color: var(--pdv-primary);
+  color: var(--pdv-white);
+  font-weight: 800;
+}
+
+.pdv-calendar-day:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+.pdv-calendar-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--pdv-border);
+}
+
+.pdv-calendar-footer-btn {
+  flex: 1;
+  height: 32px;
+  border-radius: 7px;
+  border: 1px solid var(--pdv-border);
+  background-color: var(--pdv-white);
+  color: var(--pdv-text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pdv-calendar-footer-btn:hover {
+  background-color: var(--pdv-background);
+  color: var(--pdv-text);
+}
+
+.pdv-calendar-footer-btn.is-primary {
+  background-color: var(--pdv-support);
+  border-color: var(--pdv-primary);
+  color: var(--pdv-primary);
+}
+
+.pdv-calendar-footer-btn.is-primary:hover {
+  background-color: var(--pdv-primary);
+  color: var(--pdv-white);
+}
+
+@keyframes pdvPopoverIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

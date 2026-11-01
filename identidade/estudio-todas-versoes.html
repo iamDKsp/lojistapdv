@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PDV Lojista — Canvas Motion Loader & Transition</title>
+  <style>
+    :root {
+      --primary: #7C3AED;
+      --primary-hover: #6D28D9;
+      --white: #FFFFFF;
+      --bg: #F8F7FC;
+      --support: #F3E8FF;
+      --text: #272321;
+      --text-secondary: #665F70;
+      --border: #E5E1ED;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      gap: 24px;
+    }
+
+    .studio-card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 24px;
+      max-width: 760px;
+      width: 100%;
+      box-shadow: 0 12px 32px -8px rgba(124, 58, 237, 0.08);
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .title-group h1 {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .title-group p {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    .stage-wrapper {
+      position: relative;
+      width: 100%;
+      height: 320px;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background-color 0.25s ease;
+    }
+
+    .stage-wrapper.dark-stage {
+      background: #13111C;
+      border-color: #2A2438;
+    }
+
+    .stage-wrapper.checker-stage {
+      background-image: 
+        linear-gradient(45deg, #EAE6F3 25%, transparent 25%), 
+        linear-gradient(-45deg, #EAE6F3 25%, transparent 25%), 
+        linear-gradient(45deg, transparent 75%, #EAE6F3 75%), 
+        linear-gradient(-45deg, transparent 75%, #EAE6F3 75%);
+      background-size: 20px 20px;
+      background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .controls-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 12px;
+    }
+
+    .control-box {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .control-box label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .btn-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    button {
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 7px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--white);
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      flex: 1;
+      white-space: nowrap;
+    }
+
+    button:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+
+    button.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: var(--white);
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--primary);
+      cursor: pointer;
+    }
+
+    .footer-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      padding-top: 4px;
+      border-top: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="studio-card">
+    <div class="header">
+      <div class="title-group">
+        <h1>PDV Lojista — Canvas Motion (Roxo & Branco)</h1>
+        <p>L pela esquerda • Ícone de loja pela direita • Fundo roxo escalando</p>
+      </div>
+      <div class="btn-group" style="flex: 0 0 auto;">
+        <button id="btnPlayPause" class="active" style="flex: 0 0 auto;">Pausar</button>
+        <button id="btnRecord" style="flex: 0 0 auto;">Exportar WebM</button>
+      </div>
+    </div>
+
+    <div class="stage-wrapper" id="stageWrapper">
+      <canvas id="motionCanvas"></canvas>
+    </div>
+
+    <div class="controls-grid">
+      <div class="control-box" style="grid-column: span 2;">
+        <label>Modo de Loop / Transição</label>
+        <div class="btn-group" id="modeGroup">
+          <button data-mode="loader" class="active">1. Loader Clássico</button>
+          <button data-mode="stencil">2. Inversão Dinâmica</button>
+          <button data-mode="transition">3. Transição de Tela</button>
+          <button data-mode="full-logo">4. Logo Completa</button>
+        </div>
+      </div>
+
+      <div class="control-box">
+        <label>Velocidade <span id="speedVal">1.0x</span></label>
+        <input type="range" id="speedRange" min="0.4" max="2.0" step="0.1" value="1.0" />
+      </div>
+
+      <div class="control-box">
+        <label>Fundo de Teste</label>
+        <div class="btn-group" id="bgGroup">
+          <button data-bg="light" class="active">Claro</button>
+          <button data-bg="dark">Escuro</button>
+          <button data-bg="checker">Grid</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer-bar">
+      <span id="phaseIndicator">Fase: Entrada elástica (Fundo escalando + L esquerda + Loja direita)</span>
+      <span>60 FPS • HTML5 Canvas 2D Vetorial</span>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('motionCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Paleta oficial PDV Lojista (roxo-branco/paleta.json)
+    const COLORS = {
+      primary: '#7C3AED',
+      primaryHover: '#6D28D9',
+      white: '#FFFFFF',
+      background: '#F8F7FC',
+      support: '#F3E8FF',
+      text: '#272321',
+      textSecondary: '#665F70'
+    };
+
+    // Geometria vetorial exata extraída de simbolo.svg (viewBox 0 0 64 64)
+    const PATH_L = new Path2D('M16 15H26V39H48V49H16Z');
+    // Parede com recorte (evenodd) da porta e janela para transparência real
+    const PATH_STORE_WALL = new Path2D(
+      'M3 12H21V23H3Z ' +
+      'M6 23V16Q6 15 7 15H10Q11 15 11 16V23Z ' +
+      'M14.7 15H17.3Q18 15 18 15.7V19.3Q18 20 17.3 20H14.7Q14 20 14 19.3V15.7Q14 15 14.7 15Z'
+    );
+    // Toldo separado nos 3 gomos para micro-animação secundária (follow-through)
+    const PATH_AWNING_LEFT   = new Path2D('M4 2H9L8 9C7.5 12 0 12 1 9Z');
+    const PATH_AWNING_CENTER = new Path2D('M10 2H14L15 9C16 12 8 12 9 9Z');
+    const PATH_AWNING_RIGHT  = new Path2D('M15 2H20L23 9C24 12 16.5 12 16 9Z');
+
+    // Estado da animação
+    let state = {
+      mode: 'loader', // 'loader' | 'stencil' | 'transition' | 'full-logo'
+      speed: 1.0,
+      bg: 'light',
+      playing: true,
+      progress: 0, // 0..1
+      lastTime: performance.now()
+    };
+
+    // Funções de Easing (Curvas de Animação Motion Design)
+    function clamp(v, min = 0, max = 1) {
+      return Math.max(min, Math.min(max, v));
+    }
+
+    function norm(v, a, b) {
+      return clamp((v - a) / (b - a), 0, 1);
+    }
+
+    function easeOutCubic(x) {
+      return 1 - Math.pow(1 - x, 3);
+    }
+
+    function easeInCubic(x) {
+      return x * x * x;
+    }
+
+    function easeInOutCubic(x) {
+      return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+    }
+
+    function easeOutBack(x, overshoot = 1.55) {
+      const c1 = overshoot;
+      const c3 = c1 + 1;
+      return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
+    }
+
+    function easeInBack(x, overshoot = 1.35) {
+      const c1 = overshoot;
+      const c3 = c1 + 1;
+      return c3 * x * x * x - c1 * x * x;
+    }
+
+    function easeOutElasticSoft(x) {
+      if (x === 0 || x === 1) return x;
+      return Math.pow(2, -10 * x) * Math.sin((x * 10 - 0.75) * ((2 * Math.PI) / 3.2)) + 1;
+    }
+
+    // Desenha retângulo com cantos arredondados
+    function drawRoundedRectPath(ctx, x, y, w, h, r) {
+      const radius = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.roundRect(x, y, w, h, radius);
+    }
+
+    // Desenha os elementos internos (L + Loja)
+    function drawLogoElements(ctx, fillStyle, lState, storeState) {
+      ctx.fillStyle = fillStyle;
+
+      // 1. Desenha o "L" (vindo da esquerda)
+      if (lState.alpha > 0.001) {
+        ctx.save();
+        ctx.globalAlpha *= lState.alpha;
+        // Centro de referência do L ~(26, 32)
+        ctx.translate(26 + lState.x, 32 + lState.y);
+        ctx.scale(lState.scaleX, lState.scaleY);
+        ctx.translate(-26, -32);
+        ctx.fill(PATH_L);
+        ctx.restore();
+      }
+
+      // 2. Desenha o Ícone de Loja (vindo da direita)
+      if (storeState.alpha > 0.001) {
+        ctx.save();
+        ctx.globalAlpha *= storeState.alpha;
+        ctx.translate(30 + storeState.x, 12 + storeState.y);
+        ctx.scale(0.96 * storeState.scaleX, 0.96 * storeState.scaleY);
+
+        // Parede da loja (com porta e vitrine vazadas via evenodd)
+        ctx.fill(PATH_STORE_WALL, 'evenodd');
+
+        // Toldo com leve follow-through (balanço elástico ao frear)
+        const awningPaths = [PATH_AWNING_LEFT, PATH_AWNING_CENTER, PATH_AWNING_RIGHT];
+        for (let i = 0; i < 3; i++) {
+          ctx.save();
+          const staggerWave = Math.sin(storeState.awningPhase - i * 0.65) * storeState.awningAmp;
+          ctx.translate(0, staggerWave);
+          ctx.fill(awningPaths[i]);
+          ctx.restore();
+        }
+
+        ctx.restore();
+      }
+    }
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    function computeTimeline(t, mode) {
+      // Calcula estados de acordo com a fase (t de 0 a 1)
+      let bgScale = 1;
+      let bgAlpha = 1;
+      let bgRadius = 16;
+
+      let lState = { x: 0, y: 0, scaleX: 1, scaleY: 1, alpha: 1 };
+      let storeState = { x: 0, y: 0, scaleX: 1, scaleY: 1, alpha: 1, awningPhase: 0, awningAmp: 0 };
+      let textProgress = 0;
+      let phaseLabel = '';
+
+      if (mode === 'transition') {
+        // Modo 3: Transição de Tela (Fundo escala do 0 -> 1, L e Loja entram, depois Fundo expande 1 -> 18x cobrindo a tela!)
+        if (t < 0.30) {
+          phaseLabel = 'Entrada: Fundo roxo escala + L pela esquerda + Loja pela direita';
+          const pBg = norm(t, 0.0, 0.22);
+          bgScale = easeOutBack(pBg, 1.4);
+
+          const pL = norm(t, 0.05, 0.27);
+          const easeL = easeOutBack(pL, 1.35);
+          lState.x = (1 - easeL) * -58;
+          lState.scaleX = 1 + (1 - easeOutCubic(pL)) * 0.15;
+          lState.alpha = easeOutCubic(norm(t, 0.05, 0.14));
+
+          const pS = norm(t, 0.09, 0.30);
+          const easeS = easeOutBack(pS, 1.35);
+          storeState.x = (1 - easeS) * 58;
+          storeState.scaleX = 1 + (1 - easeOutCubic(pS)) * 0.15;
+          storeState.alpha = easeOutCubic(norm(t, 0.09, 0.18));
+          storeState.awningPhase = pS * Math.PI * 3;
+          storeState.awningAmp = (1 - pS) * 2.2;
+        } else if (t < 0.56) {
+          phaseLabel = 'Encaixe central: Pulso de prontidão antes da transição';
+          const pHold = norm(t, 0.30, 0.56);
+          bgScale = 1 + Math.sin(pHold * Math.PI) * 0.04;
+          storeState.awningPhase = pHold * Math.PI * 2;
+          storeState.awningAmp = Math.sin(pHold * Math.PI) * 0.5;
+        } else if (t < 0.85) {
+          phaseLabel = 'Wipe de Transição: Fundo roxo escala preenchendo toda a tela';
+          const pExpand = norm(t, 0.56, 0.82);
+          // Antecipação leve (0.92) e depois explosão de escala para cobrir a tela
+          if (pExpand < 0.2) {
+            const pre = pExpand / 0.2;
+            bgScale = 1 - easeInOutCubic(pre) * 0.1;
+          } else {
+            const exp = (pExpand - 0.2) / 0.8;
+            bgScale = 0.9 + Math.pow(exp, 2.6) * 16;
+            bgRadius = 16 * (1 - exp);
+          }
+          // L e Loja saem ou ficam no centro e dissolvem durante o zoom máximo
+          const pFade = norm(t, 0.66, 0.80);
+          lState.alpha = 1 - easeInCubic(pFade);
+          storeState.alpha = 1 - easeInCubic(pFade);
+          lState.x = -easeInCubic(pFade) * 24;
+          storeState.x = easeInCubic(pFade) * 24;
+        } else {
+          phaseLabel = 'Reset suave da transição';
+          const pOut = norm(t, 0.85, 0.98);
+          bgScale = 16.9;
+          bgRadius = 0;
+          bgAlpha = 1 - easeInOutCubic(pOut);
+          lState.alpha = 0;
+          storeState.alpha = 0;
+        }
+      } else {
+        // Modos 1 (Loader), 2 (Stencil) e 4 (Logo Completa)
+        if (t < 0.32) {
+          phaseLabel = 'Entrada: Fundo escala do centro • L vem da esquerda • Loja vem da direita';
+          // Fundo roxo escala de 0 a 1
+          const pBg = norm(t, 0.02, 0.24);
+          bgScale = easeOutBack(pBg, 1.5);
+          bgAlpha = easeOutCubic(norm(t, 0.01, 0.08));
+
+          // L entra pela esquerda
+          const pL = norm(t, 0.06, 0.28);
+          const easeL = easeOutBack(pL, 1.4);
+          lState.x = (1 - easeL) * -60;
+          lState.scaleX = 1 + (1 - easeOutCubic(pL)) * 0.16;
+          lState.scaleY = 1 - (1 - easeOutCubic(pL)) * 0.06;
+          lState.alpha = easeOutCubic(norm(t, 0.06, 0.14));
+
+          // Loja entra pela direita
+          const pS = norm(t, 0.10, 0.32);
+          const easeS = easeOutBack(pS, 1.4);
+          storeState.x = (1 - easeS) * 60;
+          storeState.scaleX = 1 + (1 - easeOutCubic(pS)) * 0.16;
+          storeState.scaleY = 1 - (1 - easeOutCubic(pS)) * 0.06;
+          storeState.alpha = easeOutCubic(norm(t, 0.10, 0.18));
+          storeState.awningPhase = pS * Math.PI * 3.5;
+          storeState.awningAmp = (1 - pS) * 2.5;
+
+          textProgress = easeOutCubic(norm(t, 0.18, 0.32));
+        } else if (t < 0.68) {
+          phaseLabel = 'Carregando: Respiração ativa e brilho da marca';
+          const pHold = norm(t, 0.32, 0.68);
+          // Pulso sutil de respiração no bloco roxo
+          bgScale = 1 + Math.sin(pHold * Math.PI * 2) * 0.025;
+          // Toldo vivo
+          storeState.awningPhase = pHold * Math.PI * 4;
+          storeState.awningAmp = Math.sin(pHold * Math.PI) * 0.65;
+          textProgress = 1;
+        } else if (t < 0.94) {
+          phaseLabel = 'Saída do Loop: L recolhe à esquerda • Loja à direita • Fundo reduz escala';
+          // L sai pela esquerda
+          const pL = norm(t, 0.68, 0.88);
+          const easeL = easeInBack(pL, 1.3);
+          lState.x = easeL * -60;
+          lState.alpha = 1 - easeInCubic(norm(t, 0.78, 0.89));
+
+          // Loja sai pela direita
+          const pS = norm(t, 0.70, 0.90);
+          const easeS = easeInBack(pS, 1.3);
+          storeState.x = easeS * 60;
+          storeState.alpha = 1 - easeInCubic(norm(t, 0.80, 0.91));
+
+          // Fundo roxo reduz a escala até 0
+          const pBg = norm(t, 0.74, 0.94);
+          bgScale = Math.max(0, 1 - easeInBack(pBg, 1.25));
+          bgAlpha = 1 - easeInCubic(norm(t, 0.86, 0.94));
+
+          textProgress = 1 - easeInCubic(norm(t, 0.68, 0.82));
+        } else {
+          phaseLabel = 'Reiniciando ciclo...';
+          bgScale = 0;
+          bgAlpha = 0;
+          lState.alpha = 0;
+          storeState.alpha = 0;
+          textProgress = 0;
+        }
+      }
+
+      return { bgScale, bgAlpha, bgRadius, lState, storeState, textProgress, phaseLabel };
+    }
+
+    function render(now) {
+      const dt = (now - state.lastTime) / 1000;
+      state.lastTime = now;
+
+      if (state.playing) {
+        const cycleDuration = 2.4 / state.speed;
+        state.progress = (state.progress + dt / cycleDuration) % 1;
+      }
+
+      const dpr = window.devicePixelRatio || 1;
+      const w = canvas.width / dpr;
+      const h = canvas.height / dpr;
+
+      ctx.save();
+      ctx.scale(dpr, dpr);
+      ctx.clearRect(0, 0, w, h);
+
+      const anim = computeTimeline(state.progress, state.mode);
+      document.getElementById('phaseIndicator').textContent = anim.phaseLabel;
+
+      const isFullLogo = state.mode === 'full-logo';
+      const symbolSize = isFullLogo ? 104 : 124;
+      const unitScale = symbolSize / 64;
+
+      // Posição central do símbolo (deslocado para a esquerda se exibir texto "PDV lojista")
+      const centerX = isFullLogo ? w / 2 - 95 : w / 2;
+      const centerY = h / 2;
+
+      ctx.save();
+      ctx.translate(centerX - symbolSize / 2, centerY - symbolSize / 2);
+      ctx.scale(unitScale, unitScale);
+
+      // Sombra suave projetada pelo bloco roxo
+      if (anim.bgScale > 0.02 && anim.bgAlpha > 0.01 && state.mode !== 'transition') {
+        ctx.save();
+        ctx.globalAlpha = anim.bgAlpha * 0.22;
+        ctx.fillStyle = COLORS.primary;
+        ctx.filter = 'blur(10px)';
+        ctx.translate(32, 35);
+        ctx.scale(anim.bgScale * 0.9, anim.bgScale * 0.9);
+        ctx.translate(-32, -32);
+        drawRoundedRectPath(ctx, 0, 0, 64, 64, anim.bgRadius);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // No modo "stencil" (Inversão Dinâmica), desenhamos primeiro o L e a Loja em Roxo fora da caixa,
+      // para que quando eles vêm de fora, já sejam visíveis antes de cruzar a borda do fundo roxo!
+      if (state.mode === 'stencil') {
+        ctx.save();
+        const outerColor = state.bg === 'dark' ? '#A78BFA' : COLORS.primary;
+        drawLogoElements(ctx, outerColor, anim.lState, anim.storeState);
+        ctx.restore();
+      }
+
+      // Desenha o Fundo Roxo Escalando + Recorte (Clip) para os elementos brancos
+      if (anim.bgScale > 0.001 && anim.bgAlpha > 0.001) {
+        ctx.save();
+        ctx.globalAlpha = anim.bgAlpha;
+
+        // Transformação de escala a partir do centro (32, 32)
+        ctx.translate(32, 32);
+        ctx.scale(anim.bgScale, anim.bgScale);
+        ctx.translate(-32, -32);
+
+        drawRoundedRectPath(ctx, 0, 0, 64, 64, anim.bgRadius);
+        ctx.fillStyle = COLORS.primary;
+        ctx.fill();
+
+        // Aplica máscara (clip) do bloco roxo
+        ctx.clip();
+
+        // Brilho diagonal sutil durante o carregamento
+        if (state.progress > 0.30 && state.progress < 0.68) {
+          const sheenP = norm(state.progress, 0.32, 0.62);
+          const sheenX = -40 + sheenP * 140;
+          const grad = ctx.createLinearGradient(sheenX, 0, sheenX + 28, 64);
+          grad.addColorStop(0, 'rgba(255,255,255,0)');
+          grad.addColorStop(0.5, 'rgba(255,255,255,0.12)');
+          grad.addColorStop(1, 'rgba(255,255,255,0)');
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, 0, 64, 64);
+        }
+
+        // Inverte a escala do clip para que o L e a Loja mantenham sua proporção real ao deslizar
+        ctx.translate(32, 32);
+        ctx.scale(1 / anim.bgScale, 1 / anim.bgScale);
+        ctx.translate(-32, -32);
+
+        // Desenha o "L" (pela esquerda) e a "Loja" (pela direita) em BRANCO (#FFFFFF)
+        drawLogoElements(ctx, COLORS.white, anim.lState, anim.storeState);
+
+        ctx.restore();
+      }
+
+      ctx.restore();
+
+      // Caso esteja no Modo 4 (Logo Completa com assinatura tipográfica "PDV lojista")
+      if (isFullLogo && anim.textProgress > 0.01) {
+        ctx.save();
+        const textX = centerX + symbolSize / 2 + 22;
+        const textColor = state.bg === 'dark' ? COLORS.white : COLORS.text;
+
+        // "PDV"
+        ctx.globalAlpha = anim.textProgress;
+        ctx.fillStyle = textColor;
+        ctx.font = '600 20px "Segoe UI", Arial, sans-serif';
+        ctx.letterSpacing = '4px';
+        const offsetPdv = (1 - anim.textProgress) * 18;
+        ctx.fillText('PDV', textX + offsetPdv, centerY - 12);
+
+        // "lojista"
+        ctx.font = '600 52px "Segoe UI", Arial, sans-serif';
+        ctx.letterSpacing = '-1.5px';
+        const offsetLojista = (1 - anim.textProgress) * 28;
+        ctx.fillText('lojista', textX - 3 + offsetLojista, centerY + 38);
+        ctx.restore();
+      }
+
+      ctx.restore();
+      requestAnimationFrame(render);
+    }
+
+    requestAnimationFrame(render);
+
+    // Controles de Interface
+    document.getElementById('modeGroup').addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-mode]');
+      if (!btn) return;
+      document.querySelectorAll('#modeGroup button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      state.mode = btn.dataset.mode;
+      state.progress = 0;
+    });
+
+    document.getElementById('bgGroup').addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-bg]');
+      if (!btn) return;
+      document.querySelectorAll('#bgGroup button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      state.bg = btn.dataset.bg;
+      const wrapper = document.getElementById('stageWrapper');
+      wrapper.classList.remove('dark-stage', 'checker-stage');
+      if (state.bg === 'dark') wrapper.classList.add('dark-stage');
+      if (state.bg === 'checker') wrapper.classList.add('checker-stage');
+    });
+
+    document.getElementById('speedRange').addEventListener('input', (e) => {
+      state.speed = parseFloat(e.target.value);
+      document.getElementById('speedVal').textContent = state.speed.toFixed(1) + 'x';
+    });
+
+    document.getElementById('btnPlayPause').addEventListener('click', (e) => {
+      state.playing = !state.playing;
+      e.target.textContent = state.playing ? 'Pausar' : 'Reproduzir';
+      e.target.classList.toggle('active', state.playing);
+    });
+
+    // Exportador WebM nativo do Canvas
+    document.getElementById('btnRecord').addEventListener('click', (e) => {
+      const btn = e.target;
+      if (btn.disabled) return;
+      const stream = canvas.captureStream(60);
+      const recorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
+      const chunks = [];
+      recorder.ondataavailable = (ev) => { if (ev.data.size > 0) chunks.push(ev.data); };
+      recorder.onstop = () => {
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `pdv-lojista-motion-${state.mode}.webm`;
+        a.click();
+        btn.disabled = false;
+        btn.textContent = 'Exportar WebM';
+      };
+      state.progress = 0;
+      state.playing = true;
+      btn.disabled = true;
+      btn.textContent = 'Gravando Loop...';
+      recorder.start();
+      setTimeout(() => recorder.stop(), (2400 / state.speed));
+    });
+  </script>
+</body>
+</html>

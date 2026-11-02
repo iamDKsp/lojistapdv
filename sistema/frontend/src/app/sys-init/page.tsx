@@ -56,10 +56,11 @@ function parseDateLocal(dateStr: string): Date {
 }
 
 const MODULE_BADGES: Record<string, { label: string; color: string }> = {
-  nfce:           { label: 'NFC-e',    color: 'bg-support text-brand border-brand' },
-  estoque:        { label: 'Estoque',  color: 'bg-support text-brand border-brand' },
-  dashboardMobile:{ label: 'Mobile',   color: 'bg-support text-brand border-brand' },
+  nfce:           { label: 'NFC-e',       color: 'bg-support text-brand border-brand' },
+  estoque:        { label: 'Estoque',     color: 'bg-support text-brand border-brand' },
+  dashboardMobile:{ label: 'Mobile',      color: 'bg-support text-brand border-brand' },
   vitrineDigital: { label: 'Vitrine',     color: 'bg-support text-brand border-brand' },
+  lojaVirtual:    { label: 'Loja Virtual',color: 'bg-support text-brand border-brand' },
   importacaoXml:  { label: 'XML',         color: 'bg-support text-brand border-brand' },
   digitalSignage: { label: 'Signage',     color: 'bg-support text-brand border-brand' },
   crediario:      { label: 'Crediário',   color: 'bg-support text-brand border-brand' },
@@ -2366,6 +2367,7 @@ export default function SysInitPage() {
                       { id: 'estoque', title: 'Estoque', desc: 'Módulo completo de controle de produtos e inventário.', badge: MODULE_BADGES.estoque },
                       { id: 'dashboardMobile', title: 'Dashboard Mobile', desc: 'Acesso ao painel resumido em dispositivos móveis.', badge: MODULE_BADGES.dashboardMobile },
                       { id: 'vitrineDigital', title: 'Vitrine Digital TV', desc: 'Exibe promoções e produtos em uma TV/tela secundária via URL pública.', badge: MODULE_BADGES.vitrineDigital },
+                      { id: 'lojaVirtual', title: 'Loja Virtual (Catálogo Público & WhatsApp)', desc: 'Catálogo online personalizável em /loja/:slug com carrinho, reserva de estoque, pedidos pelo WhatsApp e conversão em venda no PDV.', badge: MODULE_BADGES.lojaVirtual },
                       { id: 'crediario', title: 'Crediário (Fiado) & Cobrança WhatsApp', desc: 'Contas de clientes com limite, venda a prazo no PDV e cobrança automática via WhatsApp (Baileys).', badge: MODULE_BADGES.crediario },
                     ].map(item => (
                       <div key={item.id} className="flex items-center justify-between p-4 bg-page border border-line rounded-xl hover:border-brand transition">

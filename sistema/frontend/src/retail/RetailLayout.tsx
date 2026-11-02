@@ -33,6 +33,7 @@ import {
   X,
   Monitor,
   Tv2,
+  ShoppingBag,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { useShift } from "@/contexts/ShiftContext";
@@ -251,6 +252,11 @@ export function RetailLayout() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [cashierOnlyMode, setCashierOnlyMode] = useState(false);
+  const [mobileNavHidden, setMobileNavHidden] = useState(false);
+  const canvasRef = useRef<HTMLElement | null>(null);
+  const scrollPosMapRef = useRef<WeakMap<EventTarget, number>>(new WeakMap());
+  const touchStartYRef = useRef<number | null>(null);
+  const touchStartXRef = useRef<number | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -278,7 +284,113 @@ export function RetailLayout() {
   useEffect(() => {
     setMenuOpen(false);
     setProfileMenuOpen(false);
+    setMobileNavHidden(false);
+    if (canvasRef.current) {
+      canvasRef.current.scrollTop = 0;
+    }
   }, [location.pathname]);
+
+  useEffect(() => {
+    if (menuOpen) {
+      setMobileNavHidden(false);
+    }
+  }, [menuOpen]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let lastWinY = Math.max(0, window.scrollY || 0);
+    const onWinScroll = () => {
+      const currentY = Math.max(0, window.scrollY || 0);
+      const delta = currentY - lastWinY;
+      if (currentY <= 16) {
+        setMobileNavHidden(false);
+        lastWinY = currentY;
+        return;
+      }
+      if (Math.abs(delta) < 6) return;
+      if (delta > 0 && currentY > 28) {
+        setMobileNavHidden(true);
+      } else if (delta < 0) {
+        setMobileNavHidden(false);
+      }
+      lastWinY = currentY;
+    };
+    window.addEventListener("scroll", onWinScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onWinScroll);
+  }, []);
+
+  const handleCanvasScrollCapture = (
+    event: React.UIEvent<HTMLElement>,
+  ) => {
+    const target = event.target as HTMLElement | null;
+    if (!target || typeof target.scrollTop !== "number") return;
+
+    // Ignora containers de rolagem apenas horizontal (pílulas de abas/categorias e tabelas)
+    if (
+      target.classList.contains("retail-category-row") ||
+      target.classList.contains("retail-subnav-bar") ||
+      target.classList.contains("retail-table-wrap")
+    ) {
+      return;
+    }
+
+    const maxScroll = Math.max(0, target.scrollHeight - target.clientHeight);
+    if (maxScroll <= 12) return;
+
+    const currentTop = Math.min(Math.max(0, target.scrollTop), maxScroll);
+    const prevTop = scrollPosMapRef.current.get(target) ?? currentTop;
+    const deltaY = currentTop - prevTop;
+
+    if (currentTop <= 16) {
+      scrollPosMapRef.current.set(target, currentTop);
+      setMobileNavHidden(false);
+      return;
+    }
+
+    if (Math.abs(deltaY) < 6) return;
+
+    if (deltaY > 0 && currentTop > 28) {
+      setMobileNavHidden(true);
+    } else if (deltaY < 0) {
+      setMobileNavHidden(false);
+    }
+
+    scrollPosMapRef.current.set(target, currentTop);
+  };
+
+  const handleCanvasTouchStart = (event: React.TouchEvent<HTMLElement>) => {
+    if (event.touches.length !== 1) return;
+    touchStartYRef.current = event.touches[0].clientY;
+    touchStartXRef.current = event.touches[0].clientX;
+  };
+
+  const handleCanvasTouchMove = (event: React.TouchEvent<HTMLElement>) => {
+    if (
+      event.touches.length !== 1 ||
+      touchStartYRef.current === null ||
+      touchStartXRef.current === null
+    ) {
+      return;
+    }
+    const dy = event.touches[0].clientY - touchStartYRef.current;
+    const dx = event.touches[0].clientX - touchStartXRef.current;
+
+    // Só reage a movimentos predominantemente verticais
+    if (Math.abs(dy) < 18 || Math.abs(dx) > Math.abs(dy) * 0.85) return;
+
+    const canvasTop = canvasRef.current?.scrollTop ?? 0;
+    if (dy < -22 && canvasTop > 18) {
+      // Dedo deslizando para cima = descendo a página -> esconde o balão
+      setMobileNavHidden(true);
+      touchStartYRef.current = event.touches[0].clientY;
+      touchStartXRef.current = event.touches[0].clientX;
+    } else if (dy > 16) {
+      // Dedo deslizando para baixo = subindo a página -> mostra o balão
+      setMobileNavHidden(false);
+      touchStartYRef.current = event.touches[0].clientY;
+      touchStartXRef.current = event.touches[0].clientX;
+    }
+  };
 
   const role = user?.role || "";
   const isAdmin = role === "admin" || role === "superadmin";
@@ -312,6 +424,8 @@ export function RetailLayout() {
     if (path.includes("/crediario")) return Boolean(modules.crediario);
     if (path.includes("/vitrine"))
       return Boolean(modules.vitrineDigital || modules.digitalSignage);
+    if (path.includes("/loja-virtual"))
+      return Boolean(modules.lojaVirtual);
     return true;
   }
 
@@ -427,6 +541,17 @@ export function RetailLayout() {
                 },
               ]
             : []),
+          ...(moduleAllowed("/loja-virtual")
+            ? [
+                {
+                  name: "Loja Virtual",
+                  path: "/loja-virtual",
+                  icon: ShoppingBag,
+                  iconKind: "vitrine",
+                  active: pathname.startsWith("/loja-virtual"),
+                },
+              ]
+            : []),
         ],
         [
           ...(moduleAllowed("/configuracoes/nfce")
@@ -531,6 +656,16 @@ export function RetailLayout() {
         { label: "Aparência e link da TV", path: "/vitrine/aparencia" },
       ];
     }
+    if (pathname.startsWith("/loja-virtual")) {
+      return [
+        { label: "Visão geral", path: "/loja-virtual" },
+        { label: "Aparência", path: "/loja-virtual/aparencia" },
+        { label: "Produtos", path: "/loja-virtual/produtos" },
+        { label: "Categorias", path: "/loja-virtual/categorias" },
+        { label: "Pedidos", path: "/loja-virtual/pedidos" },
+        { label: "Configurações", path: "/loja-virtual/configuracoes" },
+      ];
+    }
     return [];
   }, [
     isPosRoute,
@@ -541,6 +676,7 @@ export function RetailLayout() {
     modules.crediario,
     modules.vitrineDigital,
     modules.digitalSignage,
+    modules.lojaVirtual,
   ]);
 
   const sectionHeading = useMemo(() => {
@@ -555,6 +691,7 @@ export function RetailLayout() {
     if (pathname.startsWith("/clientes")) return "Clientes e Pós-Venda";
     if (pathname.startsWith("/crediario")) return "Crediário e Cobrança";
     if (pathname.startsWith("/vitrine")) return "Vitrine Digital e TV";
+    if (pathname.startsWith("/loja-virtual")) return "Loja Virtual";
     if (pathname.startsWith("/configuracoes/nfce")) return "Gestão Fiscal";
     if (pathname.startsWith("/configuracoes")) return "Configurações da Loja";
     return config?.nomeFantasia || config?.razaoSocial || "Painel da Loja";
@@ -565,6 +702,7 @@ export function RetailLayout() {
     if (pathname.startsWith("/estoque")) return "inventory";
     if (pathname.startsWith("/crediario")) return "finance";
     if (pathname.startsWith("/vitrine")) return "vitrine";
+    if (pathname.startsWith("/loja-virtual")) return "vitrine";
     if (pathname.startsWith("/financeiro")) return "finance";
     if (
       pathname.startsWith("/inicio/historico-de-caixas") ||
@@ -588,7 +726,8 @@ export function RetailLayout() {
       tab.path === "/estoque" ||
       tab.path === "/clientes" ||
       tab.path === "/crediario" ||
-      tab.path === "/vitrine"
+      tab.path === "/vitrine" ||
+      tab.path === "/loja-virtual"
         ? pathname === tab.path
         : pathname.startsWith(tab.path),
     );
@@ -818,6 +957,9 @@ export function RetailLayout() {
       <div
         className={`retail-shell ${showSidebar ? "has-rail" : "no-rail"}`}
         data-active-module={moduleKind}
+        data-mobile-nav-hidden={
+          mobileNavHidden && !menuOpen ? "true" : "false"
+        }
       >
         {showSidebar && (
           <aside
@@ -939,7 +1081,14 @@ export function RetailLayout() {
           </aside>
         )}
 
-        <main className="retail-canvas" data-module-kind={moduleKind}>
+        <main
+          ref={canvasRef}
+          className="retail-canvas"
+          data-module-kind={moduleKind}
+          onScrollCapture={handleCanvasScrollCapture}
+          onTouchStart={handleCanvasTouchStart}
+          onTouchMove={handleCanvasTouchMove}
+        >
           <div
             key={pathname}
             className="retail-route-progress"
@@ -1085,7 +1234,8 @@ export function RetailLayout() {
                       tab.path === "/estoque" ||
                       tab.path === "/clientes" ||
                       tab.path === "/crediario" ||
-                      tab.path === "/vitrine";
+                      tab.path === "/vitrine" ||
+                      tab.path === "/loja-virtual";
                     const isTabActive = isExactRoot
                       ? pathname === tab.path
                       : pathname.startsWith(tab.path);
@@ -1134,7 +1284,9 @@ export function RetailLayout() {
         {showSidebar && (
           <>
             <nav
-              className="retail-mobile-tabbar"
+              className={`retail-mobile-tabbar ${
+                mobileNavHidden && !menuOpen ? "is-hidden" : ""
+              }`}
               aria-label="Navegação rápida mobile"
             >
               {isStockist ? (

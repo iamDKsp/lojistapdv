@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { HeartPrismaService } from '../prisma/heart-prisma.service';
 import { ProductsService } from '../products/products.service';
+import { getActiveReservedQuantities } from '../prisma/stock-reservations.helper';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { PrismaClient } = require('@prisma/client');
@@ -337,8 +338,14 @@ export class GroupsService {
     try {
       const fromProduct = await fromClient.product.findUnique({ where: { id: body.productId } });
       if (!fromProduct) throw new NotFoundException('Produto não encontrado no tenant de origem');
-      if (Number(fromProduct.stock ?? 0) < body.quantity) {
-        throw new BadRequestException('Estoque insuficiente para transferência');
+      const reservedMap = await getActiveReservedQuantities(fromClient, [body.productId]);
+      const reservedQty = reservedMap.get(body.productId)?.quantity ?? 0;
+      if (Number(fromProduct.stock ?? 0) - reservedQty < body.quantity) {
+        throw new BadRequestException(
+          reservedQty > 0
+            ? `Estoque insuficiente para transferência (${reservedQty} un. reservadas na loja virtual)`
+            : 'Estoque insuficiente para transferência',
+        );
       }
 
       // ── ORIGEM: consumir lotes FIFO ──────────────────────────────────────

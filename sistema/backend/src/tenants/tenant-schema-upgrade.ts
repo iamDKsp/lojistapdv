@@ -116,3 +116,98 @@ export async function upgradeTenantSchema<T>(
     }
   }
 }
+
+export const REQUIRED_STOREFRONT_TENANT_MODELS = [
+  { model: 'storefrontSettings', table: 'storefront_settings' },
+  { model: 'storefrontRevision', table: 'storefront_revisions' },
+  { model: 'storefrontCategory', table: 'storefront_categories' },
+  { model: 'storefrontProduct', table: 'storefront_products' },
+  { model: 'storefrontOrder', table: 'storefront_orders' },
+  { model: 'storefrontOrderItem', table: 'storefront_order_items' },
+  { model: 'stockReservation', table: 'stock_reservations' },
+  { model: 'storefrontOrderEvent', table: 'storefront_order_events' },
+] as const;
+
+export function isStorefrontSchemaMissingError(err: any): boolean {
+  if (!err) return false;
+  const code = String(err.code || '');
+  const message = String(err.message || '');
+  return (
+    code === 'P2021' ||
+    code === 'P2022' ||
+    code === '42P01' ||
+    code === '42703' ||
+    /does not exist in the current database/i.test(message) ||
+    /relation ".*" does not exist/i.test(message) ||
+    /column ".*" does not exist/i.test(message)
+  );
+}
+
+/**
+ * Verifica de forma somente-leitura (sem executar DDL) se os bancos Heart e Tenant
+ * possuem todas as tabelas exigidas pelo módulo Loja Virtual.
+ */
+export async function checkStorefrontSchemaCompatibility(
+  heartPrisma: any,
+  tenantPrisma: any,
+): Promise<{
+  compatible: boolean;
+  heartReady: boolean;
+  tenantReady: boolean;
+  missingTables: string[];
+  message?: string;
+}> {
+  const missingTables: string[] = [];
+  let heartReady = true;
+  let tenantReady = true;
+
+  if (!heartPrisma?.storefrontRegistry?.findFirst) {
+    heartReady = false;
+    missingTables.push('heart.storefront_registry');
+  } else {
+    try {
+      await heartPrisma.storefrontRegistry.findFirst({ select: { id: true } });
+    } catch (err) {
+      if (isStorefrontSchemaMissingError(err)) {
+        heartReady = false;
+        missingTables.push('heart.storefront_registry');
+      } else {
+        throw err;
+      }
+    }
+  }
+
+  for (const entry of REQUIRED_STOREFRONT_TENANT_MODELS) {
+    const delegate = tenantPrisma?.[entry.model];
+    if (!delegate?.findFirst) {
+      tenantReady = false;
+      missingTables.push(entry.table);
+      continue;
+    }
+    try {
+      await delegate.findFirst({ select: { id: true } });
+    } catch (err) {
+      if (isStorefrontSchemaMissingError(err)) {
+        tenantReady = false;
+        missingTables.push(entry.table);
+      } else {
+        throw err;
+      }
+    }
+  }
+
+  const compatible = heartReady && tenantReady;
+  return {
+    compatible,
+    heartReady,
+    tenantReady,
+    missingTables,
+    ...(compatible
+      ? {}
+      : {
+          message:
+            'O schema do banco precisa ser atualizado pelo operador via /sys-init antes de ativar ou utilizar a Loja Virtual.',
+        }),
+  };
+}
+

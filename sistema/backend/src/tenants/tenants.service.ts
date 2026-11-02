@@ -9,7 +9,7 @@ import * as bcrypt from 'bcrypt';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import * as path from 'path';
-import { upgradeTenantSchema } from './tenant-schema-upgrade';
+import { upgradeTenantSchema, checkStorefrontSchemaCompatibility } from './tenant-schema-upgrade';
 import { ProvisionTenantDto } from './provision-tenant.dto';
 import { seedDefaultGruposStatic } from '../tributacao/tributacao.service';
 import {
@@ -104,6 +104,7 @@ export class TenantsService {
           estoque: true,
           crediario: true,
           vitrineDigital: true,
+          lojaVirtual: true,
           dashboardMobile: true,
           comandas: false,
           kds: false,
@@ -128,7 +129,7 @@ export class TenantsService {
 
     const { certPfx, certSenha, databaseUrl, ...safeTenant } = tenant as any;
     const modules = typeof safeTenant.modulos === 'string' ? JSON.parse(safeTenant.modulos) : (safeTenant.modulos || {});
-    safeTenant.modulos = { ...modules, comandas: false, kds: false, restaurante: false, carvoaria: false };
+    safeTenant.modulos = { lojaVirtual: false, ...modules, comandas: false, kds: false, restaurante: false, carvoaria: false };
 
     try {
       const tenantPrisma = await this.tenantManager.getTenantClient(tenantId, tenant.databaseUrl);
@@ -148,7 +149,20 @@ export class TenantsService {
     if (data.modulos !== undefined) {
       let modules: any;
       try { modules = typeof data.modulos === 'string' ? JSON.parse(data.modulos) : data.modulos; } catch { throw new BadRequestException('Módulos inválidos.'); }
-      data = { ...data, modulos: { ...modules, comandas: false, restaurante: false, kds: false, carvoaria: false } };
+      data = { ...data, modulos: { lojaVirtual: false, ...modules, comandas: false, restaurante: false, kds: false, carvoaria: false } };
+
+      if (data.modulos.lojaVirtual === true && this.heartPrisma?.tenant?.findUnique && this.tenantManager?.getTenantClient) {
+        const targetTenant = await this.heartPrisma.tenant.findUnique({ where: { id: tenantId } });
+        if (targetTenant?.databaseUrl) {
+          const tenantPrisma = await this.tenantManager.getTenantClient(tenantId, targetTenant.databaseUrl);
+          const compat = await checkStorefrontSchemaCompatibility(this.heartPrisma, tenantPrisma);
+          if (!compat.compatible) {
+            throw new BadRequestException(
+              `${compat.message || 'Schema incompatível para a Loja Virtual.'} Tabelas pendentes: ${compat.missingTables.join(', ')}`,
+            );
+          }
+        }
+      }
     }
 
     const allowed = [
@@ -244,6 +258,18 @@ export class TenantsService {
       this.tenantContext.evictTenantCache(tenantId);
       if (safeData.status === 'suspended' || safeData.status === 'inactive') {
         await this.tenantManager.disconnectTenant(tenantId);
+      }
+
+      // Sincronizar estado de habilitação no StorefrontRegistry do Heart quando módulos ou status mudarem
+      if (this.heartPrisma?.storefrontRegistry?.updateMany && (safeData.modulos !== undefined || safeData.status !== undefined)) {
+        const updatedModules = typeof updated.modulos === 'string' ? JSON.parse(updated.modulos) : (updated.modulos || {});
+        const shouldEnableRegistry = updated.status === 'active' && Boolean(updatedModules?.lojaVirtual);
+        await this.heartPrisma.storefrontRegistry
+          .updateMany({
+            where: { tenantId },
+            data: { enabled: shouldEnableRegistry },
+          })
+          .catch(() => {});
       }
 
       // Sincronizar com Teltech Leadger se ativo

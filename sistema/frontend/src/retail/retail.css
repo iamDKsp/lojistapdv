@@ -2667,6 +2667,7 @@ textarea:focus-visible {
     min-height: 100dvh;
     overflow: visible;
     padding: 8px;
+    background: var(--pdv-background);
   }
   .retail-rail {
     width: 100%;
@@ -2977,85 +2978,36 @@ textarea:focus-visible {
 .retail-mlogin {
   position: relative;
   min-height: 100dvh;
+  height: 100dvh;
   width: 100%;
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
-  background: var(--pdv-primary);
+  background: var(--pdv-white);
   color: var(--pdv-text);
   overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: none;
 }
 
 .retail-mlogin-ambient {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  overflow: hidden;
-}
-
-.retail-mlogin-ambient-tile {
-  position: absolute;
-  background: color-mix(in srgb, var(--pdv-primary-hover) 56%, transparent);
-}
-
-.retail-mlogin-ambient-tile.is-t1 {
-  top: -36px;
-  left: -36px;
-  width: 210px;
-  height: 210px;
-  border-radius: 999px;
-}
-
-.retail-mlogin-ambient-tile.is-t2 {
-  top: 18%;
-  right: -48px;
-  width: 220px;
-  height: 220px;
-  border-radius: 36px;
-  transform: rotate(45deg);
-}
-
-.retail-mlogin-ambient-tile.is-t3 {
-  bottom: 10%;
-  left: -50px;
-  width: 230px;
-  height: 230px;
-  border-radius: 0 140px 140px 140px;
-}
-
-.retail-mlogin-ambient-tile.is-t4 {
-  bottom: -44px;
-  right: -24px;
-  width: 200px;
-  height: 200px;
-  border-radius: 999px;
-  border: 22px solid color-mix(in srgb, var(--pdv-white) 10%, transparent);
-  background: transparent;
+  display: none;
 }
 
 .retail-mlogin-phone {
   position: relative;
   z-index: 1;
   width: 100%;
-  max-width: 420px;
+  max-width: 100%;
   min-height: 100dvh;
   background: var(--pdv-white);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 18px 24px 12px;
+  padding: calc(max(18px, env(safe-area-inset-top, 0px)) + 8px) 24px
+    calc(max(16px, env(safe-area-inset-bottom, 0px)) + 14px);
   overflow: hidden;
-  box-shadow: 0 24px 64px color-mix(in srgb, var(--pdv-text) 32%, transparent);
-}
-
-@media (min-width: 440px) and (max-width: 768px) {
-  .retail-mlogin {
-    padding: 20px 16px;
-  }
-  .retail-mlogin-phone {
-    min-height: min(760px, calc(100dvh - 40px));
-    border-radius: 28px;
-  }
+  box-shadow: none;
 }
 
 .retail-mlogin-bg-sweep {
@@ -3698,14 +3650,7 @@ textarea:focus-visible {
 }
 
 .retail-mlogin-homebar {
-  position: relative;
-  z-index: 2;
-  width: 108px;
-  height: 4.5px;
-  border-radius: 999px;
-  background: var(--pdv-text);
-  margin: 10px auto 0;
-  flex-shrink: 0;
+  display: none;
 }
 
 /* ==========================================================================
@@ -4462,7 +4407,10 @@ textarea:focus-visible {
 }
 
 @media (max-width: 768px) {
-  /* 1. Prevenção de auto-zoom no iOS Safari (font-size >= 16px em campos) */
+  /* 1. Prevenção total de auto-zoom no iOS Safari / Android (font-size >= 16px em todos os campos) */
+  input,
+  select,
+  textarea,
   .retail-shell input,
   .retail-shell select,
   .retail-shell textarea,
@@ -4473,61 +4421,117 @@ textarea:focus-visible {
   .pdv-mobile-sheet select,
   .pdv-mobile-sheet textarea,
   .pdv-select-trigger,
-  .pdv-select-search-input {
+  .pdv-select-search-input,
+  .pdv-datepicker-input {
     font-size: 16px !important;
   }
 
-  /* 2. Contenção estrita contra overflow horizontal em telas 360px-430px */
+  /* 2. Viewport Nativo Borda Infinita (Sem rubber-band / arrasto de borda e sem faixa preta) */
   html,
-  body,
-  .retail-shell,
-  .retail-shell.has-rail,
-  .retail-shell.no-rail {
+  body {
     width: 100%;
     max-width: 100vw;
-    overflow-x: hidden;
-  }
-
-  .retail-shell,
-  .retail-shell.has-rail,
-  .retail-shell.no-rail {
+    height: 100dvh;
+    max-height: 100dvh;
+    min-height: -webkit-fill-available;
+    margin: 0;
     padding: 0;
-    padding-bottom: calc(74px + env(safe-area-inset-bottom, 0px));
+    overflow: hidden;
+    overscroll-behavior: none;
     background: var(--pdv-background);
   }
 
-  .retail-shell.no-rail {
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+  #root {
+    width: 100%;
+    max-width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    min-height: -webkit-fill-available;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: none;
+    background: var(--pdv-background);
   }
 
-  /* Oculta a barra lateral/topo antiga no mobile, substituída pela Bottom Tab Bar */
+  .retail-shell,
+  .retail-shell.has-rail,
+  .retail-shell.no-rail {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    min-height: 0;
+    flex: 1;
+    padding: 0;
+    /* Respiro superior dedicado para iPhone (Dynamic Island / Notch / Status Bar) */
+    padding-top: max(14px, env(safe-area-inset-top, 0px));
+    overflow: hidden;
+    overscroll-behavior: none;
+    background: var(--pdv-background);
+  }
+
+  /* Oculta a barra lateral/topo antiga no mobile, substituída pelo Balão Glassmorphism Inferior */
   .retail-rail {
     display: none !important;
   }
 
+  /* Container de rolagem vertical único de borda infinita */
   .retail-canvas {
+    flex: 1;
     border-radius: 0;
     border: 0;
+    box-shadow: none;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    min-height: 0;
+    height: 100%;
+    background: var(--pdv-background);
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    overscroll-behavior-y: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .retail-pos-stage,
+  .retail-pos,
+  .retail-pos-body,
+  .retail-catalog,
+  .retail-catalog-scroll,
+  .retail-dashboard-frame,
+  .retail-content {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .retail-catalog-scroll {
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+    background: transparent;
+  }
+
+  .retail-dashboard-frame,
+  .retail-pos {
+    padding: 10px 14px calc(118px + env(safe-area-inset-bottom, 0px));
     width: 100%;
     max-width: 100%;
     min-width: 0;
     background: var(--pdv-background);
   }
 
-  .retail-dashboard-frame,
-  .retail-pos {
-    padding: calc(12px + env(safe-area-inset-top, 0px)) 14px 24px;
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-  }
-
   .retail-shell.has-rail .retail-pos {
-    padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(148px + env(safe-area-inset-bottom, 0px));
   }
 
   .retail-shell.no-rail .retail-pos {
-    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
   }
 
   /* 3. Cabeçalho Superior Compacto Mobile */
@@ -4610,45 +4614,108 @@ textarea:focus-visible {
     min-height: 38px;
   }
 
-  /* 5. Bottom Tab Bar Fixa (iPhone Home Indicator & Android Gesture Bar) */
+  /* 5. Balão Flutuante Glassmorphism Transparente (Auto-Hide ao Rolar para Baixo) */
   .retail-mobile-tabbar {
     position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    left: 14px;
+    right: 14px;
+    bottom: max(14px, calc(env(safe-area-inset-bottom, 0px) + 8px));
+    max-width: 420px;
+    margin: 0 auto;
     z-index: 95;
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+    align-items: center;
     gap: 4px;
-    padding: 6px 10px calc(8px + env(safe-area-inset-bottom, 0px));
-    background: color-mix(in srgb, var(--pdv-white) 95%, transparent);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border-top: 1px solid var(--pdv-border);
-    box-shadow: 0 -8px 24px color-mix(in srgb, var(--pdv-text) 6%, transparent);
+    padding: 6px 8px;
+    border-radius: 999px;
+    background: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--pdv-white) 56%, transparent) 0%,
+      color-mix(in srgb, var(--pdv-support) 42%, transparent) 50%,
+      color-mix(in srgb, var(--pdv-white) 48%, transparent) 100%
+    );
+    backdrop-filter: blur(22px) saturate(190%);
+    -webkit-backdrop-filter: blur(22px) saturate(190%);
+    border: 1px solid color-mix(in srgb, var(--pdv-white) 76%, var(--pdv-border));
+    box-shadow:
+      0 16px 38px -8px color-mix(in srgb, var(--pdv-text) 18%, transparent),
+      0 4px 14px -2px color-mix(in srgb, var(--pdv-primary) 14%, transparent),
+      inset 0 1px 1.5px color-mix(in srgb, var(--pdv-white) 92%, transparent),
+      inset 0 -1px 1px color-mix(in srgb, var(--pdv-primary) 10%, transparent);
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 1;
+    transition:
+      transform 340ms cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 260ms cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 260ms ease;
+    will-change: transform, opacity;
+  }
+
+  .retail-mobile-tabbar::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 14%;
+    right: 14%;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in srgb, var(--pdv-white) 95%, transparent),
+      transparent
+    );
+    pointer-events: none;
+  }
+
+  .retail-mobile-tabbar.is-hidden {
+    transform: translate3d(
+        0,
+        calc(100% + env(safe-area-inset-bottom, 0px) + 28px),
+        0
+      )
+      scale(0.92);
+    opacity: 0;
+    pointer-events: none;
   }
 
   .retail-mobile-tab {
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 3px;
-    min-height: 48px;
-    padding: 4px 2px;
-    border-radius: 12px;
-    border: 0;
+    gap: 2.5px;
+    min-height: 46px;
+    padding: 5px 4px;
+    border-radius: 999px;
+    border: 1px solid transparent;
     background: transparent;
-    color: var(--pdv-text-secondary);
-    font-size: 11px;
+    color: color-mix(in srgb, var(--pdv-text) 82%, var(--pdv-text-secondary));
+    font-size: 10.5px;
     font-weight: 600;
+    letter-spacing: -0.01em;
     text-decoration: none;
     cursor: pointer;
+    transition:
+      background-color 200ms cubic-bezier(0.22, 1, 0.36, 1),
+      color 200ms ease,
+      transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 200ms ease,
+      border-color 200ms ease;
+  }
+
+  .retail-mobile-tab:active {
+    transform: scale(0.92);
   }
 
   .retail-mobile-tab.is-active {
     color: var(--pdv-primary);
-    background: var(--pdv-support);
+    background: color-mix(in srgb, var(--pdv-white) 76%, var(--pdv-support));
+    border-color: color-mix(in srgb, var(--pdv-primary) 24%, var(--pdv-white));
+    box-shadow:
+      0 4px 14px color-mix(in srgb, var(--pdv-primary) 18%, transparent),
+      inset 0 1px 0.5px var(--pdv-white);
     font-weight: 700;
   }
 
@@ -4867,24 +4934,55 @@ textarea:focus-visible {
 
   .retail-mobile-bag-bar {
     position: fixed;
-    left: 12px;
-    right: 12px;
-    bottom: calc(70px + env(safe-area-inset-bottom, 0px));
-    z-index: 90;
+    left: 16px;
+    right: 16px;
+    bottom: calc(76px + max(14px, calc(env(safe-area-inset-bottom, 0px) + 8px)));
+    z-index: 95;
+    max-width: 420px;
+    margin: 0 auto;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 10px;
     padding: 8px 10px 8px 12px;
-    border-radius: 18px;
-    background: var(--pdv-text);
-    color: var(--pdv-white);
-    border: 1px solid color-mix(in srgb, var(--pdv-white) 14%, var(--pdv-text));
-    box-shadow: 0 14px 32px color-mix(in srgb, var(--pdv-text) 26%, transparent);
+    border-radius: 999px;
+    background: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--pdv-white) 86%, var(--pdv-support) 14%) 0%,
+      color-mix(in srgb, var(--pdv-white) 76%, var(--pdv-support) 24%) 100%
+    );
+    backdrop-filter: blur(22px) saturate(190%);
+    -webkit-backdrop-filter: blur(22px) saturate(190%);
+    color: var(--pdv-text);
+    border: 1px solid color-mix(in srgb, var(--pdv-primary) 22%, var(--pdv-white));
+    box-shadow:
+      0 14px 34px color-mix(in srgb, var(--pdv-primary) 16%, transparent),
+      0 4px 14px color-mix(in srgb, var(--pdv-text) 8%, transparent),
+      inset 0 1px 0 color-mix(in srgb, var(--pdv-white) 90%, transparent);
+    transition:
+      transform 340ms cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 240ms ease,
+      visibility 240ms ease,
+      bottom 340ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 
-  .retail-shell.no-rail .retail-mobile-bag-bar {
-    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  .retail-mobile-bag-bar.is-empty {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translate3d(0, 22px, 0) scale(0.95);
+  }
+
+  .retail-mobile-bag-bar.has-items {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  .retail-shell.no-rail .retail-mobile-bag-bar,
+  .retail-shell[data-mobile-nav-hidden="true"] .retail-mobile-bag-bar {
+    bottom: max(14px, calc(env(safe-area-inset-bottom, 0px) + 8px));
   }
 
   .retail-mobile-bag-summary {
@@ -4895,7 +4993,7 @@ textarea:focus-visible {
     gap: 10px;
     border: 0;
     background: transparent;
-    color: var(--pdv-white);
+    color: var(--pdv-text);
     padding: 2px 0;
     text-align: left;
     cursor: pointer;
@@ -4905,9 +5003,9 @@ textarea:focus-visible {
     position: relative;
     width: 38px;
     height: 38px;
-    border-radius: 12px;
-    background: color-mix(in srgb, var(--pdv-primary) 28%, var(--pdv-text));
-    color: var(--pdv-white);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--pdv-primary) 14%, var(--pdv-white));
+    color: var(--pdv-primary);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -4916,8 +5014,8 @@ textarea:focus-visible {
 
   .retail-mobile-bag-badge {
     position: absolute;
-    top: -4px;
-    right: -4px;
+    top: -3px;
+    right: -3px;
     min-width: 18px;
     height: 18px;
     padding: 0 5px;
@@ -4940,9 +5038,9 @@ textarea:focus-visible {
   }
 
   .retail-mobile-bag-text strong {
-    font-size: 12px;
+    font-size: 11.5px;
     font-weight: 600;
-    color: var(--pdv-support);
+    color: var(--pdv-text-secondary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -4951,11 +5049,11 @@ textarea:focus-visible {
   .retail-mobile-bag-text span {
     font-size: 15px;
     font-weight: 800;
-    color: var(--pdv-white);
+    color: var(--pdv-text);
   }
 
   .retail-mobile-bag-chevron {
-    color: var(--pdv-support);
+    color: var(--pdv-primary);
     flex-shrink: 0;
     transition: transform 180ms ease;
   }
@@ -4966,8 +5064,8 @@ textarea:focus-visible {
 
   .retail-mobile-bag-cta {
     min-height: 40px;
-    padding: 0 16px;
-    border-radius: 12px;
+    padding: 0 18px;
+    border-radius: 999px;
     border: 0;
     background: var(--pdv-primary);
     color: var(--pdv-white);
@@ -4975,6 +5073,7 @@ textarea:focus-visible {
     font-weight: 700;
     flex-shrink: 0;
     cursor: pointer;
+    box-shadow: 0 6px 16px color-mix(in srgb, var(--pdv-primary) 28%, transparent);
   }
 
   .retail-mobile-bag-cta:disabled {

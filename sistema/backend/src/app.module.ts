@@ -23,6 +23,7 @@ import { FiscalModule } from './fiscal/fiscal.module';
 import { RetailModule } from './retail/retail.module';
 import { CrediarioModule } from './crediario/crediario.module';
 import { VitrineModule } from './vitrine/vitrine.module';
+import { StorefrontModule } from './storefront/storefront.module';
 
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { TenantInterceptor } from './prisma/tenant-context.service';
@@ -60,6 +61,7 @@ import { ImageMaintenanceModule } from './maintenance/image-maintenance.module';
     RetailModule,
     CrediarioModule,
     VitrineModule,
+    StorefrontModule,
   ],
   controllers: [AppController],
   providers: [

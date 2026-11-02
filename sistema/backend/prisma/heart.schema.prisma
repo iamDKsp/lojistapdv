@@ -93,6 +93,7 @@ model Tenant {
   invoices            TenantInvoice[]
   webhookOutboxEvents WebhookOutbox[]
   stationAccessLinks  StationAccessLink[]
+  storefrontRegistry  StorefrontRegistry?
 
   @@map("tenants")
 }
@@ -417,4 +418,24 @@ model Lead {
   @@index([status])
   @@index([createdAt])
   @@map("leads")
+}
+
+// ------------------------------------------------------------
+//  StorefrontRegistry — Registro público global da Loja Virtual no Heart
+// ------------------------------------------------------------
+model StorefrontRegistry {
+  id               String   @id @default(uuid())
+  publicId         String   @unique @map("public_id")
+  tenantId         String   @unique @map("tenant_id")
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  slug             String   @unique
+  storeName        String   @default("") @map("store_name")
+  enabled          Boolean  @default(false)
+  published        Boolean  @default(false)
+  publishedVersion Int      @default(0) @map("published_version")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@index([slug, enabled, published])
+  @@map("storefront_registry")
 }

@@ -1,5 +1,19 @@
 # Histórico — PDV Lojista
 
+## 2026-11-01 — Experiência Mobile Nativa (PWA Standalone), Bloqueio de Zoom/Overscroll e Balão Inferior Glassmorphism com Auto-Hide
+
+- **Comportamento Nativo de Aplicativo Salvo na Tela Inicial (`frontend/index.html`, `frontend/public/manifest.webmanifest`, `frontend/vite.config.ts`, `frontend/src/main.tsx`, `frontend/src/app/globals.css` e `frontend/src/App.tsx`)**:
+  - Configurado `<meta name="viewport">` com `minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content` e unificado `theme-color` / `background_color` do PWA em `#F8F7FC` (`--pdv-background`), eliminando faixas escuras no topo e na base ao abrir o app salvo na tela inicial.
+  - Adicionados bloqueios nativos em `main.tsx` contra *pinch-to-zoom* (`gesturestart`/`gesturechange`/`gestureend` e `touchmove` multitoque), *double-tap zoom* (`touchend` rápido `< 280ms`) e zoom via `ctrlKey + wheel`, além de `font-size: 16px` global em todos os campos (`input`, `select`, `textarea`) no mobile para impedir auto-zoom do iOS ao focar.
+  - Travado o *rubber-band overscroll* (arrasto elástico além das bordas) com `overscroll-behavior: none` e `overflow: hidden` em `html, body, #root, .retail-shell`, mantendo `.retail-canvas` como único container de rolagem de borda infinita.
+- **Respiro Superior para iPhone (Notch / Dynamic Island) e Base sem Borda Preta (`frontend/src/retail/retail.css`)**:
+  - Removido o fundo escuro `var(--pdv-text)` que vazava na base do `.retail-shell` no mobile e a barra escura artificial `.retail-mlogin-homebar` no login mobile (`RetailMobileLogin`), aplicando `var(--pdv-background)` de ponta a ponta.
+  - Adicionado respiro superior dedicado (`padding-top: max(14px, env(safe-area-inset-top, 0px))`) no `.retail-shell`, no `.retail-mlogin-phone`, nas gavetas e no `<Toaster>`, além de respiro inferior amplo (`calc(118px + env(safe-area-inset-bottom, 0px))` e `calc(148px + env(safe-area-inset-bottom, 0px))` no PDV) para que nenhum card ou botão fique cortado na parte inferior.
+- **Menu Inferior em Balão Glassmorphism Transparente com Ocultação ao Rolar (`frontend/src/retail/RetailLayout.tsx` e `frontend/src/retail/retail.css`)**:
+  - `.retail-mobile-tabbar` redesenhado como uma cápsula flutuante (`border-radius: 999px`, `max-width: 420px`) com efeito *glassmorphism* translúcido (`backdrop-filter: blur(22px) saturate(190%)`), brilho especular superior e itens em formato de pílula usando exclusivamente os tokens aprovados da paleta roxa, branca e neutra.
+  - Detecção inteligente de direção de rolagem (`handleCanvasScrollCapture` e gestos de toque em `RetailLayout.tsx`): ao rolar para baixo o balão desliza suavemente para fora da tela (`.is-hidden`), liberando 100% da área de leitura; ao rolar para cima, tocar perto do topo ou trocar de rota, o balão reaparece imediatamente.
+  - Barra flutuante da sacola no PDV (`.retail-mobile-bag-bar`) convertida para cápsula *glassmorphism* que permanece oculta quando a sacola está vazia (`.is-empty`) e acompanha dinamicamente a posição do balão inferior quando há itens (`.has-items`).
+
 ## 2026-11-01 — Estúdio de Categorias em 2 Colunas, Ativação/Desativação no PDV e Catálogo Completo de 28 Categorias com 10+ Grupos
 
 - **Ativação / Desativação de Categorias (`active: boolean`) e Ações em Lote (`backend/prisma/schema.prisma`, `backend/src/prisma/tenant-prisma.service.ts`, `backend/src/categories/categories.service.ts` e `backend/src/categories/categories.controller.ts`)**:

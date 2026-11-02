@@ -6,6 +6,7 @@ import { IntegrationsService } from '../integrations/integrations.service';
 import { bulkImageIdentities, BulkImageIdentity } from './bulk-images.helper';
 import { assertRetailProduct } from '../retail/retail.rules';
 import { productImageOptimizer } from '../images/product-image.optimizer';
+import { getActiveReservedQuantities } from '../prisma/stock-reservations.helper';
 
 // ── DTOs internos (evitar `any`) ─────────────────────────────────────────────
 
@@ -1417,6 +1418,14 @@ export class ProductsService {
     newStock: number,
     reason: string,
   ): Promise<void> {
+    const activeReservations = await getActiveReservedQuantities(tx, [productId]);
+    const reservedQty = activeReservations.get(productId)?.quantity ?? 0;
+    if (reservedQty > 0 && Number(newStock) < reservedQty) {
+      throw new BadRequestException(
+        `Não é possível ajustar o estoque para ${newStock}: existem ${reservedQty} unidade(s) reservada(s) em pedidos ativos da Loja Virtual.`,
+      );
+    }
+
     // 1. Buscar lotes ativos (remaining > 0)
     const activeLots = await tx.stockLot.findMany({
       where: { productId, remaining: { gt: 0 } },

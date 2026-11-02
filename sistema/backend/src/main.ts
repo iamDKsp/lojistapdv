@@ -4,6 +4,15 @@ import { Logger } from '@nestjs/common';
 import { json, urlencoded, static as expressStatic } from 'express';
 import * as path from 'path';
 import * as fs from 'fs';
+import { StorefrontPublicService } from './storefront/storefront-public.service';
+
+function escapeHtmlAttr(str: string): string {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -54,7 +63,15 @@ async function bootstrap() {
         },
       }),
     );
-    expressApp.use((req: any, res: any, next: any) => {
+    const baseIndexHtml = fs.readFileSync(indexHtmlPath, 'utf8');
+    let storefrontPublicService: StorefrontPublicService | null = null;
+    try {
+      storefrontPublicService = app.get(StorefrontPublicService);
+    } catch {
+      storefrontPublicService = null;
+    }
+
+    expressApp.use(async (req: any, res: any, next: any) => {
       if (
         (req.method === 'GET' || req.method === 'HEAD') &&
         !req.path.startsWith('/api') &&
@@ -62,6 +79,42 @@ async function bootstrap() {
         !req.path.startsWith('/assets/')
       ) {
         res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+
+        const storeMatch = req.path.match(
+          /^\/loja\/([a-zA-Z0-9-]+)(?:\/produto\/([a-zA-Z0-9-]+))?\/?$/,
+        );
+        if (storeMatch && storefrontPublicService) {
+          try {
+            const meta = await storefrontPublicService.getShareMetadata(
+              storeMatch[1],
+              storeMatch[2],
+            );
+            const title = escapeHtmlAttr(meta.title);
+            const desc = escapeHtmlAttr(meta.description);
+            const ogTags = [
+              `<meta property="og:type" content="website" />`,
+              `<meta property="og:title" content="${title}" />`,
+              `<meta property="og:description" content="${desc}" />`,
+              `<meta property="og:url" content="${escapeHtmlAttr(meta.canonicalPath)}" />`,
+              meta.imageUrl
+                ? `<meta property="og:image" content="${escapeHtmlAttr(meta.imageUrl)}" />`
+                : '',
+              `<meta name="twitter:card" content="summary_large_image" />`,
+              `<meta name="twitter:title" content="${title}" />`,
+              `<meta name="twitter:description" content="${desc}" />`,
+            ]
+              .filter(Boolean)
+              .join('\n    ');
+
+            const customHtml = baseIndexHtml
+              .replace(/<title>.*?<\/title>/i, `<title>${title}</title>`)
+              .replace('</head>', `    ${ogTags}\n  </head>`);
+            return res.type('html').send(customHtml);
+          } catch {
+            // Fallback para o index.html padrão
+          }
+        }
+
         return res.sendFile(indexHtmlPath);
       }
       next();

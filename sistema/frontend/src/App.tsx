@@ -27,6 +27,8 @@ import { RetailOperationsPage } from "@/retail/RetailOperationsPage";
 import { RetailDashboardPage } from "@/retail/RetailDashboardPage";
 import { RetailVitrinePage } from "@/retail/RetailVitrinePage";
 import { RetailVitrineTvPage } from "@/retail/RetailVitrineTvPage";
+import { RetailStorefrontPage } from "@/retail/RetailStorefrontPage";
+import { PublicStorefrontApp } from "@/storefront/PublicStorefrontApp";
 import {
   PdvLojistaLoader,
   SESSION_TRANSITION_EVENT,
@@ -205,12 +207,17 @@ function PreserveSearchRedirect({ to }: { to: string }) {
 }
 
 export function App() {
+  const isPublicExternalView =
+    typeof window !== "undefined" &&
+    (window.location.pathname.startsWith("/loja/") ||
+      window.location.pathname.startsWith("/tv/"));
+
   const [transitionState, setTransitionState] = useState<{
     active: boolean;
     runId: number;
     label: string;
   }>({
-    active: true,
+    active: !isPublicExternalView,
     runId: 1,
     label: "Abrindo PDV Lojista…",
   });
@@ -264,6 +271,25 @@ export function App() {
           {/* Reprodutor público de TV / Vitrine Digital (acesso sem login em Smart TVs) */}
           <Route path="/tv/:tvPublicId" element={<RetailVitrineTvPage />} />
           <Route path="/vitrine/:tvPublicId" element={<RetailVitrineTvPage />} />
+
+          {/* Loja Virtual Pública (acesso do consumidor final sem login no PDV) */}
+          <Route path="/loja/:slug" element={<PublicStorefrontApp />} />
+          <Route
+            path="/loja/:slug/produto/:produtoSlug"
+            element={<PublicStorefrontApp />}
+          />
+          <Route
+            path="/loja/:slug/carrinho"
+            element={<PublicStorefrontApp />}
+          />
+          <Route
+            path="/loja/:slug/finalizar"
+            element={<PublicStorefrontApp />}
+          />
+          <Route
+            path="/loja/:slug/pedido/:referencia"
+            element={<PublicStorefrontApp />}
+          />
           <Route element={<Protected />}>
             <Route path="/grupo-portal/:tab" element={<GroupPortalPage />} />
             <Route
@@ -345,6 +371,32 @@ export function App() {
                   element={<RetailVitrinePage />}
                 />
 
+                {/* Módulo Loja Virtual */}
+                <Route
+                  path="/loja-virtual"
+                  element={<RetailStorefrontPage />}
+                />
+                <Route
+                  path="/loja-virtual/aparencia"
+                  element={<RetailStorefrontPage />}
+                />
+                <Route
+                  path="/loja-virtual/produtos"
+                  element={<RetailStorefrontPage />}
+                />
+                <Route
+                  path="/loja-virtual/categorias"
+                  element={<RetailStorefrontPage />}
+                />
+                <Route
+                  path="/loja-virtual/pedidos"
+                  element={<RetailStorefrontPage />}
+                />
+                <Route
+                  path="/loja-virtual/configuracoes"
+                  element={<RetailStorefrontPage />}
+                />
+
                 {/* Módulo Configurações e Fiscal */}
                 <Route
                   path="/configuracoes/empresa"
@@ -383,6 +435,12 @@ export function App() {
         theme="light"
         position="top-center"
         duration={3500}
+        offset="max(16px, calc(env(safe-area-inset-top, 0px) + 10px))"
+        mobileOffset={{
+          top: "max(16px, calc(env(safe-area-inset-top, 0px) + 10px))",
+          left: "14px",
+          right: "14px",
+        }}
         toastOptions={{
           style: {
             background: "var(--pdv-white)",

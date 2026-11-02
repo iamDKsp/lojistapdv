@@ -51,6 +51,23 @@ export const ROUTES = {
     aparencia: "/vitrine/aparencia",
   },
 
+  lojaVirtual: {
+    visaoGeral: "/loja-virtual",
+    aparencia: "/loja-virtual/aparencia",
+    produtos: "/loja-virtual/produtos",
+    categorias: "/loja-virtual/categorias",
+    pedidos: "/loja-virtual/pedidos",
+    configuracoes: "/loja-virtual/configuracoes",
+  },
+
+  lojaPublica: {
+    home: "/loja/:slug",
+    produto: "/loja/:slug/produto/:produtoSlug",
+    carrinho: "/loja/:slug/carrinho",
+    finalizar: "/loja/:slug/finalizar",
+    pedido: "/loja/:slug/pedido/:referencia",
+  },
+
   configuracoes: {
     empresa: "/configuracoes/empresa",
     empresaDados: "/configuracoes/empresa/dados",
@@ -169,6 +186,16 @@ export const LEGACY_AND_ALIAS_REDIRECTS: ReadonlyArray<{
   { from: "/vitrine/configuracoes", to: ROUTES.vitrine.aparencia },
   { from: "/dashboard/vitrine/aparencia", to: ROUTES.vitrine.aparencia },
 
+  // Módulo Loja Virtual
+  { from: "/dashboard/loja-virtual", to: ROUTES.lojaVirtual.visaoGeral },
+  { from: "/loja-virtual/visao-geral", to: ROUTES.lojaVirtual.visaoGeral },
+  { from: "/lojavirtual", to: ROUTES.lojaVirtual.visaoGeral },
+  { from: "/lojavirtual/aparencia", to: ROUTES.lojaVirtual.aparencia },
+  { from: "/lojavirtual/produtos", to: ROUTES.lojaVirtual.produtos },
+  { from: "/lojavirtual/categorias", to: ROUTES.lojaVirtual.categorias },
+  { from: "/lojavirtual/pedidos", to: ROUTES.lojaVirtual.pedidos },
+  { from: "/lojavirtual/configuracoes", to: ROUTES.lojaVirtual.configuracoes },
+
   // Módulo Configurações e Fiscal
   { from: "/configuracoes", to: ROUTES.configuracoes.empresa },
   { from: "/dashboard/configuracoes", to: ROUTES.configuracoes.empresa },
@@ -276,6 +303,16 @@ export function getCanonicalModuleId(pathname: string): string {
     clean.startsWith("/dashboard/vitrine")
   ) {
     return "vitrine";
+  }
+  if (
+    clean.startsWith("/loja-virtual") ||
+    clean.startsWith("/lojavirtual") ||
+    clean.startsWith("/dashboard/loja-virtual")
+  ) {
+    return "loja-virtual";
+  }
+  if (clean.startsWith("/loja/")) {
+    return "loja-publica";
   }
   if (clean.startsWith("/grupo-portal")) {
     return "grupo-portal";

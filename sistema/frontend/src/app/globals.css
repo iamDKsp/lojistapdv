@@ -34,6 +34,27 @@ body {
   font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  touch-action: pan-x pan-y;
+}
+
+#root {
+  min-height: 100dvh;
+  background-color: var(--pdv-background);
+  overscroll-behavior: none;
+}
+
+button,
+a,
+[role="button"],
+[role="switch"],
+[role="option"],
+[role="tab"] {
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 /* Transições discretas padronizadas (120-180ms para controles simples) */

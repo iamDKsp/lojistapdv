@@ -8,6 +8,8 @@ import { Prisma } from '@prisma/client';
 import { redeemStoreCredits, restoreStoreCredits } from '../retail/store-credit.rules';
 import { retryTransaction } from '../prisma/transaction-retry';
 import { lockProducts } from '../prisma/lock-products';
+import { getActiveReservedQuantities, flagOrdersWithStockConflict } from '../prisma/stock-reservations.helper';
+import { isStorefrontSchemaMissingError } from '../tenants/tenant-schema-upgrade';
 import archiver = require('archiver');
 import { MailService } from '../mail/mail.service';
 import { IntegrationsService } from '../integrations/integrations.service';
@@ -177,8 +179,45 @@ export class SalesService {
       let subtotal = new Prisma.Decimal(0);
 
       // ─── Flag de movimentação de estoque (Ajuste Fiscal pode desabilitar) ───
-      const shouldMoveStock = data.movimentarEstoque !== false;
-      const saleSource = data.source || 'pdv';
+      if (data.storefrontOrderId && (data.movimentarEstoque === false || data.source === 'ajuste_fiscal')) {
+        throw new BadRequestException('Conversão de pedido da Loja Virtual deve movimentar estoque como venda real.');
+      }
+      const shouldMoveStock = data.storefrontOrderId ? true : data.movimentarEstoque !== false;
+      const saleSource = data.storefrontOrderId ? 'loja_virtual' : (data.source || 'pdv');
+
+      let storefrontOrderToConvert: any = null;
+      if (data.storefrontOrderId) {
+        await tx.$queryRaw`SELECT id FROM storefront_orders WHERE id = ${data.storefrontOrderId} FOR UPDATE`;
+        storefrontOrderToConvert = await tx.storefrontOrder.findUnique({
+          where: { id: data.storefrontOrderId },
+          include: { items: true, reservations: true },
+        });
+        if (!storefrontOrderToConvert) {
+          throw new NotFoundException('Pedido da Loja Virtual não encontrado.');
+        }
+        if (storefrontOrderToConvert.saleId && storefrontOrderToConvert.saleId !== canonicalId) {
+          throw new ConflictException('Este pedido já foi convertido em venda.');
+        }
+        if (!['AWAITING_CONFIRMATION', 'CONFIRMED'].includes(storefrontOrderToConvert.commercialStatus)) {
+          throw new ConflictException(`Não é possível converter um pedido com status comercial "${storefrontOrderToConvert.commercialStatus}".`);
+        }
+        if (
+          data.expectedOrderVersion !== undefined &&
+          Number(storefrontOrderToConvert.version) !== Number(data.expectedOrderVersion)
+        ) {
+          throw new ConflictException('Este pedido foi atualizado por outro operador. Recarregue os detalhes antes de converter.');
+        }
+        const now = new Date();
+        const activeReservations = (storefrontOrderToConvert.reservations || []).filter(
+          (r: any) => r.status === 'ACTIVE' && new Date(r.expiresAt) > now,
+        );
+        if (
+          storefrontOrderToConvert.reservationStatus !== 'ACTIVE' ||
+          activeReservations.length === 0
+        ) {
+          throw new ConflictException('A reserva de estoque deste pedido não está ativa ou já expirou.');
+        }
+      }
 
       // ─── 0. Ler configurações do tenant e validar caixa ────────────────────
       const isConsumption = !!data.consumedByOperatorId;
@@ -311,6 +350,9 @@ export class SalesService {
       allProductIdsToSync = allProductIds;
 
       await lockProducts(tx, allProductIds);
+      const activeReservationsMap = await getActiveReservedQuantities(tx, allProductIds, {
+        excludeOrderId: data.storefrontOrderId ? String(data.storefrontOrderId) : undefined,
+      });
 
       const productsInDb = await tx.product.findMany({
         where: { id: { in: allProductIds } },
@@ -716,11 +758,15 @@ export class SalesService {
         } else {
           // ─── Movimentação de estoque (desabilitada em Ajuste Fiscal sem estoque) ───
           if (shouldMoveStock) {
-            if (!allowNegativeStock) {
+            const reservedSummary = activeReservationsMap.get(item.productId);
+            const reservedByOthers = reservedSummary?.quantity ?? 0;
+
+            if (!allowNegativeStock && !data.offlineContingency) {
+              const requiredStock = new Prisma.Decimal(qty + reservedByOthers);
               const updateResult = await tx.product.updateMany({
                 where: {
                   id: item.productId,
-                  stock: { gte: new Prisma.Decimal(qty) }
+                  stock: { gte: requiredStock }
                 },
                 data: {
                   stock: { decrement: new Prisma.Decimal(qty) },
@@ -728,6 +774,12 @@ export class SalesService {
                 }
               });
               if (updateResult.count === 0) {
+                const currentPhysical = Number(product.stock);
+                if (reservedByOthers > 0 && currentPhysical >= qty) {
+                  throw new BadRequestException(
+                    `Estoque reservado na Loja Virtual para o produto: ${product.name} (físico: ${currentPhysical}, reservado: ${reservedByOthers}, livre: ${Math.max(0, currentPhysical - reservedByOthers)}, tentado: ${qty})`,
+                  );
+                }
                 throw new BadRequestException(`Estoque insuficiente para o produto: ${product.name} (disponível: ${product.stock}, tentado: ${qty})`);
               }
             } else {
@@ -738,13 +790,25 @@ export class SalesService {
                   salesCount: { increment: qty }
                 },
               });
+              const remainingPhysicalAfterSale = Number(product.stock) - qty;
+              if (reservedByOthers > 0 && remainingPhysicalAfterSale < reservedByOthers && reservedSummary?.orderIds?.length) {
+                await flagOrdersWithStockConflict(
+                  tx,
+                  reservedSummary.orderIds,
+                  `Venda no balcão (${data.offlineContingency ? 'contingência offline' : 'estoque negativo permitido'}) reduziu o estoque físico de "${product.name}" para ${remainingPhysicalAfterSale}, abaixo das ${reservedByOthers} un. reservadas.`,
+                );
+              }
             }
 
             inventoryLogsToCreate.push({
               productId: product.id,
               type: 'SALE',
               quantity: qty,
-              reason: isAjusteFiscal ? 'Ajuste Fiscal' : 'Venda PDV',
+              reason: storefrontOrderToConvert
+                ? `Venda Loja Virtual (${storefrontOrderToConvert.reference})`
+                : isAjusteFiscal
+                  ? 'Ajuste Fiscal'
+                  : 'Venda PDV',
             });
 
             const productConsumptions = await this.consumeLotsFIFO(tx, product.id, qty, product.priceCost);
@@ -810,6 +874,57 @@ export class SalesService {
 
       if (inventoryLogsToCreate.length > 0) {
         await tx.inventoryLog.createMany({ data: inventoryLogsToCreate });
+      }
+
+      if (storefrontOrderToConvert) {
+        const now = new Date();
+        const consumed = await tx.stockReservation.updateMany({
+          where: {
+            orderId: storefrontOrderToConvert.id,
+            status: 'ACTIVE',
+            expiresAt: { gt: now },
+          },
+          data: {
+            status: 'CONSUMED',
+            consumedAt: now,
+          },
+        });
+        if (consumed.count === 0) {
+          throw new ConflictException('As reservas deste pedido expiraram ou já foram consumidas durante o processamento.');
+        }
+
+        await tx.storefrontOrder.update({
+          where: { id: storefrontOrderToConvert.id },
+          data: {
+            commercialStatus: 'COMPLETED',
+            reservationStatus: 'CONSUMED',
+            paymentStatus: 'REGISTERED_IN_SALE',
+            completedAt: now,
+            confirmedAt: storefrontOrderToConvert.confirmedAt ?? now,
+            confirmedByUserId: storefrontOrderToConvert.confirmedByUserId ?? (userId || null),
+            saleId: sale.id,
+            offlineConflictDetected: false,
+            version: { increment: 1 },
+          },
+        });
+
+        await tx.storefrontOrderEvent.create({
+          data: {
+            orderId: storefrontOrderToConvert.id,
+            eventType: 'CONVERTED_TO_SALE',
+            fromStatus: storefrontOrderToConvert.commercialStatus,
+            toStatus: 'COMPLETED',
+            actorType: 'ADMIN',
+            actorId: userId || operatorId || null,
+            actorName: data.operatorName || null,
+            reason: `Pedido convertido na Venda #${sale.code ?? sale.id}`,
+            metadataJson: {
+              saleId: sale.id,
+              saleCode: sale.code,
+              total: Number(finalTotalStr),
+            },
+          },
+        });
       }
 
       if (data.consumedByOperatorId) {
@@ -1510,6 +1625,41 @@ export class SalesService {
           payments: true
         }
       });
+
+      // Se a venda estiver vinculada a um pedido da Loja Virtual, atualizar o status do pedido
+      // sem liberar/repor reserva novamente (pois o estoque já foi restituído pelos lotes acima).
+      if (tx.storefrontOrder?.findUnique) {
+        try {
+          const linkedOrder = await tx.storefrontOrder.findUnique({
+            where: { saleId },
+          });
+          if (linkedOrder) {
+            await tx.storefrontOrder.update({
+              where: { id: linkedOrder.id },
+              data: {
+                commercialStatus: 'CANCELLED',
+                paymentStatus: 'REFUNDED',
+                cancelledAt: new Date(),
+                cancelReason: `Venda #${existingSale.code ?? existingSale.id} cancelada: ${reason}`,
+                version: { increment: 1 },
+              },
+            });
+            await tx.storefrontOrderEvent.create({
+              data: {
+                orderId: linkedOrder.id,
+                eventType: 'SALE_CANCELLED',
+                fromStatus: linkedOrder.commercialStatus,
+                toStatus: 'CANCELLED',
+                actorType: 'ADMIN',
+                reason: `Venda vinculada cancelada: ${reason}`,
+                metadataJson: { saleId },
+              },
+            });
+          }
+        } catch (err) {
+          if (!isStorefrontSchemaMissingError(err)) throw err;
+        }
+      }
 
       return updatedSale;
     });

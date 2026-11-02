@@ -24,8 +24,8 @@ export default defineConfig({
         name: 'PDV Lojista',
         short_name: 'Lojista',
         description: 'Sistema de Ponto de Venda profissional com suporte offline',
-        theme_color: '#7C3AED',
-        background_color: '#FFFFFF',
+        theme_color: '#F8F7FC',
+        background_color: '#F8F7FC',
         display: 'standalone',
         orientation: 'any',
         start_url: '/',
@@ -67,6 +67,12 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MB
 
         runtimeCaching: [
+          // Storefront JSON endpoints (catalog, cart validation, orders) must never be cached by SW
+          {
+            urlPattern: ({ url, sameOrigin }) =>
+              sameOrigin && url.pathname.startsWith('/api/storefront/'),
+            handler: 'NetworkOnly',
+          },
           // Product images have immutable IDs. Keep their cache separate from JSON.
           // 300 entries x 200 KiB bounds stored payload to ~59 MiB (plus overhead).
           // Old multi-megabyte originals are never added to this dedicated SW cache.

@@ -195,7 +195,7 @@ export class RetailReturnsService {
               'Os itens selecionados não geram crédito.',
             );
           const amount = new Prisma.Decimal(totalCents).div(100);
-          return tx.retailReturn.create({
+          const createdReturn = await tx.retailReturn.create({
             data: {
               requestKey,
               requestFingerprint: fingerprint,
@@ -209,6 +209,34 @@ export class RetailReturnsService {
             },
             include: { credit: true, items: true },
           });
+
+          if ((tx as any).storefrontOrder?.findUnique) {
+            try {
+              const linkedOrder = await (tx as any).storefrontOrder.findUnique({
+                where: { saleId },
+              });
+              if (linkedOrder && (tx as any).storefrontOrderEvent?.create) {
+                await (tx as any).storefrontOrderEvent.create({
+                  data: {
+                    orderId: linkedOrder.id,
+                    eventType: 'SALE_RETURN_CREATED',
+                    actorType: 'ADMIN',
+                    actorId: this.context.get().userId || null,
+                    reason: `Devolução/troca registrada na venda vinculada: ${reason}`,
+                    metadataJson: {
+                      returnId: createdReturn.id,
+                      saleId,
+                      totalCredit: Number(amount),
+                    },
+                  },
+                });
+              }
+            } catch {
+              // Ignora caso a tabela storefront_orders ainda não exista no tenant
+            }
+          }
+
+          return createdReturn;
         },
         { timeout: 30000 },
       ),

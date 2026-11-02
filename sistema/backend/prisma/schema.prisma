@@ -99,6 +99,7 @@ model Category {
 
   products  Product[]
   retailGroups RetailGroup[]
+  storefrontCategory StorefrontCategory?
 
   @@map("categories")
 }
@@ -173,6 +174,8 @@ model Product {
   nfeEntradaItens     NfeEntradaItem[]
   comandaItems        ComandaItem[]
   comandaItemModifiers ComandaItemModifier[] @relation("ComandaItemModifierComponent")
+  storefrontOrderItems StorefrontOrderItem[]
+  stockReservations    StockReservation[]
 
   @@unique([retailGroupId, variantKey])
   @@map("products")
@@ -203,6 +206,7 @@ model Customer {
   preferredDueDay Int?
   whatsappOptIn Boolean @default(true)
   creditNotes String? @db.Text
+  storefrontOrders StorefrontOrder[]
 
   @@map("customers")
 }
@@ -307,6 +311,7 @@ model Sale {
   retailReturns       RetailReturn[]
   creditUses          StoreCreditUse[]
   receivables         CustomerReceivable[]
+  storefrontOrder     StorefrontOrder?
 
   @@index([code])
   @@index([createdAt])
@@ -1081,6 +1086,7 @@ model RetailGroup {
   active Boolean @default(true)
   version Int @default(1)
   variants Product[]
+  storefrontProduct StorefrontProduct?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   @@map("retail_groups")
@@ -1274,4 +1280,204 @@ model CrediarioNotificationLog {
   @@index([status, createdAt])
   @@map("crediario_notification_logs")
 
+}
+
+// ============================================================
+//  MÓDULO LOJA VIRTUAL (STOREFRONT)
+// ============================================================
+
+model StorefrontSettings {
+  id                         String    @id @default("singleton")
+  publicId                   String    @unique @db.VarChar(64)
+  slug                       String    @unique @db.VarChar(80)
+  storeName                  String    @default("") @db.VarChar(140)
+  tagline                    String?   @db.VarChar(240)
+  description                String?   @db.Text
+  logoUrl                    String?   @db.Text
+  coverUrl                   String?   @db.Text
+  whatsappPhone              String?   @db.VarChar(32)
+  whatsappMessageIntro       String?   @db.VarChar(300)
+  pickupEnabled              Boolean   @default(true)
+  pickupInstructions         String?   @db.Text
+  deliveryEnabled            Boolean   @default(true)
+  deliveryInstructions       String?   @db.Text
+  deliveryFeeNote            String?   @db.VarChar(240)
+  confirmReservationMinutes  Int       @default(15)
+  confirmedHoldHours         Int       @default(24)
+  draftThemeJson             Json      @default("{}")
+  publishedThemeJson         Json      @default("{}")
+  publishedVersion           Int       @default(0)
+  isPublished                Boolean   @default(false)
+  publishedAt                DateTime?
+  publishedByUserId          String?
+  publishedByName            String?
+  createdAt                  DateTime  @default(now())
+  updatedAt                  DateTime  @updatedAt
+
+  @@map("storefront_settings")
+}
+
+model StorefrontRevision {
+  id                   String    @id @default(uuid())
+  version              Int       @unique
+  status               String    @default("DRAFT") @db.VarChar(24)
+  themeJson            Json
+  settingsSnapshotJson Json
+  createdByUserId      String?
+  createdByName        String?
+  publishedAt          DateTime?
+  createdAt            DateTime  @default(now())
+
+  @@index([status, createdAt])
+  @@map("storefront_revisions")
+}
+
+model StorefrontCategory {
+  id          String   @id @default(uuid())
+  categoryId  String   @unique
+  category    Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  slug        String   @unique @db.VarChar(80)
+  displayName String?  @db.VarChar(120)
+  description String?  @db.VarChar(300)
+  visible     Boolean  @default(true)
+  featured    Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([visible, sortOrder])
+  @@map("storefront_categories")
+}
+
+model StorefrontProduct {
+  id                    String      @id @default(uuid())
+  retailGroupId         String      @unique
+  retailGroup           RetailGroup @relation(fields: [retailGroupId], references: [id], onDelete: Cascade)
+  publicSlug            String      @unique @db.VarChar(140)
+  visible               Boolean     @default(false)
+  featured              Boolean     @default(false)
+  sortOrder             Int         @default(0)
+  commercialTitle       String?     @db.VarChar(160)
+  commercialDescription String?     @db.Text
+  badgeLabel            String?     @db.VarChar(60)
+  galleryUrlsJson       Json        @default("[]")
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+
+  @@index([visible, featured, sortOrder])
+  @@map("storefront_products")
+}
+
+model StorefrontOrder {
+  id                      String                @id @default(uuid())
+  code                    Int
+  reference               String                @unique @db.VarChar(40)
+  idempotencyKey          String                @unique @db.VarChar(80)
+  requestFingerprint      String                @db.VarChar(80)
+  accessTokenHash         String                @db.VarChar(128)
+  customerId              String?
+  customer                Customer?             @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  customerName            String                @db.VarChar(140)
+  customerPhone           String                @db.VarChar(40)
+  customerCpf             String?               @db.VarChar(24)
+  fulfillmentMode         String                @default("PICKUP") @db.VarChar(24)
+  deliveryAddressJson     Json?
+  notes                   String?               @db.Text
+  subtotal                Decimal               @default(0) @db.Decimal(10, 2)
+  discount                Decimal               @default(0) @db.Decimal(10, 2)
+  total                   Decimal               @db.Decimal(10, 2)
+  commercialStatus        String                @default("AWAITING_CONFIRMATION") @db.VarChar(32)
+  reservationStatus       String                @default("ACTIVE") @db.VarChar(32)
+  fulfillmentStatus       String                @default("WAITING_SEPARATION") @db.VarChar(32)
+  paymentStatus           String                @default("UNREGISTERED") @db.VarChar(32)
+  reservationExpiresAt    DateTime
+  confirmedAt             DateTime?
+  confirmedByUserId       String?
+  confirmedByName         String?
+  cancelledAt             DateTime?
+  cancelledByUserId       String?
+  cancelledByName         String?
+  cancelReason            String?               @db.Text
+  completedAt             DateTime?
+  saleId                  String?               @unique
+  sale                    Sale?                 @relation(fields: [saleId], references: [id], onDelete: SetNull)
+  offlineConflictDetected Boolean               @default(false)
+  offlineConflictNote     String?               @db.Text
+  version                 Int                   @default(1)
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
+
+  items                   StorefrontOrderItem[]
+  reservations            StockReservation[]
+  events                  StorefrontOrderEvent[]
+
+  @@index([commercialStatus, createdAt])
+  @@index([reservationStatus, reservationExpiresAt])
+  @@index([customerPhone])
+  @@index([code])
+  @@map("storefront_orders")
+}
+
+model StorefrontOrderItem {
+  id            String          @id @default(uuid())
+  orderId       String
+  order         StorefrontOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  retailGroupId String?
+  productId     String
+  product       Product         @relation(fields: [productId], references: [id])
+  productName   String          @db.VarChar(180)
+  size          String?         @db.VarChar(40)
+  color         String?         @db.VarChar(60)
+  variantLabel  String?         @db.VarChar(120)
+  sku           String?         @db.VarChar(80)
+  barcode       String?         @db.VarChar(80)
+  imageUrl      String?         @db.Text
+  unit          String          @default("UN") @db.VarChar(16)
+  quantity      Int
+  priceUnit     Decimal         @db.Decimal(10, 4)
+  subtotal      Decimal         @db.Decimal(10, 2)
+  createdAt     DateTime        @default(now())
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("storefront_order_items")
+}
+
+model StockReservation {
+  id            String          @id @default(uuid())
+  orderId       String
+  order         StorefrontOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId     String
+  product       Product         @relation(fields: [productId], references: [id])
+  quantity      Int
+  status        String          @default("ACTIVE") @db.VarChar(24)
+  expiresAt     DateTime
+  consumedAt    DateTime?
+  releasedAt    DateTime?
+  releaseReason String?         @db.VarChar(240)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@index([productId, status, expiresAt])
+  @@index([orderId, status])
+  @@index([status, expiresAt])
+  @@map("stock_reservations")
+}
+
+model StorefrontOrderEvent {
+  id           String          @id @default(uuid())
+  orderId      String
+  order        StorefrontOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  eventType    String          @db.VarChar(48)
+  fromStatus   String?         @db.VarChar(48)
+  toStatus     String?         @db.VarChar(48)
+  actorType    String          @default("SYSTEM") @db.VarChar(24)
+  actorId      String?         @db.VarChar(80)
+  actorName    String?         @db.VarChar(120)
+  reason       String?         @db.Text
+  metadataJson Json?
+  createdAt    DateTime        @default(now())
+
+  @@index([orderId, createdAt])
+  @@map("storefront_order_events")
 }

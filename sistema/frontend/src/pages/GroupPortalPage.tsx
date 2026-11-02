@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAuthStore } from '@/store/auth';
+import { triggerSessionEntryTransition } from '@/components/ui';
+import { shouldIgnoreArrowNavigation } from '@/lib/routes';
 import {
   BarChart2, Package, Tag, ArrowLeftRight, LogOut, Building2,
   TrendingUp, Star, Search, Plus, RefreshCw, X, AlertCircle,
@@ -1173,7 +1175,8 @@ export default function GroupPortalPage() {
     if (!token || !user || (user.role !== 'group_owner' && !user.groupId)) navigate('/login', { replace: true });
   }, [user, navigate]);
 
-  const handleTabChange = (id: TabId) => {
+  const handleTabChange = useCallback((id: TabId) => {
+    const isDifferentModule = id !== activeTab;
     setActiveTab(id);
     setTabKey(k => k + 1);
     const slugMap: Record<TabId, string> = {
@@ -1183,8 +1186,50 @@ export default function GroupPortalPage() {
       produtos: '/grupo-portal/produtos',
       transferencias: '/grupo-portal/transferencias',
     };
+    if (isDifferentModule) {
+      const targetTab = TABS.find(t => t.id === id);
+      triggerSessionEntryTransition(
+        targetTab ? `Abrindo ${targetTab.label}…` : 'Preparando módulo…',
+      );
+    }
     navigate(slugMap[id]);
-  };
+  }, [activeTab, navigate]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.key !== 'ArrowUp' &&
+        event.key !== 'ArrowDown' &&
+        event.key !== 'ArrowLeft' &&
+        event.key !== 'ArrowRight'
+      ) {
+        return;
+      }
+      if (shouldIgnoreArrowNavigation(event)) return;
+
+      if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+        event.preventDefault();
+        const currIdx = Math.max(0, TABS.findIndex(t => t.id === activeTab));
+        const delta = event.key === 'ArrowDown' ? 1 : -1;
+        const nextIdx = (currIdx + delta + TABS.length) % TABS.length;
+        handleTabChange(TABS[nextIdx].id);
+        return;
+      }
+
+      if (
+        (event.key === 'ArrowLeft' || event.key === 'ArrowRight') &&
+        activeTab === 'produtos'
+      ) {
+        event.preventDefault();
+        const nextPath = location.pathname.endsWith('/criar')
+          ? '/grupo-portal/produtos'
+          : '/grupo-portal/produtos/criar';
+        navigate(nextPath);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [activeTab, handleTabChange, location.pathname, navigate]);
   const handleLogout = () => { logout(); navigate('/login', { replace: true }); };
 
   if (!user) return null;

@@ -1,5 +1,15 @@
 # Histórico — PDV Lojista
 
+## 2026-11-01 — Transição Roxa em Tela Cheia por Módulo e Navegação por Setas (Módulos e Abas)
+
+- **Transição Tela Cheia (`mode="transition"`, `once`) Exclusiva na Troca de Módulo (`frontend/src/retail/RetailLayout.tsx`, `frontend/src/App.tsx`, `frontend/src/components/PdvLojistaLoader.tsx` e `frontend/src/lib/routes.ts`)**:
+  - Toda troca entre módulos distintos (via barra lateral `aside.retail-rail`, gaveta mobile, atalhos do cabeçalho ou teclas `↑`/`↓`) dispara 1 ciclo completo da transição que cobre a tela em roxo (`triggerSessionEntryTransition` com rótulo contextual do módulo).
+  - Trocas entre abas de um mesmo módulo (`.retail-subnav-bar`, sub-abas internas de Empresa/Contas a Pagar/XML e pílulas de categoria do PDV) preservam a transição rápida de aba (`tab-forward` / `tab-backward`), sem disparar a sobreposição de tela cheia.
+- **Comandos de Teclado com Setas para Módulos e Abas (`frontend/src/retail/RetailLayout.tsx`, `frontend/src/retail/RetailPosPage.tsx`, `frontend/src/pages/GroupPortalPage.tsx` e `frontend/src/lib/routes.ts`)**:
+  - `ArrowUp` (`↑`) e `ArrowDown` (`↓`): alternam ciclicamente entre os módulos ativos do menu lateral (disparando o ciclo da transição roxa).
+  - `ArrowLeft` (`←`) e `ArrowRight` (`→`): alternam ciclicamente entre as abas horizontais do módulo atual (`.retail-subnav-bar` nas telas de gestão e filtros de categoria no Ponto de Venda `/`), mantendo a animação normal de aba (`Shift + ←/→` alterna sub-abas internas em páginas que possuem segundo nível de abas).
+  - Proteção automática (`shouldIgnoreArrowNavigation`) para não interferir na digitação dentro de campos com texto, `<textarea>`, `<select>`, seletores abertos ou modais ativos, além de `Escape` para desfocar rapidamente um campo de busca.
+
 ## 2026-11-01 — Módulo Independente de Vitrine Digital & TV (`/vitrine` e `/tv/:tvPublicId`)
 
 - **Backend Multi-Tenant e Catálogo de Grades (`backend/src/vitrine/vitrine.module.ts`, `vitrine.service.ts`, `vitrine.controller.ts` e `vitrine.service.spec.ts`)**:

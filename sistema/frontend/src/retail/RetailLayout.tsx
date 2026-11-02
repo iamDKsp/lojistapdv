@@ -38,6 +38,11 @@ import { useAuthStore } from "@/store/auth";
 import { useShift } from "@/contexts/ShiftContext";
 import { api } from "@/lib/api";
 import { getFullUrl } from "@/lib/getFullUrl";
+import { triggerSessionEntryTransition } from "@/components/ui";
+import {
+  getCanonicalModuleId,
+  shouldIgnoreArrowNavigation,
+} from "@/lib/routes";
 
 interface RetailShellContextValue {
   config: any;
@@ -572,6 +577,11 @@ export function RetailLayout() {
     return "overview";
   }, [pathname]);
 
+  const canonicalModule = useMemo(
+    () => getCanonicalModuleId(pathname),
+    [pathname],
+  );
+
   const activeTabIndex = useMemo(() => {
     return subNavTabs.findIndex((tab) =>
       tab.path === "/inicio" ||
@@ -584,13 +594,17 @@ export function RetailLayout() {
     );
   }, [subNavTabs, pathname]);
 
+  const flatRailItems = useMemo(() => railGroups.flat(), [railGroups]);
+
   const activeRailIndex = useMemo(() => {
-    const flat = railGroups.flat();
-    return flat.findIndex((item) => item.active);
-  }, [railGroups]);
+    return flatRailItems.findIndex((item) => item.active);
+  }, [flatRailItems]);
+
+  const pendingNavIntentRef = useRef<"module" | "tab" | null>(null);
 
   const navHistoryRef = useRef({
     pathname,
+    canonicalModule,
     moduleKind,
     tabIndex: activeTabIndex,
     railIndex: activeRailIndex,
@@ -606,7 +620,8 @@ export function RetailLayout() {
     const prev = navHistoryRef.current;
     let direction: typeof prev.direction = "module-enter";
     if (
-      prev.moduleKind === moduleKind &&
+      prev.canonicalModule === canonicalModule &&
+      pendingNavIntentRef.current !== "module" &&
       prev.tabIndex !== -1 &&
       activeTabIndex !== -1 &&
       prev.tabIndex !== activeTabIndex
@@ -623,6 +638,7 @@ export function RetailLayout() {
     }
     navHistoryRef.current = {
       pathname,
+      canonicalModule,
       moduleKind,
       tabIndex: activeTabIndex,
       railIndex: activeRailIndex,
@@ -631,6 +647,159 @@ export function RetailLayout() {
   }
 
   const navDirection = navHistoryRef.current.direction;
+
+  const prevRouteRef = useRef({
+    pathname,
+    canonicalModule,
+    railIndex: activeRailIndex,
+  });
+
+  useEffect(() => {
+    const prev = prevRouteRef.current;
+    if (prev.pathname === pathname) return;
+
+    const intent = pendingNavIntentRef.current;
+    pendingNavIntentRef.current = null;
+
+    const isModuleSwitch =
+      intent === "module" ||
+      (intent !== "tab" && prev.canonicalModule !== canonicalModule);
+
+    prevRouteRef.current = {
+      pathname,
+      canonicalModule,
+      railIndex: activeRailIndex,
+    };
+
+    if (isModuleSwitch) {
+      const moduleLabel =
+        pathname === "/"
+          ? "Abrindo Frente de Caixa…"
+          : `Abrindo ${sectionHeading}…`;
+      triggerSessionEntryTransition(moduleLabel);
+    }
+  }, [pathname, canonicalModule, activeRailIndex, sectionHeading]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        const activeEl = document.activeElement as HTMLElement | null;
+        if (
+          activeEl &&
+          (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA") &&
+          !document.querySelector(
+            '.retail-modal-overlay, .retail-demo-modal-backdrop, .retail-mobile-drawer-overlay, [role="dialog"]',
+          )
+        ) {
+          activeEl.blur();
+        }
+        return;
+      }
+
+      if (
+        event.key !== "ArrowUp" &&
+        event.key !== "ArrowDown" &&
+        event.key !== "ArrowLeft" &&
+        event.key !== "ArrowRight"
+      ) {
+        return;
+      }
+
+      if (shouldIgnoreArrowNavigation(event)) {
+        return;
+      }
+
+      if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+        if (!showSidebar || flatRailItems.length <= 1) return;
+        event.preventDefault();
+        const activeEl = document.activeElement as HTMLElement | null;
+        if (activeEl && activeEl.tagName === "INPUT") {
+          activeEl.blur();
+        }
+        const currentIdx = activeRailIndex >= 0 ? activeRailIndex : 0;
+        const delta = event.key === "ArrowDown" ? 1 : -1;
+        const nextIdx =
+          (currentIdx + delta + flatRailItems.length) % flatRailItems.length;
+        const target = flatRailItems[nextIdx];
+        if (target && target.path !== pathname) {
+          pendingNavIntentRef.current = "module";
+          navigate(target.path);
+        }
+        return;
+      }
+
+      if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+        if (isPosRoute) return;
+
+        const delta = event.key === "ArrowRight" ? 1 : -1;
+
+        if (event.shiftKey) {
+          let innerPaths: string[] = [];
+          if (pathname.startsWith("/configuracoes/empresa")) {
+            innerPaths = [
+              "/configuracoes/empresa",
+              "/configuracoes/empresa/endereco",
+              ...(moduleAllowed("/configuracoes/nfce")
+                ? [
+                    "/configuracoes/empresa/nfce",
+                    "/configuracoes/empresa/certificado",
+                  ]
+                : []),
+            ];
+          } else if (pathname.startsWith("/financeiro/contas-a-pagar")) {
+            innerPaths = [
+              "/financeiro/contas-a-pagar/fixas",
+              "/financeiro/contas-a-pagar/variaveis",
+            ];
+          } else if (pathname.startsWith("/estoque/entrada-xml")) {
+            innerPaths = [
+              "/estoque/entrada-xml/pendentes",
+              "/estoque/entrada-xml/historico",
+            ];
+          }
+          if (innerPaths.length > 1) {
+            event.preventDefault();
+            const currInnerIdx = Math.max(
+              0,
+              innerPaths.findIndex((p) => pathname === p),
+            );
+            const nextInnerIdx =
+              (currInnerIdx + delta + innerPaths.length) % innerPaths.length;
+            pendingNavIntentRef.current = "tab";
+            navigate(innerPaths[nextInnerIdx]);
+            return;
+          }
+        }
+
+        if (subNavTabs.length <= 1) return;
+        event.preventDefault();
+        const activeEl = document.activeElement as HTMLElement | null;
+        if (activeEl && activeEl.tagName === "INPUT") {
+          activeEl.blur();
+        }
+        const currentTabIdx = activeTabIndex >= 0 ? activeTabIndex : 0;
+        const nextTabIdx =
+          (currentTabIdx + delta + subNavTabs.length) % subNavTabs.length;
+        const targetTab = subNavTabs[nextTabIdx];
+        if (targetTab && targetTab.path !== pathname) {
+          pendingNavIntentRef.current = "tab";
+          navigate(targetTab.path);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [
+    showSidebar,
+    flatRailItems,
+    activeRailIndex,
+    isPosRoute,
+    subNavTabs,
+    activeTabIndex,
+    pathname,
+    navigate,
+  ]);
 
   const contextValue = useMemo(
     () => ({
@@ -738,6 +907,11 @@ export function RetailLayout() {
                       aria-label={item.name}
                       data-tooltip={item.name}
                       data-icon-kind={item.iconKind}
+                      onClick={() => {
+                        if (!item.active && item.path !== pathname) {
+                          pendingNavIntentRef.current = "module";
+                        }
+                      }}
                       className={() =>
                         `retail-rail-item ${item.active ? "active" : ""}`
                       }
@@ -920,6 +1094,9 @@ export function RetailLayout() {
                         key={tab.path}
                         to={tab.path}
                         end={isExactRoot}
+                        onClick={() => {
+                          pendingNavIntentRef.current = "tab";
+                        }}
                         style={
                           { "--tab-idx": tabIdx } as React.CSSProperties
                         }
@@ -1121,7 +1298,12 @@ export function RetailLayout() {
                       <NavLink
                         key={item.path}
                         to={item.path}
-                        onClick={() => setMenuOpen(false)}
+                        onClick={() => {
+                          if (!item.active && item.path !== pathname) {
+                            pendingNavIntentRef.current = "module";
+                          }
+                          setMenuOpen(false);
+                        }}
                         className={`retail-mobile-drawer-card ${
                           item.active ? "is-active" : ""
                         }`}

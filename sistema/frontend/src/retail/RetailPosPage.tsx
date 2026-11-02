@@ -63,6 +63,7 @@ import {
   RetailTeamAvatars,
   RetailOperatorAvatar,
 } from "./RetailLayout";
+import { shouldIgnoreArrowNavigation } from "@/lib/routes";
 import { RetailCheckoutModal } from "./RetailCheckoutModal";
 import { RetailDialog } from "./RetailDialog";
 import { apiError, money } from "./types";
@@ -593,13 +594,16 @@ export function RetailPosPage() {
     );
   }, [products, category, search]);
 
-  const categories = [
-    ...new Map(
-      products
-        .filter((p) => p.category)
-        .map((p) => [p.category!.id, p.category!]),
-    ).values(),
-  ];
+  const categories = useMemo(
+    () => [
+      ...new Map(
+        products
+          .filter((p) => p.category)
+          .map((p) => [p.category!.id, p.category!]),
+      ).values(),
+    ],
+    [products],
+  );
 
   function add(product: Product) {
     const existing = cart.items
@@ -641,6 +645,8 @@ export function RetailPosPage() {
       if (
         checkout ||
         choice ||
+        closeRegister ||
+        movement ||
         switchOperator ||
         !shift.operator ||
         shift.needsOperatorReauth
@@ -649,10 +655,30 @@ export function RetailPosPage() {
       if (event.key === "F2") {
         event.preventDefault();
         if (cart.items.length && shift.cashRegister) setCheckout(true);
+        return;
       }
       if (event.key === "F3") {
         event.preventDefault();
         searchRef.current?.focus();
+        return;
+      }
+      if (
+        (event.key === "ArrowLeft" || event.key === "ArrowRight") &&
+        !shouldIgnoreArrowNavigation(event)
+      ) {
+        const categoryTabs = ["", ...categories.map((c) => c.id)];
+        if (categoryTabs.length <= 1) return;
+        event.preventDefault();
+        if (document.activeElement === searchRef.current) {
+          searchRef.current?.blur();
+        }
+        const currentIdx = Math.max(0, categoryTabs.indexOf(category));
+        const delta = event.key === "ArrowRight" ? 1 : -1;
+        const nextIdx =
+          (currentIdx + delta + categoryTabs.length) % categoryTabs.length;
+        setCategoryDir(event.key === "ArrowRight" ? "forward" : "backward");
+        categoryIdxRef.current = nextIdx;
+        setCategory(categoryTabs[nextIdx]);
       }
     }
     window.addEventListener("keydown", key);
@@ -660,11 +686,15 @@ export function RetailPosPage() {
   }, [
     checkout,
     choice,
+    closeRegister,
+    movement,
     switchOperator,
     shift.operator,
     shift.needsOperatorReauth,
     shift.cashRegister,
     cart.items.length,
+    categories,
+    category,
   ]);
 
   const estimatedTax = useMemo(() => {

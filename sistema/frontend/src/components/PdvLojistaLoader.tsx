@@ -486,9 +486,11 @@ export const PdvLojistaLoader: React.FC<PdvLojistaLoaderProps> = React.memo(({
 export const SESSION_TRANSITION_EVENT = 'pdv:session-entry-transition';
 export const TRANSITION_UNVEIL_EVENT = 'pdv:transition-unveil';
 
-export function triggerSessionEntryTransition() {
+export function triggerSessionEntryTransition(label?: string) {
   if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent(SESSION_TRANSITION_EVENT));
+    window.dispatchEvent(
+      new CustomEvent(SESSION_TRANSITION_EVENT, { detail: { label } }),
+    );
   }
 }
 

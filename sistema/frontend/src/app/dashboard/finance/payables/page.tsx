@@ -108,13 +108,13 @@ export default function PayablesPage() {
     <div className="space-y-6 animate-in fade-in duration-500 pb-12">
       <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
         <div>
-          <h1 className="text-xl md:text-3xl font-bold tracking-tight text-ink flex items-center gap-2">
+          <h1 className="management-page-title text-xl md:text-3xl font-bold tracking-tight text-ink flex items-center gap-2">
             <Banknote className="text-brand" /> Contas a Pagar
           </h1>
-          <p className="text-muted mt-1 text-sm">Organize seus vencimentos e planeje os próximos meses.</p>
+          <p className="management-page-description text-muted mt-1 text-sm">Organize seus vencimentos e planeje os próximos meses.</p>
         </div>
         
-        <div className="flex items-center gap-3 w-full md:w-auto">
+        <div className="management-finance-filters flex items-center gap-3 w-full md:w-auto">
           <div style={{ width: 155 }}>
             <RetailSelect
               value={String(month)}
@@ -140,7 +140,7 @@ export default function PayablesPage() {
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-brand bg-support px-4 py-3">
+      <div className="management-finance-planning flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-brand bg-support px-4 py-3">
         <div><p className="text-sm font-semibold text-brand">Planejamento das contas fixas</p><p className="text-xs text-muted mt-1">Novas contas recorrentes já incluem os dois meses seguintes, sem esperar a baixa.</p></div>
         <div className="flex gap-2">{[0, 1, 2].map(offset => {
           const now = new Date(); const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
@@ -153,7 +153,7 @@ export default function PayablesPage() {
       </div>
 
       {stats && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="management-finance-metrics grid grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-page border border-line p-4 rounded-2xl">
             <p className="text-muted text-sm font-medium mb-1">Despesas do mês</p>
             <h3 className="text-2xl font-black text-ink">{formatCurrency(stats.totalToPay)}</h3>
@@ -180,7 +180,7 @@ export default function PayablesPage() {
         </div>
       )}
 
-      <div className="bg-page border border-line rounded-2xl overflow-hidden shadow-xl">
+      <div className="management-finance-ledger bg-page border border-line rounded-2xl overflow-hidden shadow-xl">
         <div className="flex bg-page/80 p-1 border-b border-line">
           <button 
             onClick={() => {

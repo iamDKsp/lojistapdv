@@ -110,7 +110,7 @@ export function RetailDashboardPage() {
       ) : (
         data && (
           <>
-            <div className="retail-summary-grid">
+            <div className="retail-summary-grid retail-overview-metrics">
               {[
                 {
                   label: "Vendas concluídas",
@@ -137,7 +137,7 @@ export function RetailDashboardPage() {
                 </article>
               ))}
             </div>
-            <div className="retail-summary-grid" style={{ marginTop: 16 }}>
+            <div className="retail-summary-grid retail-overview-context" style={{ marginTop: 16 }}>
               <article className="retail-panel">
                 <span className="retail-muted">Peças vendidas no período</span>
                 <strong className="retail-summary-value retail-number">
@@ -165,7 +165,7 @@ export function RetailDashboardPage() {
                 </Link>
               </article>
             </div>
-            <section className="retail-panel" style={{ marginTop: 24 }}>
+            <section className="retail-panel retail-overview-ranking" style={{ marginTop: 24 }}>
               <h2>Grupos com mais peças vendidas</h2>
               <p className="retail-muted">
                 Tamanhos e cores somados no mesmo grupo. Quantidades antes das

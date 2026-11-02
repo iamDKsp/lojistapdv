@@ -1,0 +1,439 @@
+/* Gestão: adaptação visual sobre os módulos existentes.
+ * Menu, subnavegação, login, PDV e storefront público ficam fora deste escopo.
+ * Manter cada seletor dentro de .retail-dashboard-frame ou do diálogo de gestão.
+ */
+.retail-dashboard-frame {
+  --management-radius: 16px;
+  --management-shadow: 0 5px 20px color-mix(in srgb, var(--pdv-text) 3%, transparent);
+}
+
+.retail-dashboard-frame .retail-content {
+  background: var(--pdv-background);
+  border: 1px solid var(--pdv-border);
+  border-radius: 18px;
+  padding: clamp(18px, 2.4vw, 32px);
+  scrollbar-gutter: stable;
+}
+
+/* A navegação existente mantém os seus estilos e todos os seus destinos. */
+.retail-dashboard-frame .retail-content :where(.retail-page-header) {
+  gap: 18px;
+  align-items: center;
+  margin-bottom: 28px;
+}
+
+.retail-dashboard-frame .retail-content :where(.retail-page-header h1, .management-page-title) {
+  font-size: clamp(25px, 2.7vw, 34px);
+  font-weight: 600;
+  letter-spacing: -.045em;
+  line-height: 1.16;
+  text-wrap: balance;
+}
+
+.retail-dashboard-frame .retail-content :where(.retail-page-header p, .management-page-description) {
+  margin-top: 9px;
+  max-width: 68ch;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--pdv-text-secondary);
+}
+
+.retail-dashboard-frame .retail-content :where(.retail-panel) {
+  border-radius: var(--management-radius);
+  padding: 24px;
+  box-shadow: var(--management-shadow);
+}
+
+.retail-dashboard-frame .retail-content :where(.retail-panel h2, .retail-section-heading h2) {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -.025em;
+}
+
+.retail-dashboard-frame .retail-content :where(.retail-toolbar) {
+  gap: 12px;
+  padding: 14px 16px;
+  margin-bottom: 22px;
+  background: var(--pdv-white);
+  border: 1px solid var(--pdv-border);
+  border-radius: 12px;
+}
+
+.retail-dashboard-frame .retail-content :where(.retail-toolbar .retail-search) {
+  max-width: 520px;
+}
+
+.retail-dashboard-frame .retail-content :where(.retail-button) {
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 10px 15px;
+  min-height: 42px;
+  box-shadow: none;
+}
+
+.retail-dashboard-frame .retail-content :where(.retail-icon-button) {
+  border-radius: 10px;
+}
+
+.retail-dashboard-frame .retail-content :where(.retail-button-primary) {
+  box-shadow: 0 3px 9px color-mix(in srgb, var(--pdv-primary) 14%, transparent);
+}
+
+.retail-dashboard-frame .retail-content :where(.retail-badge) {
+  border-color: transparent;
+  border-radius: 6px;
+  padding: 5px 9px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.retail-dashboard-frame .retail-content :where(.retail-message) {
+  border-radius: 12px;
+  border-color: color-mix(in srgb, var(--pdv-primary) 16%, var(--pdv-border));
+  padding: 16px 18px;
+  line-height: 1.65;
+}
+
+/* O formulário continua usando os componentes, validações e eventos atuais. */
+.retail-dashboard-frame .retail-content :where(.retail-field) {
+  gap: 7px;
+  font-size: 12px;
+}
+
+.retail-dashboard-frame .retail-content :where(.retail-field input, .retail-field select, .retail-field textarea, .retail-search input) {
+  border-radius: 9px;
+  font-size: 13px;
+  background: var(--pdv-white);
+}
+
+.retail-dashboard-frame .retail-content :where(.retail-field input, .retail-field select, .retail-field textarea, .retail-search input):focus-visible {
+  border-color: var(--pdv-primary);
+  outline: 2px solid color-mix(in srgb, var(--pdv-primary) 24%, transparent);
+  outline-offset: 2px;
+}
+
+.retail-dashboard-frame .retail-content :where(.retail-form-grid) {
+  gap: 20px;
+}
+
+/* Listagens: cabeçalho discreto, conteúdo legível e ações sempre visíveis. */
+.retail-dashboard-frame .retail-content :where(.retail-table-wrap) {
+  border-radius: 13px;
+  box-shadow: var(--management-shadow);
+}
+
+.retail-dashboard-frame .retail-content :where(.retail-table, table.w-full) {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.retail-dashboard-frame .retail-content :where(.retail-table th, table.w-full th) {
+  background: var(--pdv-white);
+  color: var(--pdv-text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .025em;
+  padding-top: 15px;
+  padding-bottom: 15px;
+}
+
+.retail-dashboard-frame .retail-content :where(.retail-table td, table.w-full td) {
+  padding-top: 17px;
+  padding-bottom: 17px;
+  background: var(--pdv-white);
+  vertical-align: middle;
+}
+
+.retail-dashboard-frame .retail-content :where(.retail-table tbody tr:hover td, table.w-full tbody tr:hover td) {
+  background: color-mix(in srgb, var(--pdv-support) 28%, var(--pdv-white));
+}
+
+.retail-dashboard-frame .retail-content :where(.retail-product-title) {
+  gap: 14px;
+}
+
+.retail-dashboard-frame .retail-content :where(.retail-product-title img, .retail-product-image-empty) {
+  width: 60px;
+  height: 66px;
+  border-radius: 10px;
+  background: var(--pdv-background);
+}
+
+.retail-dashboard-frame .retail-content :where(.retail-product-title strong) {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -.015em;
+}
+
+.retail-dashboard-frame .retail-content :where(.retail-product-title small) {
+  margin-top: 5px;
+  font-size: 11px;
+}
+
+/* Indicadores dos módulos existentes, sem ocultar ou substituir informações. */
+.retail-dashboard-frame .retail-content :where(.retail-summary-grid, .retail-kpis) {
+  gap: 18px;
+}
+
+.retail-dashboard-frame .retail-content :where(.retail-summary-grid > .retail-panel, .retail-kpi) {
+  padding: 23px;
+  border-radius: 14px;
+  background: var(--pdv-white);
+}
+
+.retail-dashboard-frame .retail-content :where(.retail-summary-value, .retail-kpi > strong) {
+  font-size: clamp(26px, 2.7vw, 36px);
+  font-weight: 600;
+  letter-spacing: -.045em;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.retail-dashboard-frame .retail-overview-metrics {
+  grid-template-columns: 1.45fr 1fr 1fr;
+}
+
+.retail-dashboard-frame .retail-overview-metrics > .retail-panel:first-child {
+  border-color: color-mix(in srgb, var(--pdv-primary) 28%, var(--pdv-border));
+  box-shadow: inset 0 3px var(--pdv-primary), var(--management-shadow);
+}
+
+.retail-dashboard-frame .retail-overview-metrics > .retail-panel:first-child .retail-summary-value {
+  color: var(--pdv-primary-hover);
+  font-size: clamp(30px, 3.2vw, 42px);
+}
+
+.retail-dashboard-frame .retail-overview-context > .retail-panel {
+  background: transparent;
+  box-shadow: none;
+  border-color: transparent;
+  border-radius: 0;
+  border-inline-start: 1px solid var(--pdv-border);
+}
+
+.retail-dashboard-frame .retail-overview-ranking .retail-stack {
+  margin-top: 26px;
+  gap: 22px;
+}
+
+.retail-dashboard-frame .retail-overview-ranking .retail-ranking-track {
+  height: 6px;
+  margin-top: 11px;
+  background: var(--pdv-background);
+}
+
+/* Financeiro legado: os seletores, abas, contas e operações são os mesmos. */
+.retail-dashboard-frame .management-finance-filters {
+  flex-wrap: wrap;
+}
+
+.retail-dashboard-frame .management-finance-planning {
+  border-color: var(--pdv-border);
+  border-inline-start: 3px solid var(--pdv-primary);
+  border-radius: 12px;
+  background: var(--pdv-white);
+  padding: 17px 20px;
+}
+
+.retail-dashboard-frame .management-finance-metrics {
+  gap: 0;
+  border-block: 1px solid var(--pdv-border);
+  padding-block: 22px;
+}
+
+.retail-dashboard-frame .management-finance-metrics > div {
+  border: 0;
+  border-inline-start: 1px solid var(--pdv-border);
+  border-radius: 0;
+  background: transparent;
+  padding: 4px 22px;
+}
+
+.retail-dashboard-frame .management-finance-metrics > div:first-child {
+  border-inline-start: 0;
+  padding-inline-start: 0;
+}
+
+.retail-dashboard-frame .management-finance-metrics h3 {
+  margin-top: 9px;
+  font-size: clamp(23px, 2.4vw, 31px);
+  font-weight: 600;
+  letter-spacing: -.04em;
+  overflow-wrap: anywhere;
+}
+
+.retail-dashboard-frame .management-finance-metrics > div > p:first-child {
+  font-size: 12px;
+}
+
+.retail-dashboard-frame .management-finance-ledger {
+  background: var(--pdv-white);
+  border-radius: var(--management-radius);
+  box-shadow: var(--management-shadow);
+}
+
+.retail-dashboard-frame .management-finance-ledger > div {
+  background: var(--pdv-white);
+}
+
+.retail-dashboard-frame .management-finance-ledger > div:first-child button {
+  border-radius: 9px;
+  font-weight: 600;
+  box-shadow: none;
+}
+
+/* Camada comum das páginas anteriores ao módulo retail, sempre no conteúdo. */
+.retail-dashboard-frame .retail-content > :where(.space-y-6, .space-y-8) > div:first-child h1 {
+  font-size: clamp(25px, 2.7vw, 34px);
+  font-weight: 600;
+  letter-spacing: -.045em;
+  line-height: 1.2;
+}
+
+.retail-dashboard-frame .retail-content :where(.shadow-xl, .shadow-lg, .shadow-2xl):not(.fixed):not(.pdv-mobile-sheet) {
+  box-shadow: var(--management-shadow);
+}
+
+/* Sem transform persistente no estágio: drawers fixed continuam no viewport. */
+.retail-dashboard-frame .retail-content.retail-module-stage[data-module-kind] {
+  animation: management-stage-appear 160ms ease-out;
+}
+
+.retail-dashboard-frame .retail-module-stage :where(.retail-panel, .retail-summary-grid > *) {
+  animation: none;
+}
+
+@keyframes management-stage-appear {
+  from { opacity: .4; }
+  to { opacity: 1; }
+}
+
+/* Portais só recebem esta aparência quando a área de gestão está montada.
+ * RetailDialog é compartilhado com o PDV: não alterar sua regra global.
+ */
+body:has(.retail-dashboard-frame) .retail-modal-overlay {
+  background: color-mix(in srgb, var(--pdv-text) 34%, transparent);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+body:has(.retail-dashboard-frame) .retail-modal-overlay .retail-dialog {
+  border-radius: 20px;
+  box-shadow: 0 24px 80px color-mix(in srgb, var(--pdv-text) 20%, transparent);
+}
+
+body:has(.retail-dashboard-frame) .retail-dialog > header {
+  padding: 24px 28px;
+  background: var(--pdv-white);
+}
+
+body:has(.retail-dashboard-frame) .retail-dialog > header h2 {
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -.04em;
+  line-height: 1.25;
+}
+
+body:has(.retail-dashboard-frame) .retail-dialog :where(.retail-dialog-body) {
+  padding: 26px 28px;
+}
+
+body:has(.retail-dashboard-frame) .retail-dialog :where(.retail-form-grid) {
+  gap: 20px;
+}
+
+body:has(.retail-dashboard-frame) .retail-dialog :where(.retail-field) {
+  font-size: 12px;
+  gap: 7px;
+}
+
+body:has(.retail-dashboard-frame) .retail-dialog :where(.retail-field input, .retail-field textarea, .retail-field select) {
+  font-size: 14px;
+  border-radius: 9px;
+  min-height: 44px;
+}
+
+body:has(.retail-dashboard-frame) .retail-dialog :where(.retail-upload) {
+  border-style: solid;
+  background: var(--pdv-background);
+  border-radius: 13px;
+  padding: 20px;
+}
+
+body:has(.retail-dashboard-frame) .retail-dialog :where(.retail-dialog-footer) {
+  background: var(--pdv-background);
+  padding: 18px 28px;
+}
+
+.retail-dashboard-frame .management-payable-drawer > div:first-child {
+  background: var(--pdv-white);
+  padding-block: 25px;
+}
+
+.retail-dashboard-frame .management-payable-drawer > div:first-child h2 {
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -.04em;
+}
+
+.retail-dashboard-frame .management-payable-drawer label {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.retail-dashboard-frame .management-payable-drawer :where(input:not([type="checkbox"]), textarea) {
+  border-radius: 9px;
+  font-size: 14px;
+}
+
+@media (max-width: 1180px) and (min-width: 769px) {
+  .retail-dashboard-frame .retail-content { padding: 22px; }
+  .retail-dashboard-frame .retail-overview-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .retail-dashboard-frame .management-finance-filters { width: 100%; }
+}
+
+@media (max-width: 768px) {
+  .retail-dashboard-frame .retail-content {
+    border: 0;
+    border-radius: 0;
+    padding: 20px 14px 28px;
+    scrollbar-gutter: auto;
+  }
+  .retail-dashboard-frame .retail-content :where(.retail-page-header) { gap: 16px; margin-bottom: 23px; }
+  .retail-dashboard-frame .retail-content :where(.retail-toolbar) { padding: 13px; gap: 12px; }
+  .retail-dashboard-frame .retail-content :where(.retail-search) { min-width: min(100%, 220px); }
+  .retail-dashboard-frame .retail-content :where(.retail-panel) { padding: 20px; }
+  .retail-dashboard-frame .retail-content :where(.retail-summary-grid, .retail-kpis) { gap: 12px; }
+  .retail-dashboard-frame .retail-overview-metrics { grid-template-columns: 1fr; }
+  .retail-dashboard-frame .retail-overview-context { grid-template-columns: 1fr; }
+  .retail-dashboard-frame .retail-overview-context > .retail-panel { padding: 16px 18px; }
+  .retail-dashboard-frame .retail-content :where(.retail-table-cards td) { padding-top: 9px; padding-bottom: 9px; }
+  .retail-dashboard-frame .retail-content :where(.retail-form-grid) { gap: 16px; }
+  .retail-dashboard-frame .management-finance-metrics { gap: 22px 0; }
+  .retail-dashboard-frame .management-finance-metrics > div { padding: 0 14px; }
+  .retail-dashboard-frame .management-finance-metrics > div:nth-child(odd) { border-inline-start: 0; padding-inline-start: 0; }
+  .retail-dashboard-frame .management-finance-metrics > div > p:first-child { min-height: 36px; }
+  body:has(.retail-dashboard-frame) .retail-modal-overlay .retail-dialog { border-radius: 22px 22px 0 0; }
+  body:has(.retail-dashboard-frame) .retail-dialog > header { padding: 18px 20px; }
+  body:has(.retail-dashboard-frame) .retail-dialog > header h2 { font-size: 22px; }
+  body:has(.retail-dashboard-frame) .retail-dialog :where(.retail-dialog-body) { padding: 22px 20px; }
+  body:has(.retail-dashboard-frame) .retail-dialog :where(.retail-dialog-footer) { padding: 16px 20px max(16px, env(safe-area-inset-bottom)); }
+}
+
+@media (pointer: coarse) {
+  .retail-dashboard-frame .retail-content :where(.retail-button, .retail-icon-button) { min-height: 44px; }
+  .retail-dashboard-frame .retail-content :where(.retail-icon-button) { min-width: 44px; }
+  .retail-dashboard-frame .retail-content :where(.retail-field input, .retail-field select, .retail-field textarea, .retail-search input),
+  body:has(.retail-dashboard-frame) .retail-dialog :where(.retail-field input, .retail-field textarea, .retail-field select),
+  .retail-dashboard-frame .management-payable-drawer :where(input:not([type="checkbox"]), textarea) { font-size: 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .retail-dashboard-frame .retail-content.retail-module-stage[data-module-kind] { animation: none; }
+}
+
+@media print {
+  .retail-dashboard-frame .retail-content { background: var(--pdv-white); border: 0; border-radius: 0; padding: 0; overflow: visible; }
+  .retail-dashboard-frame .retail-content :where(.retail-panel, .retail-table-wrap, .management-finance-ledger) { box-shadow: none; }
+}

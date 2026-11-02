@@ -4,6 +4,7 @@ import { registerSW } from "virtual:pwa-register";
 import { App } from "./App";
 import "./app/globals.css";
 import "./retail/retail.css";
+import "./retail/management.css";
 const updateSW = registerSW({
   immediate: true,
   onNeedRefresh() {

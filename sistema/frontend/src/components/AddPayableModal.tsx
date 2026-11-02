@@ -116,7 +116,7 @@ export function AddPayableModal({
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-end bg-ink/60 backdrop-blur-sm">
-      <div className="bg-surface border-l border-line w-full max-w-lg h-full shadow-2xl flex flex-col">
+      <div className="management-payable-drawer bg-surface border-l border-line w-full max-w-lg h-full shadow-2xl flex flex-col">
         <div className="flex items-center justify-between px-6 py-5 border-b border-line bg-page/50">
           <h2 className="text-xl font-bold text-ink">
             {payableToEdit ? 'Editar Conta' : 'Nova Conta a Pagar'}

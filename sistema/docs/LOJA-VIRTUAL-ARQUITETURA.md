@@ -210,3 +210,32 @@ stateDiagram-v2
 - **Desativação Imediata sem Perda de Dados**: Desmarcar o módulo `lojaVirtual` no `/sys-init` ou clicar em **Despublicar** em `/loja-virtual/aparencia` bloqueia imediatamente novos acessos e pedidos públicos (`404 Loja indisponível`), preservando 100% dos pedidos, configurações e vendas já convertidas no banco da loja.
 - **Reconciliação Heart ↔ Tenant**: Caso uma falha de rede interrompa a sincronização entre o banco do tenant e o `StorefrontRegistry` no Heart durante uma publicação, basta clicar novamente em **Publicar** ou **Salvar Configurações** — a operação é idempotente e reconstrói o registro no Heart a partir do `publicId` e `publishedVersion` persistidos no tenant.
 - **Restauração de Backup**: Caso seja necessário reverter o banco de dados para o ponto anterior à migração, utilizar a aba **Backups** do `/sys-init` para restaurar o dump `.sql` correspondente.
+
+---
+
+## 7. Validação Automatizada e Limitações Conhecidas (v1)
+
+### 7.1. Suíte de Testes e Builds Verificados
+- **Verificação de Identidade Visual (`npm --prefix frontend run check:brand`)**:
+  - `94 arquivos verificados. Nenhuma cor externa à identidade.`
+  - Toda a interface administrativa (`/loja-virtual/*`) e pública (`/loja/:slug/*`) utiliza exclusivamente os tokens da paleta oficial (`#7C3AED`, `#6D28D9`, `#FFFFFF`, `#F8F7FC`, `#F3E8FF`, `#272321`, `#665F70`, `#E5E1ED`) combinados com ícones e rótulos textuais.
+- **Testes Unitários e de Concorrência (`npm --prefix backend test -- --runInBand --testPathPatterns="storefront|retail|sales"`)**:
+  - `11 Test Suites passed (75 tests total)`, incluindo `backend/src/storefront/storefront.spec.ts` com 19 cenários cobrindo:
+    - Isolamento entre tenants (`loja-a` e `loja-b`) mesmo quando há sessão administrativa de outra loja ativa.
+    - Bloqueio de loja inativa, módulo desabilitado, loja despublicada e slugs reservados (`api`, `login`, `loja-virtual`, `sys-init`, etc.).
+    - Idempotência de criação de pedidos (mesma chave retorna o pedido existente; chave com payload diferente retorna `409 Conflict`).
+    - Divergência de preço entre carrinho e servidor (`409 Conflict` com `code: 'PRICE_DIVERGENCE'`).
+    - Segurança de acesso ao pedido por `accessTokenHash` (SHA-256 em tempo constante) e rejeição de enumeração por `PED-000001`.
+    - Disputa concorrente via `Promise.all` (5 reservas simultâneas para 1 unidade; corrida simultânea entre checkout PDV e reserva online; varredura concorrente de expiração entre múltiplas réplicas).
+    - Conversão atômica em `Sale` (`source = 'loja_virtual'`), bloqueio de dupla conversão, cancelamento de venda convertida e devolução parcial/total sem duplicar retorno de estoque.
+- **Testes de Segurança de Boot e Migrações (`node --test backend/test/startup-safety.test.cjs backend/test/heart-migrations.test.cjs backend/test/storefront-concurrency.test.cjs`)**:
+  - Valida que as migrações SQL do Heart (`20261101180000_storefront_registry`) e do Tenant (`20261101180000_storefront_module`) são idempotentes e não destrutivas, e que nenhum serviço executa DDL em tempo de execução.
+- **Builds de Produção**:
+  - `npm --prefix backend run build` (`nest build`) concluído sem erros.
+  - `npm --prefix frontend run build` (`tsc -b && vite build`) concluído sem erros.
+
+### 7.2. Limitações Conhecidas da Primeira Versão (Pontos de Extensão Preparados)
+1. **Fechamento via WhatsApp**: A v1 registra o pedido e reserva o estoque antes de abrir o WhatsApp, mas não processa pagamento online nem conciliação automática de gateway (o campo `source = 'loja_virtual'` e a conversão atômica em `Sale` já estão prontos para futura liquidação via webhook).
+2. **Frete a Combinar**: A modalidade de entrega coleta endereço completo e exibe observações/regras configuradas pelo lojista, sem cálculo automático de transportadora/Correios.
+3. **Teste de Integração SQL Opcional**: Os testes em `backend/test/heart-migrations.test.cjs` e o teste de `SELECT ... FOR UPDATE` em banco real de `backend/test/storefront-concurrency.test.cjs` são executados mediante definição da variável `HEART_MIGRATION_TEST_URL` apontando para uma instância PostgreSQL local descartável, preservando a regra de nunca tocar em bancos configurados no `.env`.
+

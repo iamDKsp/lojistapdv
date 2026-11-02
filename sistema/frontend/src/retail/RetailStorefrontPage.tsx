@@ -59,17 +59,17 @@ function formatDateTime(iso?: string | null): string {
 }
 
 const COMMERCIAL_STATUS_LABELS: Record<string, string> = {
-  NEW: "Novo pedido",
+  AWAITING_CONFIRMATION: "Aguardando confirmação",
   CONFIRMED: "Confirmado pela loja",
-  CONVERTED_TO_SALE: "Convertido em venda",
+  COMPLETED: "Convertido em venda",
   CANCELLED: "Cancelado",
-  REJECTED: "Rejeitado",
+  REJECTED: "Recusado",
   EXPIRED: "Reserva expirada",
 };
 
 const FULFILLMENT_STATUS_LABELS: Record<string, string> = {
-  PENDING: "Aguardando separação",
-  PREPARING: "Em separação",
+  WAITING_SEPARATION: "Aguardando separação",
+  SEPARATING: "Em separação",
   READY_FOR_PICKUP: "Pronto para retirada",
   OUT_FOR_DELIVERY: "Saiu para entrega",
   DELIVERED: "Entregue / Retirado",
@@ -104,7 +104,7 @@ export function RetailStorefrontPage() {
   const [ordersTotal, setOrdersTotal] = useState(0);
 
   // Draft appearance state
-  const [draftContent, setDraftContent] = useState<any>(null);
+  const [draftTheme, setDraftTheme] = useState<any>(null);
   const [previewDevice, setPreviewDevice] = useState<"mobile" | "desktop">(
     "desktop",
   );
@@ -114,22 +114,20 @@ export function RetailStorefrontPage() {
   // Settings form state
   const [settingsForm, setSettingsForm] = useState<any>({
     slug: "",
-    storeDisplayName: "",
+    storeName: "",
     tagline: "",
     description: "",
     logoUrl: "",
-    coverImageUrl: "",
-    whatsappNumber: "",
-    phone: "",
+    coverUrl: "",
+    whatsappPhone: "",
+    whatsappMessageIntro: "",
     pickupEnabled: true,
-    pickupAddress: "",
     pickupInstructions: "",
     deliveryEnabled: true,
-    deliveryFeeFixed: 0,
-    deliveryZoneNotes: "",
     deliveryInstructions: "",
-    reservationMinutes: 45,
-    confirmationExtensionMinutes: 1440,
+    deliveryFeeNote: "",
+    confirmReservationMinutes: 15,
+    confirmedHoldHours: 24,
   });
   const [savingSettings, setSavingSettings] = useState(false);
 
@@ -168,7 +166,7 @@ export function RetailStorefrontPage() {
         api.get("/storefront/admin/categories"),
         api.get("/storefront/admin/orders", {
           params: {
-            status: orderStatusFilter || undefined,
+            commercialStatus: orderStatusFilter || undefined,
             search: orderSearch || undefined,
           },
         }),
@@ -178,35 +176,31 @@ export function RetailStorefrontPage() {
       setOverview(ov);
       setCatalogProducts(Array.isArray(prodRes.data) ? prodRes.data : []);
       setCatalogCategories(Array.isArray(catRes.data) ? catRes.data : []);
-      setOrders(Array.isArray(ordRes.data?.items) ? ordRes.data.items : []);
-      setOrdersTotal(Number(ordRes.data?.total ?? 0));
+      setOrders(Array.isArray(ordRes.data?.data) ? ordRes.data.data : []);
+      setOrdersTotal(Number(ordRes.data?.meta?.total ?? 0));
 
-      if (ov?.draftRevision?.content) {
-        setDraftContent(ov.draftRevision.content);
+      if (ov?.settings?.draftTheme) {
+        setDraftTheme(ov.settings.draftTheme);
       }
 
       if (ov?.settings) {
         const s = ov.settings;
         setSettingsForm({
           slug: s.slug || "",
-          storeDisplayName: s.storeDisplayName || "",
+          storeName: s.storeName || "",
           tagline: s.tagline || "",
           description: s.description || "",
           logoUrl: s.logoUrl || "",
-          coverImageUrl: s.coverImageUrl || "",
-          whatsappNumber: s.whatsappNumber || "",
-          phone: s.phone || "",
+          coverUrl: s.coverUrl || "",
+          whatsappPhone: s.whatsappPhone || "",
+          whatsappMessageIntro: s.whatsappMessageIntro || "",
           pickupEnabled: s.pickupEnabled !== false,
-          pickupAddress: s.pickupAddress || "",
           pickupInstructions: s.pickupInstructions || "",
           deliveryEnabled: s.deliveryEnabled !== false,
-          deliveryFeeFixed: Number(s.deliveryFeeFixed ?? 0),
-          deliveryZoneNotes: s.deliveryZoneNotes || "",
           deliveryInstructions: s.deliveryInstructions || "",
-          reservationMinutes: Number(s.reservationMinutes ?? 45),
-          confirmationExtensionMinutes: Number(
-            s.confirmationExtensionMinutes ?? 1440,
-          ),
+          deliveryFeeNote: s.deliveryFeeNote || "",
+          confirmReservationMinutes: Number(s.confirmReservationMinutes ?? 15),
+          confirmedHoldHours: Number(s.confirmedHoldHours ?? 24),
         });
       }
     } catch (err: any) {
@@ -247,10 +241,9 @@ export function RetailStorefrontPage() {
     try {
       await api.put("/storefront/admin/settings", {
         ...settingsForm,
-        deliveryFeeFixed: Number(settingsForm.deliveryFeeFixed) || 0,
-        reservationMinutes: Number(settingsForm.reservationMinutes) || 45,
-        confirmationExtensionMinutes:
-          Number(settingsForm.confirmationExtensionMinutes) || 1440,
+        confirmReservationMinutes:
+          Number(settingsForm.confirmReservationMinutes) || 15,
+        confirmedHoldHours: Number(settingsForm.confirmedHoldHours) || 24,
       });
       toast.success("Configurações da loja virtual salvas!");
       await loadAll();
@@ -264,14 +257,19 @@ export function RetailStorefrontPage() {
   };
 
   const handleSaveDraft = async () => {
-    if (!draftContent) return;
+    if (!draftTheme) return;
     setSavingDraft(true);
     try {
-      const res = await api.put("/storefront/admin/draft", {
-        content: draftContent,
+      const res = await api.put("/storefront/admin/appearance/draft", {
+        theme: draftTheme,
+        storeName: settingsForm.storeName,
+        tagline: settingsForm.tagline,
+        description: settingsForm.description,
+        logoUrl: settingsForm.logoUrl,
+        coverUrl: settingsForm.coverUrl,
       });
-      if (res.data?.content) {
-        setDraftContent(res.data.content);
+      if (res.data?.draftTheme) {
+        setDraftTheme(res.data.draftTheme);
       }
       toast.success("Rascunho de aparência salvo!");
     } catch (err: any) {
@@ -284,10 +282,17 @@ export function RetailStorefrontPage() {
   const handlePublish = async () => {
     setPublishing(true);
     try {
-      if (draftContent) {
-        await api.put("/storefront/admin/draft", { content: draftContent });
+      if (draftTheme) {
+        await api.put("/storefront/admin/appearance/draft", {
+          theme: draftTheme,
+          storeName: settingsForm.storeName,
+          tagline: settingsForm.tagline,
+          description: settingsForm.description,
+          logoUrl: settingsForm.logoUrl,
+          coverUrl: settingsForm.coverUrl,
+        });
       }
-      const res = await api.post("/storefront/admin/publish");
+      const res = await api.post("/storefront/admin/appearance/publish");
       toast.success(
         `Loja Virtual publicada com sucesso (/loja/${res.data?.slug})!`,
       );
@@ -295,7 +300,7 @@ export function RetailStorefrontPage() {
     } catch (err: any) {
       toast.error(
         err?.response?.data?.message ||
-          "Não foi possível publicar. Verifique se o endereço (slug) está preenchido.",
+          "Não foi possível publicar. Confira o WhatsApp de atendimento e o endereço na aba Configurações.",
       );
     } finally {
       setPublishing(false);
@@ -305,7 +310,7 @@ export function RetailStorefrontPage() {
   const handleUnpublish = async () => {
     setPublishing(true);
     try {
-      await api.post("/storefront/admin/unpublish");
+      await api.post("/storefront/admin/appearance/unpublish");
       toast.success("Loja Virtual despublicada.");
       await loadAll();
     } catch (err: any) {
@@ -319,15 +324,15 @@ export function RetailStorefrontPage() {
 
   const handleImageUpload = async (
     file: File,
-    field: "logoUrl" | "coverImageUrl",
+    field: "logoUrl" | "coverUrl",
   ) => {
     const formData = new FormData();
     formData.append("file", file);
     try {
-      const res = await api.post("/retail/upload", formData, {
+      const res = await api.post("/storefront/admin/media/upload", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      const url = res.data?.url || res.data?.imageUrl;
+      const url = res.data?.imageUrl || res.data?.url;
       if (url) {
         setSettingsForm((prev: any) => ({ ...prev, [field]: url }));
         toast.success("Imagem enviada! Salve as configurações para aplicar.");
@@ -354,8 +359,8 @@ export function RetailStorefrontPage() {
       ) {
         return false;
       }
-      if (productFilter === "published") return Boolean(item.published);
-      if (productFilter === "hidden") return !item.published;
+      if (productFilter === "published") return Boolean(item.visible);
+      if (productFilter === "hidden") return !item.visible;
       if (productFilter === "featured") return Boolean(item.featured);
       if (productFilter === "missing_photo") return Boolean(item.missingPhoto);
       if (productFilter === "no_stock") return Boolean(item.outOfStock);
@@ -365,16 +370,16 @@ export function RetailStorefrontPage() {
 
   const handleQuickToggleProduct = async (
     item: any,
-    patch: { published?: boolean; featured?: boolean; sortOrder?: number },
+    patch: { visible?: boolean; featured?: boolean; sortOrder?: number },
   ) => {
     try {
       await api.put(`/storefront/admin/products/${item.retailGroupId}`, {
-        published: patch.published ?? item.published,
+        visible: patch.visible ?? item.visible,
         featured: patch.featured ?? item.featured,
         sortOrder: patch.sortOrder ?? item.sortOrder,
         publicSlug: item.publicSlug,
-        customTitle: item.customTitle,
-        customDescription: item.customDescription,
+        commercialTitle: item.commercialTitle,
+        commercialDescription: item.commercialDescription,
       });
       setCatalogProducts((prev) =>
         prev.map((p) =>
@@ -389,10 +394,9 @@ export function RetailStorefrontPage() {
     }
   };
 
-  const handleBatchUpdateProducts = async (patch: {
-    published?: boolean;
-    featured?: boolean;
-  }) => {
+  const handleBatchUpdateProducts = async (
+    action: "publish" | "unpublish" | "feature" | "unfeature",
+  ) => {
     if (selectedGroupIds.length === 0) {
       toast.error("Selecione ao menos uma mercadoria.");
       return;
@@ -400,7 +404,7 @@ export function RetailStorefrontPage() {
     try {
       await api.post("/storefront/admin/products/batch", {
         retailGroupIds: selectedGroupIds,
-        ...patch,
+        action,
       });
       toast.success(
         `${selectedGroupIds.length} mercadoria(s) atualizada(s) em lote!`,
@@ -422,12 +426,12 @@ export function RetailStorefrontPage() {
       await api.put(
         `/storefront/admin/products/${editingProduct.retailGroupId}`,
         {
-          published: editingProduct.published,
+          visible: editingProduct.visible,
           featured: editingProduct.featured,
           sortOrder: Number(editingProduct.sortOrder ?? 0),
           publicSlug: editingProduct.publicSlug,
-          customTitle: editingProduct.customTitle,
-          customDescription: editingProduct.customDescription,
+          commercialTitle: editingProduct.commercialTitle,
+          commercialDescription: editingProduct.commercialDescription,
         },
       );
       toast.success("Detalhes comerciais do produto salvos!");
@@ -443,19 +447,13 @@ export function RetailStorefrontPage() {
   // ── Categories Handlers ────────────────────────────────────────────────────
   const handleUpdateCategory = async (cat: any, patch: any) => {
     try {
-      await api.put(`/storefront/admin/categories/${cat.categoryId}`, {
-        published: patch.published ?? cat.published,
-        featured: patch.featured ?? cat.featured,
-        sortOrder: patch.sortOrder ?? cat.sortOrder,
-        publicSlug: patch.publicSlug ?? cat.publicSlug,
-        displayName: patch.displayName ?? cat.displayName,
-        description: patch.description ?? cat.description,
-      });
-      setCatalogCategories((prev) =>
-        prev.map((c) =>
-          c.categoryId === cat.categoryId ? { ...c, ...patch } : c,
-        ),
+      const updatedList = catalogCategories.map((c) =>
+        c.categoryId === cat.categoryId ? { ...c, ...patch } : c,
       );
+      setCatalogCategories(updatedList);
+      await api.put("/storefront/admin/categories", {
+        categories: updatedList,
+      });
       toast.success("Categoria da vitrine atualizada!");
     } catch (err: any) {
       toast.error(
@@ -470,7 +468,7 @@ export function RetailStorefrontPage() {
     if (!name) return;
     setCreatingCategory(true);
     try {
-      await api.post("/retail/categories", { name });
+      await api.post("/storefront/admin/categories", { name });
       setNewCategoryName("");
       toast.success("Nova categoria criada no catálogo!");
       await loadAll();
@@ -521,7 +519,7 @@ export function RetailStorefrontPage() {
     fulfillmentStatus: string,
   ) => {
     try {
-      const res = await api.post(
+      const res = await api.put(
         `/storefront/admin/orders/${orderId}/fulfillment`,
         { fulfillmentStatus },
       );
@@ -549,7 +547,7 @@ export function RetailStorefrontPage() {
         `/storefront/admin/orders/${selectedOrder.id}/convert-to-sale`,
         {
           idempotencyKey: `conv-${selectedOrder.id}`,
-          payments: [{ method: convertPaymentMethod, amount: netAmount }],
+          payments: [{ method: convertPaymentMethod, value: netAmount }],
           discount: discountNum,
           emitirNfce: convertEmitNfce,
         },
@@ -572,76 +570,84 @@ export function RetailStorefrontPage() {
     }
   };
 
-  // Live preview data for Appearance tab
-  const livePreviewStore = useMemo(() => {
+  // Avisos de produtos publicados sem foto ou sem estoque
+  const publishedWarnings = useMemo(() => {
+    const pub = catalogProducts.filter((p) => p.visible);
     return {
-      slug: settingsForm.slug || "minha-loja",
-      storeDisplayName:
-        settingsForm.storeDisplayName ||
-        overview?.settings?.storeDisplayName ||
-        "Minha Loja",
-      tagline: settingsForm.tagline || "",
-      description: settingsForm.description || "",
-      logoUrl: settingsForm.logoUrl || null,
-      coverImageUrl: settingsForm.coverImageUrl || null,
-      whatsappNumber: settingsForm.whatsappNumber || "",
-      phone: settingsForm.phone || "",
-      pickupEnabled: settingsForm.pickupEnabled,
-      pickupAddress: settingsForm.pickupAddress,
-      pickupInstructions: settingsForm.pickupInstructions,
-      deliveryEnabled: settingsForm.deliveryEnabled,
-      deliveryFeeFixed: Number(settingsForm.deliveryFeeFixed ?? 0),
-      deliveryZoneNotes: settingsForm.deliveryZoneNotes,
-      deliveryInstructions: settingsForm.deliveryInstructions,
-      layout: draftContent,
+      withoutPhoto: pub.filter((p) => p.missingPhoto).length,
+      outOfStock: pub.filter((p) => p.outOfStock).length,
     };
-  }, [settingsForm, overview?.settings, draftContent]);
+  }, [catalogProducts]);
 
-  const livePreviewCatalog = useMemo(() => {
+  // Live preview data for Appearance tab
+  const livePreviewStoreData = useMemo(() => {
     const publishedProds = catalogProducts
-      .filter((p) => p.published)
+      .filter((p) => p.visible)
       .map((p) => ({
         id: p.retailGroupId,
-        slug: p.publicSlug,
-        name: p.customTitle || p.name,
-        description: p.customDescription || p.description || "",
+        publicSlug: p.publicSlug,
+        name: p.commercialTitle || p.name,
+        description: p.commercialDescription || "",
         imageUrl: p.imageUrl,
         galleryUrls: p.galleryUrls || [],
         priceSell: p.priceSell,
         featured: p.featured,
         sortOrder: p.sortOrder,
-        category: {
-          id: p.categoryId,
-          name: p.categoryName,
-          slug: "categoria",
-        },
-        availableStock: p.availableStock,
-        hasStock: p.availableStock > 0,
+        categoryId: p.categoryId,
+        categoryName: p.categoryName,
+        availableStock: p.availableStockTotal,
+        inStock: p.availableStockTotal > 0,
         variants: (p.variants || []).map((v: any) => ({
           id: v.id,
           size: v.size,
           color: v.color,
-          availableStock: Math.max(0, v.stock),
-          inStock: v.stock > 0,
+          availableStock: Math.max(0, v.availableStock),
+          inStock: v.availableStock > 0,
         })),
       }));
 
     const publishedCats = catalogCategories
-      .filter((c) => c.published)
+      .filter((c) => c.visible)
       .map((c) => ({
         id: c.categoryId,
         name: c.displayName || c.name,
-        slug: c.publicSlug || c.categoryId,
+        slug: c.slug || c.categoryId,
         featured: c.featured,
         sortOrder: c.sortOrder,
       }));
 
     return {
-      categories: publishedCats,
+      storeData: {
+        publicId: overview?.settings?.publicId || "preview",
+        slug: settingsForm.slug || "minha-loja",
+        storeName:
+          settingsForm.storeName ||
+          overview?.settings?.storeName ||
+          "Minha Loja",
+        tagline: settingsForm.tagline || "",
+        description: settingsForm.description || "",
+        logoUrl: settingsForm.logoUrl || null,
+        coverUrl: settingsForm.coverUrl || null,
+        whatsappPhone: settingsForm.whatsappPhone || "",
+        pickupEnabled: settingsForm.pickupEnabled,
+        pickupInstructions: settingsForm.pickupInstructions,
+        deliveryEnabled: settingsForm.deliveryEnabled,
+        deliveryInstructions: settingsForm.deliveryInstructions,
+        deliveryFeeNote: settingsForm.deliveryFeeNote,
+        theme: draftTheme || {},
+        categories: publishedCats,
+        featuredProducts: publishedProds.filter((p) => p.featured),
+        facets: { sizes: [], colors: [] },
+      },
       products: publishedProds,
-      featuredProducts: publishedProds.filter((p) => p.featured),
     };
-  }, [catalogProducts, catalogCategories]);
+  }, [
+    settingsForm,
+    overview?.settings,
+    draftTheme,
+    catalogProducts,
+    catalogCategories,
+  ]);
 
   if (loading && !overview) {
     return (
@@ -662,7 +668,7 @@ export function RetailStorefrontPage() {
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-lg font-extrabold text-ink">
-                {settingsForm.storeDisplayName || "Loja Virtual"}
+                {settingsForm.storeName || "Loja Virtual"}
               </h2>
               <span
                 className={`inline-flex items-center gap-1.5 rounded-full px-3 py-0.5 text-xs font-bold ${
@@ -763,9 +769,9 @@ export function RetailStorefrontPage() {
                 <Package className="h-4 w-4 text-brand" />
               </div>
               <div className="mt-2 text-2xl font-extrabold text-ink">
-                {overview?.metrics?.publishedProductsCount ?? 0}{" "}
+                {overview?.stats?.publishedProductsCount ?? 0}{" "}
                 <span className="text-sm font-normal text-muted">
-                  / {overview?.metrics?.totalGroupsCount ?? 0}
+                  / {overview?.stats?.totalRetailGroups ?? 0}
                 </span>
               </div>
               <button
@@ -779,11 +785,11 @@ export function RetailStorefrontPage() {
 
             <div className="rounded-2xl border border-line bg-surface p-5">
               <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-muted">
-                <span>Novos pedidos</span>
+                <span>Aguardando confirmação</span>
                 <ShoppingBag className="h-4 w-4 text-brand" />
               </div>
               <div className="mt-2 text-2xl font-extrabold text-ink">
-                {overview?.metrics?.pendingOrdersCount ?? 0}
+                {overview?.stats?.awaitingOrdersCount ?? 0}
               </div>
               <button
                 type="button"
@@ -800,10 +806,10 @@ export function RetailStorefrontPage() {
                 <Clock className="h-4 w-4 text-brand" />
               </div>
               <div className="mt-2 text-2xl font-extrabold text-ink">
-                {overview?.metrics?.activeReservationsCount ?? 0}
+                {overview?.stats?.activeReservationsCount ?? 0}
               </div>
               <p className="mt-3 text-xs text-muted">
-                Prazo padrão: {settingsForm.reservationMinutes} min
+                Prazo inicial: {settingsForm.confirmReservationMinutes} min
               </p>
             </div>
 
@@ -813,7 +819,7 @@ export function RetailStorefrontPage() {
                 <HandCoins className="h-4 w-4 text-brand" />
               </div>
               <div className="mt-2 text-2xl font-extrabold text-ink">
-                {overview?.metrics?.convertedOrdersCount ?? 0}
+                {overview?.stats?.completedOrdersCount ?? 0}
               </div>
               <p className="mt-3 text-xs text-muted">
                 Integrados ao caixa e estoque
@@ -822,8 +828,8 @@ export function RetailStorefrontPage() {
           </div>
 
           {/* Avisos operacionais */}
-          {(overview?.metrics?.publishedWithoutPhotoCount > 0 ||
-            overview?.metrics?.publishedOutOfStockCount > 0) && (
+          {(publishedWarnings.withoutPhoto > 0 ||
+            publishedWarnings.outOfStock > 0) && (
             <div className="rounded-2xl border border-brand bg-support p-4">
               <div className="flex items-start gap-3">
                 <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
@@ -831,21 +837,15 @@ export function RetailStorefrontPage() {
                   <p className="font-bold text-brand">
                     Atenção aos itens publicados na vitrine:
                   </p>
-                  {overview?.metrics?.publishedWithoutPhotoCount > 0 && (
+                  {publishedWarnings.withoutPhoto > 0 && (
                     <p>
-                      •{" "}
-                      <strong>
-                        {overview.metrics.publishedWithoutPhotoCount}
-                      </strong>{" "}
+                      • <strong>{publishedWarnings.withoutPhoto}</strong>{" "}
                       mercadoria(s) publicada(s) estão sem foto cadastrada.
                     </p>
                   )}
-                  {overview?.metrics?.publishedOutOfStockCount > 0 && (
+                  {publishedWarnings.outOfStock > 0 && (
                     <p>
-                      •{" "}
-                      <strong>
-                        {overview.metrics.publishedOutOfStockCount}
-                      </strong>{" "}
+                      • <strong>{publishedWarnings.outOfStock}</strong>{" "}
                       mercadoria(s) publicada(s) estão com estoque disponível
                       esgotado.
                     </p>
@@ -921,7 +921,7 @@ export function RetailStorefrontPage() {
       )}
 
       {/* 2. ABA APARÊNCIA */}
-      {activeTab === "aparencia" && draftContent && (
+      {activeTab === "aparencia" && draftTheme && (
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
           {/* Coluna Esquerda: Editor Estruturado */}
           <div className="space-y-5 xl:col-span-5">
@@ -947,21 +947,21 @@ export function RetailStorefrontPage() {
                 </label>
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { id: "classic", label: "Clássico" },
-                    { id: "showcase", label: "Vitrine Moda" },
-                    { id: "compact", label: "Catálogo Ágil" },
+                    { id: "editorial_roxo", label: "Editorial Roxo" },
+                    { id: "minimal_branco", label: "Minimal Branco" },
+                    { id: "vitrine_escura", label: "Vitrine Escura" },
                   ].map((tpl) => (
                     <button
                       key={tpl.id}
                       type="button"
                       onClick={() =>
-                        setDraftContent((prev: any) => ({
+                        setDraftTheme((prev: any) => ({
                           ...prev,
-                          templateId: tpl.id,
+                          template: tpl.id,
                         }))
                       }
                       className={`rounded-xl border px-3 py-2.5 text-xs font-bold transition ${
-                        draftContent.templateId === tpl.id
+                        draftTheme.template === tpl.id
                           ? "border-brand bg-brand text-on-brand"
                           : "border-line bg-page text-ink hover:border-brand"
                       }`}
@@ -974,22 +974,16 @@ export function RetailStorefrontPage() {
 
               <div>
                 <label className="block text-xs font-bold text-ink mb-1.5">
-                  Paleta da vitrine pública
+                  Cor principal da vitrine
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() =>
-                      setDraftContent((prev: any) => ({
+                      setDraftTheme((prev: any) => ({
                         ...prev,
-                        theme: {
-                          ...prev.theme,
-                          primaryColor: "#7C3AED",
-                          accentColor: "#6D28D9",
-                          backgroundColor: "#F8F7FC",
-                          surfaceColor: "#FFFFFF",
-                          textColor: "#272321",
-                        },
+                        primaryColor: "#7C3AED",
+                        accentColor: "#6D28D9",
                       }))
                     }
                     className="flex items-center gap-2 rounded-xl border border-line bg-page p-2.5 text-xs font-bold text-ink hover:border-brand"
@@ -998,21 +992,15 @@ export function RetailStorefrontPage() {
                       className="h-5 w-5 rounded-full border border-line"
                       style={{ backgroundColor: "#7C3AED" }}
                     />
-                    Roxo Oficial & Claro
+                    Roxo Vibrante (#7C3AED)
                   </button>
                   <button
                     type="button"
                     onClick={() =>
-                      setDraftContent((prev: any) => ({
+                      setDraftTheme((prev: any) => ({
                         ...prev,
-                        theme: {
-                          ...prev.theme,
-                          primaryColor: "#6D28D9",
-                          accentColor: "#7C3AED",
-                          backgroundColor: "#FFFFFF",
-                          surfaceColor: "#F8F7FC",
-                          textColor: "#272321",
-                        },
+                        primaryColor: "#6D28D9",
+                        accentColor: "#7C3AED",
                       }))
                     }
                     className="flex items-center gap-2 rounded-xl border border-line bg-page p-2.5 text-xs font-bold text-ink hover:border-brand"
@@ -1021,7 +1009,7 @@ export function RetailStorefrontPage() {
                       className="h-5 w-5 rounded-full border border-line"
                       style={{ backgroundColor: "#6D28D9" }}
                     />
-                    Violeta Editorial
+                    Roxo Profundo (#6D28D9)
                   </button>
                 </div>
               </div>
@@ -1036,9 +1024,9 @@ export function RetailStorefrontPage() {
                   </label>
                   <input
                     type="text"
-                    value={draftContent.heroTitle || ""}
+                    value={draftTheme.heroTitle || ""}
                     onChange={(e) =>
-                      setDraftContent((prev: any) => ({
+                      setDraftTheme((prev: any) => ({
                         ...prev,
                         heroTitle: e.target.value,
                       }))
@@ -1053,9 +1041,9 @@ export function RetailStorefrontPage() {
                   </label>
                   <textarea
                     rows={2}
-                    value={draftContent.heroSubtitle || ""}
+                    value={draftTheme.heroSubtitle || ""}
                     onChange={(e) =>
-                      setDraftContent((prev: any) => ({
+                      setDraftTheme((prev: any) => ({
                         ...prev,
                         heroSubtitle: e.target.value,
                       }))
@@ -1071,9 +1059,9 @@ export function RetailStorefrontPage() {
                     </label>
                     <input
                       type="text"
-                      value={draftContent.heroCtaLabel || ""}
+                      value={draftTheme.heroCtaLabel || ""}
                       onChange={(e) =>
-                        setDraftContent((prev: any) => ({
+                        setDraftTheme((prev: any) => ({
                           ...prev,
                           heroCtaLabel: e.target.value,
                         }))
@@ -1087,12 +1075,11 @@ export function RetailStorefrontPage() {
                     </label>
                     <input
                       type="text"
-                      value={draftContent.announcementText || ""}
+                      value={draftTheme.announcementText || ""}
                       onChange={(e) =>
-                        setDraftContent((prev: any) => ({
+                        setDraftTheme((prev: any) => ({
                           ...prev,
                           announcementText: e.target.value,
-                          announcementEnabled: Boolean(e.target.value.trim()),
                         }))
                       }
                       placeholder="Ex.: Retirada rápida na loja"
@@ -1108,71 +1095,69 @@ export function RetailStorefrontPage() {
                   Seções da Página (Ativar e Ordenar)
                 </h4>
                 <div className="space-y-1.5">
-                  {(draftContent.sections || []).map(
-                    (sec: any, idx: number) => (
-                      <div
-                        key={sec.id}
-                        className="flex items-center justify-between rounded-xl border border-line bg-page px-3 py-2 text-xs"
-                      >
-                        <label className="flex items-center gap-2 font-semibold text-ink cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={sec.enabled !== false}
-                            onChange={(e) => {
-                              const next = [...(draftContent.sections || [])];
-                              next[idx] = {
-                                ...sec,
-                                enabled: e.target.checked,
-                              };
-                              setDraftContent((prev: any) => ({
-                                ...prev,
-                                sections: next,
-                              }));
-                            }}
-                          />
-                          <span>{sec.title || sec.type}</span>
-                        </label>
-                        <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            disabled={idx === 0}
-                            onClick={() => {
-                              const next = [...(draftContent.sections || [])];
-                              const temp = next[idx - 1];
-                              next[idx - 1] = next[idx];
-                              next[idx] = temp;
-                              setDraftContent((prev: any) => ({
-                                ...prev,
-                                sections: next,
-                              }));
-                            }}
-                            className="rounded-lg p-1 text-muted hover:text-ink disabled:opacity-30"
-                          >
-                            <ArrowUp className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            disabled={
-                              idx === (draftContent.sections || []).length - 1
-                            }
-                            onClick={() => {
-                              const next = [...(draftContent.sections || [])];
-                              const temp = next[idx + 1];
-                              next[idx + 1] = next[idx];
-                              next[idx] = temp;
-                              setDraftContent((prev: any) => ({
-                                ...prev,
-                                sections: next,
-                              }));
-                            }}
-                            className="rounded-lg p-1 text-muted hover:text-ink disabled:opacity-30"
-                          >
-                            <ArrowDown className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
+                  {(draftTheme.sections || []).map((sec: any, idx: number) => (
+                    <div
+                      key={sec.id}
+                      className="flex items-center justify-between rounded-xl border border-line bg-page px-3 py-2 text-xs"
+                    >
+                      <label className="flex items-center gap-2 font-semibold text-ink cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={sec.enabled !== false}
+                          onChange={(e) => {
+                            const next = [...(draftTheme.sections || [])];
+                            next[idx] = {
+                              ...sec,
+                              enabled: e.target.checked,
+                            };
+                            setDraftTheme((prev: any) => ({
+                              ...prev,
+                              sections: next,
+                            }));
+                          }}
+                        />
+                        <span>{sec.title || sec.type}</span>
+                      </label>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          disabled={idx === 0}
+                          onClick={() => {
+                            const next = [...(draftTheme.sections || [])];
+                            const temp = next[idx - 1];
+                            next[idx - 1] = next[idx];
+                            next[idx] = temp;
+                            setDraftTheme((prev: any) => ({
+                              ...prev,
+                              sections: next,
+                            }));
+                          }}
+                          className="rounded-lg p-1 text-muted hover:text-ink disabled:opacity-30"
+                        >
+                          <ArrowUp className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={
+                            idx === (draftTheme.sections || []).length - 1
+                          }
+                          onClick={() => {
+                            const next = [...(draftTheme.sections || [])];
+                            const temp = next[idx + 1];
+                            next[idx + 1] = next[idx];
+                            next[idx] = temp;
+                            setDraftTheme((prev: any) => ({
+                              ...prev,
+                              sections: next,
+                            }));
+                          }}
+                          className="rounded-lg p-1 text-muted hover:text-ink disabled:opacity-30"
+                        >
+                          <ArrowDown className="h-3.5 w-3.5" />
+                        </button>
                       </div>
-                    ),
-                  )}
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -1186,18 +1171,18 @@ export function RetailStorefrontPage() {
                     type="button"
                     onClick={() => {
                       const next = [
-                        ...(draftContent.banners || []),
+                        ...(draftTheme.banners || []),
                         {
                           id: `ban-${Date.now()}`,
                           title: "Destaque da Semana",
                           subtitle: "Confira as novidades disponíveis na loja",
                           imageUrl: "",
-                          linkType: "catalog",
-                          linkTarget: "",
-                          active: true,
+                          targetType: "none",
+                          targetValue: "",
+                          ctaLabel: "Conferir",
                         },
                       ];
-                      setDraftContent((prev: any) => ({
+                      setDraftTheme((prev: any) => ({
                         ...prev,
                         banners: next,
                       }));
@@ -1209,7 +1194,7 @@ export function RetailStorefrontPage() {
                   </button>
                 </div>
 
-                {(draftContent.banners || []).map((ban: any, idx: number) => (
+                {(draftTheme.banners || []).map((ban: any, idx: number) => (
                   <div
                     key={ban.id}
                     className="rounded-xl border border-line bg-page p-3 space-y-2 text-xs"
@@ -1221,10 +1206,10 @@ export function RetailStorefrontPage() {
                       <button
                         type="button"
                         onClick={() => {
-                          const next = (draftContent.banners || []).filter(
+                          const next = (draftTheme.banners || []).filter(
                             (_: any, i: number) => i !== idx,
                           );
-                          setDraftContent((prev: any) => ({
+                          setDraftTheme((prev: any) => ({
                             ...prev,
                             banners: next,
                           }));
@@ -1238,9 +1223,9 @@ export function RetailStorefrontPage() {
                       type="text"
                       value={ban.title || ""}
                       onChange={(e) => {
-                        const next = [...(draftContent.banners || [])];
+                        const next = [...(draftTheme.banners || [])];
                         next[idx] = { ...ban, title: e.target.value };
-                        setDraftContent((prev: any) => ({
+                        setDraftTheme((prev: any) => ({
                           ...prev,
                           banners: next,
                         }));
@@ -1252,9 +1237,9 @@ export function RetailStorefrontPage() {
                       type="text"
                       value={ban.subtitle || ""}
                       onChange={(e) => {
-                        const next = [...(draftContent.banners || [])];
+                        const next = [...(draftTheme.banners || [])];
                         next[idx] = { ...ban, subtitle: e.target.value };
-                        setDraftContent((prev: any) => ({
+                        setDraftTheme((prev: any) => ({
                           ...prev,
                           banners: next,
                         }));
@@ -1312,24 +1297,8 @@ export function RetailStorefrontPage() {
                 }`}
               >
                 <StorefrontHomeView
-                  storeData={{
-                    ...livePreviewStore,
-                    storeName: livePreviewStore.storeDisplayName,
-                    coverUrl: livePreviewStore.coverImageUrl,
-                    theme: {
-                      ...(livePreviewStore.layout?.theme || {}),
-                      template: livePreviewStore.layout?.templateId || "editorial_roxo",
-                      heroTitle: livePreviewStore.layout?.heroTitle,
-                      heroSubtitle: livePreviewStore.layout?.heroSubtitle,
-                      heroCtaLabel: livePreviewStore.layout?.heroCtaLabel,
-                      announcementText: livePreviewStore.layout?.announcementText,
-                      sections: livePreviewStore.layout?.sections,
-                      banners: livePreviewStore.layout?.banners,
-                    },
-                    categories: livePreviewCatalog.categories,
-                    featuredProducts: livePreviewCatalog.featuredProducts,
-                  }}
-                  products={livePreviewCatalog.products}
+                  storeData={livePreviewStoreData.storeData}
+                  products={livePreviewStoreData.products}
                   loadingProducts={false}
                   search=""
                   setSearch={() => {}}
@@ -1402,23 +1371,21 @@ export function RetailStorefrontPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => handleBatchUpdateProducts({ published: true })}
+                  onClick={() => handleBatchUpdateProducts("publish")}
                   className="rounded-xl bg-brand px-3 py-1.5 font-bold text-on-brand"
                 >
                   Publicar selecionadas
                 </button>
                 <button
                   type="button"
-                  onClick={() =>
-                    handleBatchUpdateProducts({ published: false })
-                  }
+                  onClick={() => handleBatchUpdateProducts("unpublish")}
                   className="rounded-xl border border-line bg-surface px-3 py-1.5 font-bold text-ink"
                 >
                   Ocultar selecionadas
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleBatchUpdateProducts({ featured: true })}
+                  onClick={() => handleBatchUpdateProducts("feature")}
                   className="rounded-xl border border-brand bg-surface px-3 py-1.5 font-bold text-brand"
                 >
                   Marcar destaque
@@ -1508,7 +1475,7 @@ export function RetailStorefrontPage() {
                             )}
                             <div>
                               <div className="font-bold text-ink">
-                                {item.customTitle || item.name}
+                                {item.commercialTitle || item.name}
                               </div>
                               <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
                                 <span className="text-[11px] text-muted">
@@ -1534,12 +1501,12 @@ export function RetailStorefrontPage() {
                         </td>
                         <td className="p-3">
                           <span className="font-bold text-ink">
-                            {item.availableStock} un.
+                            {item.availableStockTotal} un.
                           </span>{" "}
                           <span className="text-muted">
-                            (físico: {item.totalPhysicalStock}
-                            {item.reservedStock > 0
-                              ? `, reservado: ${item.reservedStock}`
+                            (físico: {item.physicalStockTotal}
+                            {item.reservedStockTotal > 0
+                              ? `, reservado: ${item.reservedStockTotal}`
                               : ""}
                             )
                           </span>
@@ -1549,16 +1516,16 @@ export function RetailStorefrontPage() {
                             type="button"
                             onClick={() =>
                               handleQuickToggleProduct(item, {
-                                published: !item.published,
+                                visible: !item.visible,
                               })
                             }
                             className={`rounded-full px-3 py-1 text-xs font-bold transition ${
-                              item.published
+                              item.visible
                                 ? "bg-brand text-on-brand"
                                 : "border border-line bg-page text-muted"
                             }`}
                           >
-                            {item.published ? "Publicada" : "Oculta"}
+                            {item.visible ? "Publicada" : "Oculta"}
                           </button>
                         </td>
                         <td className="p-3">
@@ -1637,11 +1604,11 @@ export function RetailStorefrontPage() {
                   </label>
                   <input
                     type="text"
-                    value={editingProduct.customTitle || ""}
+                    value={editingProduct.commercialTitle || ""}
                     onChange={(e) =>
                       setEditingProduct((prev: any) => ({
                         ...prev,
-                        customTitle: e.target.value,
+                        commercialTitle: e.target.value,
                       }))
                     }
                     placeholder={editingProduct.name}
@@ -1672,11 +1639,11 @@ export function RetailStorefrontPage() {
                   </label>
                   <textarea
                     rows={4}
-                    value={editingProduct.customDescription || ""}
+                    value={editingProduct.commercialDescription || ""}
                     onChange={(e) =>
                       setEditingProduct((prev: any) => ({
                         ...prev,
-                        customDescription: e.target.value,
+                        commercialDescription: e.target.value,
                       }))
                     }
                     placeholder="Descreva tecido, caimento, diferenciais ou instruções de uso..."
@@ -1688,11 +1655,11 @@ export function RetailStorefrontPage() {
                   <label className="flex items-center gap-2 rounded-xl border border-line bg-page p-3 text-xs font-bold text-ink">
                     <input
                       type="checkbox"
-                      checked={Boolean(editingProduct.published)}
+                      checked={Boolean(editingProduct.visible)}
                       onChange={(e) =>
                         setEditingProduct((prev: any) => ({
                           ...prev,
-                          published: e.target.checked,
+                          visible: e.target.checked,
                         }))
                       }
                     />
@@ -1823,16 +1790,16 @@ export function RetailStorefrontPage() {
                         type="button"
                         onClick={() =>
                           handleUpdateCategory(cat, {
-                            published: !cat.published,
+                            visible: !cat.visible,
                           })
                         }
                         className={`rounded-full px-3 py-1 text-xs font-bold ${
-                          cat.published
+                          cat.visible
                             ? "bg-brand text-on-brand"
                             : "border border-line bg-page text-muted"
                         }`}
                       >
-                        {cat.published ? "Visível" : "Oculta"}
+                        {cat.visible ? "Visível" : "Oculta"}
                       </button>
                     </td>
                     <td className="p-3">
@@ -1889,12 +1856,14 @@ export function RetailStorefrontPage() {
                 className="rounded-xl border border-line bg-page px-3 py-2 text-xs font-bold text-ink"
               >
                 <option value="">Todos os status ({ordersTotal})</option>
-                <option value="NEW">Novos pedidos</option>
+                <option value="AWAITING_CONFIRMATION">
+                  Aguardando confirmação
+                </option>
                 <option value="CONFIRMED">Confirmados</option>
-                <option value="CONVERTED_TO_SALE">Convertidos em venda</option>
+                <option value="COMPLETED">Convertidos em venda</option>
                 <option value="EXPIRED">Expirados</option>
                 <option value="CANCELLED">Cancelados</option>
-                <option value="REJECTED">Rejeitados</option>
+                <option value="REJECTED">Recusados</option>
               </select>
               <button
                 type="button"
@@ -1922,13 +1891,14 @@ export function RetailStorefrontPage() {
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-extrabold text-ink">
-                          {ord.publicReference}
+                          {ord.reference}
                         </span>
                         <span
                           className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
-                            ord.commercialStatus === "CONVERTED_TO_SALE"
+                            ord.commercialStatus === "COMPLETED"
                               ? "bg-brand text-on-brand"
-                              : ord.commercialStatus === "NEW" ||
+                              : ord.commercialStatus ===
+                                    "AWAITING_CONFIRMATION" ||
                                   ord.commercialStatus === "CONFIRMED"
                                 ? "border border-brand bg-support text-brand"
                                 : "border border-line bg-page text-muted"
@@ -1937,7 +1907,7 @@ export function RetailStorefrontPage() {
                           {COMMERCIAL_STATUS_LABELS[ord.commercialStatus] ||
                             ord.commercialStatus}
                         </span>
-                        {ord.hasStockConflict && (
+                        {ord.offlineConflictDetected && (
                           <span className="inline-flex items-center gap-1 rounded-full bg-brand px-2.5 py-0.5 text-[10px] font-bold text-on-brand">
                             <AlertTriangle className="h-3 w-3" />
                             Conflito de estoque
@@ -1956,7 +1926,7 @@ export function RetailStorefrontPage() {
                       </div>
                       <div className="flex items-center gap-2">
                         <span>
-                          {ord.fulfillmentType === "DELIVERY"
+                          {ord.fulfillmentMode === "DELIVERY"
                             ? "Entrega a combinar"
                             : "Retirada na loja"}
                         </span>
@@ -1988,7 +1958,7 @@ export function RetailStorefrontPage() {
                   <div>
                     <div className="flex items-center gap-2">
                       <h3 className="text-base font-extrabold text-ink">
-                        Pedido {selectedOrder.publicReference}
+                        Pedido {selectedOrder.reference}
                       </h3>
                       <span className="rounded-full border border-brand bg-support px-2.5 py-0.5 text-[11px] font-bold text-brand">
                         {COMMERCIAL_STATUS_LABELS[
@@ -2000,11 +1970,9 @@ export function RetailStorefrontPage() {
                       Registrado em {formatDateTime(selectedOrder.createdAt)}
                     </p>
                   </div>
-                  {selectedOrder.customerPhone && (
+                  {selectedOrder.customerWhatsappUrl && (
                     <a
-                      href={`https://wa.me/${String(
-                        selectedOrder.customerPhone,
-                      ).replace(/\D/g, "")}`}
+                      href={selectedOrder.customerWhatsappUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1.5 rounded-xl bg-brand px-3 py-1.5 text-xs font-bold text-on-brand"
@@ -2015,14 +1983,14 @@ export function RetailStorefrontPage() {
                   )}
                 </div>
 
-                {selectedOrder.hasStockConflict && (
+                {selectedOrder.offlineConflictDetected && (
                   <div className="rounded-xl border border-brand bg-support p-3 text-xs text-ink">
                     <div className="font-bold text-brand flex items-center gap-1.5">
                       <AlertTriangle className="h-4 w-4" />
                       Atenção: Conflito de Estoque Detectado
                     </div>
                     <p className="mt-1">
-                      {selectedOrder.stockConflictReason ||
+                      {selectedOrder.offlineConflictNote ||
                         "Uma venda de contingência/estoque negativo no PDV utilizou parte do estoque reservado. Confira a disponibilidade física antes de converter em venda."}
                     </p>
                   </div>
@@ -2041,7 +2009,7 @@ export function RetailStorefrontPage() {
                   <div>
                     <span className="text-muted block">Modalidade</span>
                     <strong className="text-ink flex items-center gap-1">
-                      {selectedOrder.fulfillmentType === "DELIVERY" ? (
+                      {selectedOrder.fulfillmentMode === "DELIVERY" ? (
                         <>
                           <Truck className="h-3.5 w-3.5 text-brand" />
                           Entrega a combinar
@@ -2055,7 +2023,13 @@ export function RetailStorefrontPage() {
                     </strong>
                     {selectedOrder.deliveryAddress && (
                       <div className="text-muted mt-0.5">
-                        {selectedOrder.deliveryAddress}
+                        {[
+                          selectedOrder.deliveryAddress.street,
+                          selectedOrder.deliveryAddress.number,
+                          selectedOrder.deliveryAddress.neighborhood,
+                        ]
+                          .filter(Boolean)
+                          .join(", ")}
                       </div>
                     )}
                   </div>
@@ -2067,7 +2041,9 @@ export function RetailStorefrontPage() {
                     Andamento da Retirada / Entrega
                   </label>
                   <select
-                    value={selectedOrder.fulfillmentStatus || "PENDING"}
+                    value={
+                      selectedOrder.fulfillmentStatus || "WAITING_SEPARATION"
+                    }
                     onChange={(e) =>
                       handleFulfillmentStatusChange(
                         selectedOrder.id,
@@ -2108,11 +2084,11 @@ export function RetailStorefrontPage() {
                             ]
                               .filter(Boolean)
                               .join(" · ")}{" "}
-                            · {formatBRL(Number(it.unitPrice || 0))} un.
+                            · {formatBRL(Number(it.priceUnit || 0))} un.
                           </div>
                         </div>
                         <div className="font-bold text-ink">
-                          {formatBRL(Number(it.totalPrice || 0))}
+                          {formatBRL(Number(it.subtotal || 0))}
                         </div>
                       </div>
                     ))}
@@ -2126,20 +2102,21 @@ export function RetailStorefrontPage() {
                 </div>
 
                 {/* Ações Comerciais */}
-                {(selectedOrder.commercialStatus === "NEW" ||
+                {(selectedOrder.commercialStatus === "AWAITING_CONFIRMATION" ||
                   selectedOrder.commercialStatus === "CONFIRMED") && (
                   <div className="space-y-2 pt-2 border-t border-line">
                     <div className="grid grid-cols-2 gap-2">
-                      {selectedOrder.commercialStatus === "NEW" && (
+                      {selectedOrder.commercialStatus ===
+                        "AWAITING_CONFIRMATION" && (
                         <button
                           type="button"
                           onClick={() =>
                             handleOrderAction(selectedOrder.id, "confirm")
                           }
-                          className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-brand bg-support px-3 py-2 text-xs font-bold text-brand hover:bg-brand hover:text-on-brand"
+                          className="col-span-2 inline-flex items-center justify-center gap-1.5 rounded-xl border border-brand bg-support px-3 py-2 text-xs font-bold text-brand hover:bg-brand hover:text-on-brand"
                         >
                           <CheckCircle2 className="h-4 w-4" />
-                          Confirmar pedido
+                          Confirmar pedido (estender reserva)
                         </button>
                       )}
                       <button
@@ -2170,12 +2147,12 @@ export function RetailStorefrontPage() {
                           handleOrderAction(
                             selectedOrder.id,
                             "reject",
-                            "Rejeitado pela loja",
+                            "Recusado pela loja",
                           )
                         }
                         className="inline-flex items-center justify-center gap-1 rounded-xl border border-line bg-page px-3 py-2 text-xs font-bold text-muted hover:text-ink"
                       >
-                        Rejeitar
+                        Recusar
                       </button>
                     </div>
                   </div>
@@ -2205,7 +2182,9 @@ export function RetailStorefrontPage() {
                           key={ev.id}
                           className="flex items-start justify-between gap-2"
                         >
-                          <span className="text-ink">{ev.message}</span>
+                          <span className="text-ink">
+                            {ev.reason || ev.eventType}
+                          </span>
                           <span className="shrink-0">
                             {formatDateTime(ev.createdAt)}
                           </span>
@@ -2235,7 +2214,7 @@ export function RetailStorefrontPage() {
                 className="w-full max-w-md rounded-2xl border border-line bg-surface p-6 shadow-xl space-y-4"
               >
                 <h3 className="text-base font-extrabold text-ink">
-                  Converter Pedido {selectedOrder.publicReference} em Venda
+                  Converter Pedido {selectedOrder.reference} em Venda
                 </h3>
                 <p className="text-xs text-muted">
                   A reserva de estoque será consumida na mesma transação da
@@ -2364,11 +2343,11 @@ export function RetailStorefrontPage() {
               </label>
               <input
                 type="text"
-                value={settingsForm.storeDisplayName}
+                value={settingsForm.storeName}
                 onChange={(e) =>
                   setSettingsForm((prev: any) => ({
                     ...prev,
-                    storeDisplayName: e.target.value,
+                    storeName: e.target.value,
                   }))
                 }
                 className="w-full rounded-xl border border-line bg-page px-3 py-2 text-xs text-ink"
@@ -2400,11 +2379,11 @@ export function RetailStorefrontPage() {
                 </label>
                 <input
                   type="text"
-                  value={settingsForm.whatsappNumber}
+                  value={settingsForm.whatsappPhone}
                   onChange={(e) =>
                     setSettingsForm((prev: any) => ({
                       ...prev,
-                      whatsappNumber: e.target.value,
+                      whatsappPhone: e.target.value,
                     }))
                   }
                   placeholder="5511999999999"
@@ -2413,18 +2392,18 @@ export function RetailStorefrontPage() {
               </div>
               <div>
                 <label className="block text-xs font-bold text-ink mb-1">
-                  Telefone comercial
+                  Saudação inicial do WhatsApp
                 </label>
                 <input
                   type="text"
-                  value={settingsForm.phone}
+                  value={settingsForm.whatsappMessageIntro}
                   onChange={(e) =>
                     setSettingsForm((prev: any) => ({
                       ...prev,
-                      phone: e.target.value,
+                      whatsappMessageIntro: e.target.value,
                     }))
                   }
-                  placeholder="(11) 3333-4444"
+                  placeholder="Olá! Gostaria de confirmar meu pedido:"
                   className="w-full rounded-xl border border-line bg-page px-3 py-2 text-xs text-ink"
                 />
               </div>
@@ -2445,7 +2424,7 @@ export function RetailStorefrontPage() {
                         logoUrl: e.target.value,
                       }))
                     }
-                    placeholder="/uploads/..."
+                    placeholder="/api/products/uploads/images/..."
                     className="flex-1 rounded-xl border border-line bg-page px-3 py-1.5 text-xs text-ink"
                   />
                   <label className="inline-flex cursor-pointer items-center justify-center rounded-xl border border-line bg-page px-2.5 py-1.5 text-xs font-bold text-ink hover:border-brand">
@@ -2470,14 +2449,14 @@ export function RetailStorefrontPage() {
                 <div className="flex gap-2">
                   <input
                     type="text"
-                    value={settingsForm.coverImageUrl}
+                    value={settingsForm.coverUrl}
                     onChange={(e) =>
                       setSettingsForm((prev: any) => ({
                         ...prev,
-                        coverImageUrl: e.target.value,
+                        coverUrl: e.target.value,
                       }))
                     }
-                    placeholder="/uploads/..."
+                    placeholder="/api/products/uploads/images/..."
                     className="flex-1 rounded-xl border border-line bg-page px-3 py-1.5 text-xs text-ink"
                   />
                   <label className="inline-flex cursor-pointer items-center justify-center rounded-xl border border-line bg-page px-2.5 py-1.5 text-xs font-bold text-ink hover:border-brand">
@@ -2488,7 +2467,7 @@ export function RetailStorefrontPage() {
                       className="hidden"
                       onChange={(e) => {
                         const f = e.target.files?.[0];
-                        if (f) handleImageUpload(f, "coverImageUrl");
+                        if (f) handleImageUpload(f, "coverUrl");
                       }}
                     />
                   </label>
@@ -2519,18 +2498,6 @@ export function RetailStorefrontPage() {
               </label>
               <input
                 type="text"
-                value={settingsForm.pickupAddress}
-                onChange={(e) =>
-                  setSettingsForm((prev: any) => ({
-                    ...prev,
-                    pickupAddress: e.target.value,
-                  }))
-                }
-                placeholder="Endereço para retirada (Ex.: Rua das Flores, 123 - Centro)"
-                className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-xs text-ink"
-              />
-              <input
-                type="text"
                 value={settingsForm.pickupInstructions}
                 onChange={(e) =>
                   setSettingsForm((prev: any) => ({
@@ -2538,7 +2505,7 @@ export function RetailStorefrontPage() {
                     pickupInstructions: e.target.value,
                   }))
                 }
-                placeholder="Horário e orientações de retirada"
+                placeholder="Endereço, horário e orientações para retirada na loja"
                 className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-xs text-ink"
               />
             </div>
@@ -2557,43 +2524,18 @@ export function RetailStorefrontPage() {
                 />
                 Permitir Entrega a Combinar
               </label>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-[11px] font-bold text-muted mb-1">
-                    Taxa fixa referencial (R$)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={settingsForm.deliveryFeeFixed}
-                    onChange={(e) =>
-                      setSettingsForm((prev: any) => ({
-                        ...prev,
-                        deliveryFeeFixed: e.target.value,
-                      }))
-                    }
-                    className="w-full rounded-xl border border-line bg-surface px-3 py-1.5 text-xs text-ink"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-muted mb-1">
-                    Regiões atendidas
-                  </label>
-                  <input
-                    type="text"
-                    value={settingsForm.deliveryZoneNotes}
-                    onChange={(e) =>
-                      setSettingsForm((prev: any) => ({
-                        ...prev,
-                        deliveryZoneNotes: e.target.value,
-                      }))
-                    }
-                    placeholder="Ex.: Centro e bairros próximos"
-                    className="w-full rounded-xl border border-line bg-surface px-3 py-1.5 text-xs text-ink"
-                  />
-                </div>
-              </div>
+              <input
+                type="text"
+                value={settingsForm.deliveryFeeNote}
+                onChange={(e) =>
+                  setSettingsForm((prev: any) => ({
+                    ...prev,
+                    deliveryFeeNote: e.target.value,
+                  }))
+                }
+                placeholder="Nota sobre taxa e regiões atendidas (Ex.: Frete a combinar pelo WhatsApp)"
+                className="w-full rounded-xl border border-line bg-surface px-3 py-1.5 text-xs text-ink"
+              />
               <input
                 type="text"
                 value={settingsForm.deliveryInstructions}
@@ -2603,7 +2545,7 @@ export function RetailStorefrontPage() {
                     deliveryInstructions: e.target.value,
                   }))
                 }
-                placeholder="Orientação de entrega (Ex.: Combinamos o frete e prazo pelo WhatsApp)"
+                placeholder="Orientação de entrega para o consumidor"
                 className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-xs text-ink"
               />
             </div>
@@ -2611,17 +2553,17 @@ export function RetailStorefrontPage() {
             <div className="grid grid-cols-2 gap-3 pt-2 border-t border-line">
               <div>
                 <label className="block text-xs font-bold text-ink mb-1">
-                  Prazo da reserva inicial (minutos)
+                  Prazo da reserva inicial (5 a 120 min)
                 </label>
                 <input
                   type="number"
                   min={5}
-                  max={10080}
-                  value={settingsForm.reservationMinutes}
+                  max={120}
+                  value={settingsForm.confirmReservationMinutes}
                   onChange={(e) =>
                     setSettingsForm((prev: any) => ({
                       ...prev,
-                      reservationMinutes: e.target.value,
+                      confirmReservationMinutes: e.target.value,
                     }))
                   }
                   className="w-full rounded-xl border border-line bg-page px-3 py-2 text-xs text-ink"
@@ -2629,17 +2571,17 @@ export function RetailStorefrontPage() {
               </div>
               <div>
                 <label className="block text-xs font-bold text-ink mb-1">
-                  Extensão ao confirmar (minutos)
+                  Prazo após confirmar (1 a 168 horas)
                 </label>
                 <input
                   type="number"
-                  min={15}
-                  max={10080}
-                  value={settingsForm.confirmationExtensionMinutes}
+                  min={1}
+                  max={168}
+                  value={settingsForm.confirmedHoldHours}
                   onChange={(e) =>
                     setSettingsForm((prev: any) => ({
                       ...prev,
-                      confirmationExtensionMinutes: e.target.value,
+                      confirmedHoldHours: e.target.value,
                     }))
                   }
                   className="w-full rounded-xl border border-line bg-page px-3 py-2 text-xs text-ink"

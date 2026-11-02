@@ -1,5 +1,12 @@
 # Histórico — PDV Lojista
 
+## 2026-11-01 — Correção de Injeção de Dependência (`SalesService`) no `StorefrontModule` e Feedback de Erro 5xx no `/sys-init`
+
+- **Exportação de `SalesService` no `SalesModule` (`backend/src/sales/sales.module.ts`)**:
+  - Adicionado `exports: [SalesService]` ao `SalesModule` para resolver a dependência do `StorefrontOrdersService` dentro do `StorefrontModule`, eliminando o `UnknownDependenciesException` que impedia a inicialização do container em produção (HTTP 502).
+- **Tratamento de Indisponibilidade Temporária no Login do `/sys-init` (`frontend/src/app/sys-init/page.tsx`)**:
+  - Diferenciado erro de rede/gateway (`HTTP 5xx` ou falha de conexão) de erro de senha inválida (`HTTP 401/403`) em `handleValidatePin`, preservando os dígitos digitados e exibindo mensagem clara de indisponibilidade temporária do servidor.
+
 ## 2026-11-01 — Experiência Mobile Nativa (PWA Standalone), Bloqueio de Zoom/Overscroll e Balão Inferior Glassmorphism com Auto-Hide
 
 - **Comportamento Nativo de Aplicativo Salvo na Tela Inicial (`frontend/index.html`, `frontend/public/manifest.webmanifest`, `frontend/vite.config.ts`, `frontend/src/main.tsx`, `frontend/src/app/globals.css` e `frontend/src/App.tsx`)**:

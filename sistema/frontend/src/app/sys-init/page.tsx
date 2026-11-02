@@ -542,9 +542,16 @@ export default function SysInitPage() {
       await api.post("/tenants/setup/validate-pin", { pin });
       try { sessionStorage.setItem('lojista-sysinit-pin', pin); } catch {}
       setStep("list");
-    } catch {
-      setpinError("Credenciais inválidas. Acesso negado."); triggerShake();
-      setPinDigits([]);
+    } catch (err: any) {
+      const status = err?.response?.status;
+      if (!status || status >= 500) {
+        setpinError(`Servidor temporariamente indisponível (${status ? `HTTP ${status}` : 'sem conexão'}). Aguarde alguns instantes e tente novamente.`);
+        triggerShake();
+      } else {
+        setpinError("Credenciais inválidas. Acesso negado.");
+        triggerShake();
+        setPinDigits([]);
+      }
     } finally {
       setPinLoading(false);
     }

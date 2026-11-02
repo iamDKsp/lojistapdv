@@ -14,7 +14,7 @@ export interface RetailGroup {
   id: string;
   name: string;
   categoryId: string;
-  category?: { id: string; name: string; icon?: string | null };
+  category?: { id: string; name: string; icon?: string | null; active?: boolean };
   imageUrl: string | null;
   priceSell: number | string;
   priceCost: number | string;

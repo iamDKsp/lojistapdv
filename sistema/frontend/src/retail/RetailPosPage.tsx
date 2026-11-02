@@ -392,6 +392,9 @@ export function RetailPosPage() {
   const sync = useOfflineSync();
   const searchRef = useRef<HTMLInputElement>(null);
   const [products, setProducts] = useState<Product[]>([]);
+  const [allCategories, setAllCategories] = useState<
+    Array<{ id: string; name: string; icon?: string | null; active?: boolean }>
+  >([]);
   const [config, setConfig] = useState<any>(null);
   const [allowNegative, setAllowNegative] = useState(false);
   const [search, setSearch] = useState("");
@@ -517,7 +520,10 @@ export function RetailPosPage() {
     api
       .get("/categories", { signal: controller.signal })
       .then((res) => {
-        if (Array.isArray(res.data)) syncCategoriesIconsToStorage(res.data);
+        if (Array.isArray(res.data)) {
+          syncCategoriesIconsToStorage(res.data);
+          setAllCategories(res.data);
+        }
       })
       .catch(() => {});
     return () => controller.abort();
@@ -530,11 +536,31 @@ export function RetailPosPage() {
         .catch(() => {});
   }, [tenant, shift.operator?.id, checkout, sync.pendingCount]);
 
+  const inactiveCategoryIds = useMemo(
+    () =>
+      new Set(
+        allCategories
+          .filter((cat) => cat.active === false)
+          .map((cat) => cat.id),
+      ),
+    [allCategories],
+  );
+
+  const visibleProducts = useMemo(
+    () =>
+      products.filter(
+        (p) =>
+          (!p.categoryId || !inactiveCategoryIds.has(p.categoryId)) &&
+          (p.category as any)?.active !== false,
+      ),
+    [products, inactiveCategoryIds],
+  );
+
   // Estatísticas de grupos por categoria para os contadores nas pílulas (ex.: Todos os Produtos 320, Calçados 182...)
   const categoryStats = useMemo(() => {
     const allGroups = new Set<string>();
     const byCat = new Map<string, Set<string>>();
-    for (const product of products) {
+    for (const product of visibleProducts) {
       const key = product.retailGroupId || product.id;
       allGroups.add(key);
       if (product.categoryId) {
@@ -550,7 +576,7 @@ export function RetailPosPage() {
       total: allGroups.size,
       byCat: counts,
     };
-  }, [products]);
+  }, [visibleProducts]);
 
   const grouped = useMemo(() => {
     const term = search
@@ -568,7 +594,7 @@ export function RetailPosPage() {
         variants: Product[];
       }
     >();
-    for (const product of products) {
+    for (const product of visibleProducts) {
       if (category && product.categoryId !== category) continue;
       const key = product.retailGroupId || product.id;
       const name = product.retailGroup?.name || product.name;
@@ -592,18 +618,34 @@ export function RetailPosPage() {
     return [...result.values()].sort((a, b) =>
       a.name.localeCompare(b.name, "pt-BR"),
     );
-  }, [products, category, search]);
+  }, [visibleProducts, category, search]);
 
-  const categories = useMemo(
-    () => [
-      ...new Map(
-        products
-          .filter((p) => p.category)
-          .map((p) => [p.category!.id, p.category!]),
-      ).values(),
-    ],
-    [products],
-  );
+  const categories = useMemo(() => {
+    const map = new Map<
+      string,
+      { id: string; name: string; icon?: string | null; active?: boolean }
+    >();
+    for (const cat of allCategories) {
+      if (cat && cat.id && cat.active !== false) {
+        map.set(cat.id, cat);
+      }
+    }
+    for (const product of visibleProducts) {
+      if (
+        product.category &&
+        product.category.id &&
+        (product.category as any).active !== false &&
+        !inactiveCategoryIds.has(product.category.id)
+      ) {
+        if (!map.has(product.category.id)) {
+          map.set(product.category.id, product.category);
+        }
+      }
+    }
+    return [...map.values()].sort((a, b) =>
+      a.name.localeCompare(b.name, "pt-BR"),
+    );
+  }, [allCategories, visibleProducts, inactiveCategoryIds]);
 
   function add(product: Product) {
     const existing = cart.items

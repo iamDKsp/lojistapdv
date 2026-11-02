@@ -1382,6 +1382,41 @@ export function CategoryIconBadge({
   );
 }
 
+export const SUGGESTED_CATEGORY_NAMES_BY_ICON: Record<string, string> = {
+  camiseta: "Camisetas",
+  camisa: "Camisas",
+  calca: "Calças",
+  bermuda: "Bermudas",
+  jaqueta: "Jaquetas",
+  vestido: "Vestidos",
+  saia: "Saias",
+  calcado: "Calçados",
+  bone: "Bonés",
+  relogio: "Relógios",
+  oculos: "Óculos",
+  carteira: "Acessórios",
+  bolsa: "Bolsas",
+  joia: "Joias",
+  perfume: "Perfumaria",
+  meia: "Moda Íntima",
+  praia: "Moda Praia & Fitness",
+  infantil: "Moda Infantil",
+  cabide: "Coleção Geral",
+  sacola: "Boutique",
+  estrela: "Destaques",
+  diamante: "Linha Premium",
+  etiqueta: "Promoções & Outlet",
+  presente: "Kits & Presentes",
+  raio: "Lançamentos",
+  coracao: "Favoritos",
+  coroa: "Especiais",
+  floco: "Inverno & Tricô",
+};
+
+export function getSuggestedCategoryName(iconId: string): string {
+  return SUGGESTED_CATEGORY_NAMES_BY_ICON[iconId] || "Nova Categoria";
+}
+
 /**
  * Seletor interativo de Ícones de Categoria + Ícones Bônus com Preview ao Vivo.
  * Usado na criação/edição de categoria em `/estoque/categorias` e no modal de Grupo de Mercadorias.
@@ -1391,13 +1426,18 @@ export function CategoryIconPicker({
   categoryName,
   onChange,
   compact = false,
+  categoryActive = true,
+  onSuggestName,
 }: {
   value: string | null | undefined;
   categoryName: string;
   onChange: (iconId: string | null) => void;
   compact?: boolean;
+  categoryActive?: boolean;
+  onSuggestName?: (suggestedName: string) => void;
 }) {
   const [activeTab, setActiveTab] = useState<"all" | "category" | "bonus">("all");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const autoDetectedId = useMemo(
     () => detectIconFromText(categoryName || "Camisetas"),
@@ -1406,57 +1446,122 @@ export function CategoryIconPicker({
 
   const effectiveIconId = value || autoDetectedId;
   const effectiveDef = getCategoryIconDefinition(effectiveIconId);
-  const displayCategoryName = categoryName.trim() || "Nova Categoria";
+  const suggestedName = getSuggestedCategoryName(effectiveIconId);
+  const displayCategoryName = categoryName.trim() || suggestedName || "Nova Categoria";
 
   const filteredOptions = useMemo(() => {
-    if (activeTab === "category") {
-      return CATEGORY_ICON_OPTIONS.filter((o) => o.group === "category");
-    }
-    if (activeTab === "bonus") {
-      return CATEGORY_ICON_OPTIONS.filter((o) => o.group === "bonus");
-    }
-    return CATEGORY_ICON_OPTIONS;
-  }, [activeTab]);
+    const base =
+      activeTab === "category"
+        ? CATEGORY_ICON_OPTIONS.filter((o) => o.group === "category")
+        : activeTab === "bonus"
+        ? CATEGORY_ICON_OPTIONS.filter((o) => o.group === "bonus")
+        : CATEGORY_ICON_OPTIONS;
+
+    const normSearch = normalizeText(searchQuery);
+    if (!normSearch) return base;
+
+    return base.filter((opt) => {
+      const hay = normalizeText(
+        `${opt.label} ${opt.shortLabel} ${getSuggestedCategoryName(opt.id)} ${opt.keywords.join(" ")}`
+      );
+      return hay.includes(normSearch);
+    });
+  }, [activeTab, searchQuery]);
 
   return (
     <div
       style={{
         display: "grid",
         gap: compact ? 10 : 14,
-        padding: compact ? 12 : 14,
-        borderRadius: 12,
+        padding: compact ? 12 : 16,
+        borderRadius: 14,
         background: "var(--pdv-background)",
         border: "1px solid var(--pdv-border)",
       }}
     >
-      {/* Bloco de Preview em Tempo Real */}
+      {/* Bloco de Preview em Tempo Real (Card de Mercadoria + Pílula do PDV) */}
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: compact ? "88px 1fr" : "112px 1fr",
-          gap: 12,
-          alignItems: "center",
-          padding: 10,
-          borderRadius: 10,
+          gridTemplateColumns: compact ? "92px 1fr" : "136px 1fr",
+          gap: 14,
+          alignItems: "stretch",
+          padding: 12,
+          borderRadius: 12,
           background: "var(--pdv-white)",
           border: "1px solid var(--pdv-border)",
         }}
       >
+        {/* Mini Card de Produto Simulado */}
         <div
           style={{
-            height: compact ? 74 : 88,
-            borderRadius: 8,
+            borderRadius: 10,
             overflow: "hidden",
             border: "1px solid var(--pdv-border)",
+            background: "var(--pdv-white)",
+            display: "flex",
+            flexDirection: "column",
+            opacity: categoryActive ? 1 : 0.65,
           }}
         >
-          <CategoryIconIllustration
-            iconId={effectiveIconId}
-            categoryName={displayCategoryName}
-          />
+          <div style={{ height: compact ? 64 : 78, position: "relative" }}>
+            <CategoryIconIllustration
+              iconId={effectiveIconId}
+              categoryName={displayCategoryName}
+            />
+            <span
+              style={{
+                position: "absolute",
+                top: 5,
+                left: 5,
+                padding: "2px 6px",
+                borderRadius: 999,
+                fontSize: 8,
+                fontWeight: 800,
+                background: "var(--pdv-text)",
+                color: "var(--pdv-white)",
+              }}
+            >
+              10+ itens
+            </span>
+          </div>
+          {!compact && (
+            <div
+              style={{
+                padding: "5px 7px",
+                borderTop: "1px solid var(--pdv-border)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 4,
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 9,
+                  fontWeight: 800,
+                  color: "var(--pdv-text)",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {effectiveDef.shortLabel}
+              </span>
+              <span
+                style={{
+                  fontSize: 9,
+                  fontWeight: 800,
+                  color: "var(--pdv-primary)",
+                }}
+              >
+                PDV
+              </span>
+            </div>
+          )}
         </div>
 
-        <div style={{ display: "grid", gap: 6, minWidth: 0 }}>
+        <div style={{ display: "grid", gap: 7, minWidth: 0, alignContent: "center" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
             <span
               style={{
@@ -1467,20 +1572,35 @@ export function CategoryIconPicker({
                 color: "var(--pdv-primary)",
               }}
             >
-              Preview no PDV e Catálogo
+              Simulação ao Vivo · PDV & Catálogo
             </span>
-            <span
-              style={{
-                fontSize: 11,
-                fontWeight: 700,
-                padding: "2px 8px",
-                borderRadius: 999,
-                background: "var(--pdv-support)",
-                color: "var(--pdv-primary)",
-              }}
-            >
-              {value ? `Ícone: ${effectiveDef.shortLabel}` : `Automático (${effectiveDef.shortLabel})`}
-            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 800,
+                  padding: "2px 8px",
+                  borderRadius: 999,
+                  background: categoryActive ? "var(--pdv-support)" : "var(--pdv-background)",
+                  color: categoryActive ? "var(--pdv-primary)" : "var(--pdv-text-secondary)",
+                  border: "1px solid var(--pdv-border)",
+                }}
+              >
+                {categoryActive ? "● Ativa no PDV" : "○ Oculta no PDV"}
+              </span>
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  padding: "2px 8px",
+                  borderRadius: 999,
+                  background: "var(--pdv-support)",
+                  color: "var(--pdv-primary)",
+                }}
+              >
+                {value ? `Ícone: ${effectiveDef.shortLabel}` : `Automático (${effectiveDef.shortLabel})`}
+              </span>
+            </div>
           </div>
 
           <p
@@ -1491,7 +1611,7 @@ export function CategoryIconPicker({
               lineHeight: 1.35,
             }}
           >
-            Como aparece no filtro do caixa e nos produtos sem foto:
+            { effectiveDef.label } — pílula de filtro no caixa e estampa dos produtos:
           </p>
 
           {/* Simulação do botão de filtro de categoria do PDV */}
@@ -1500,11 +1620,12 @@ export function CategoryIconPicker({
               style={{
                 display: "inline-flex",
                 alignItems: "center",
-                gap: 6,
+                gap: 7,
                 padding: "5px 12px",
                 borderRadius: 999,
-                background: "var(--pdv-primary)",
-                color: "var(--pdv-white)",
+                background: categoryActive ? "var(--pdv-primary)" : "var(--pdv-background)",
+                color: categoryActive ? "var(--pdv-white)" : "var(--pdv-text-secondary)",
+                border: categoryActive ? "1px solid var(--pdv-primary)" : "1px dashed var(--pdv-border)",
                 fontSize: 12,
                 fontWeight: 800,
                 maxWidth: "100%",
@@ -1532,72 +1653,154 @@ export function CategoryIconPicker({
               >
                 {displayCategoryName}
               </span>
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 800,
+                  padding: "1px 6px",
+                  borderRadius: 999,
+                  background: categoryActive ? "var(--pdv-white)" : "var(--pdv-support)",
+                  color: "var(--pdv-primary)",
+                }}
+              >
+                10
+              </span>
             </span>
-          </div>
-        </div>
-      </div>
 
-      {/* Barra de Abas: Todos / Categorias / Ícones Bônus + Botão Automático */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 6,
-          flexWrap: "wrap",
-        }}
-      >
-        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-          {[
-            { id: "all" as const, label: `Todos (${CATEGORY_ICON_OPTIONS.length})` },
-            {
-              id: "category" as const,
-              label: `Categorias (${CATEGORY_ICON_OPTIONS.filter((o) => o.group === "category").length})`,
-            },
-            {
-              id: "bonus" as const,
-              label: `Ícones Bônus (${CATEGORY_ICON_OPTIONS.filter((o) => o.group === "bonus").length})`,
-            },
-          ].map((tab) => {
-            const active = activeTab === tab.id;
-            return (
+            {onSuggestName && categoryName.trim().toLowerCase() !== suggestedName.toLowerCase() && (
               <button
-                key={tab.id}
                 type="button"
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => onSuggestName(suggestedName)}
                 style={{
                   padding: "5px 10px",
-                  borderRadius: 8,
-                  border: `1px solid ${active ? "var(--pdv-primary)" : "var(--pdv-border)"}`,
-                  background: active ? "var(--pdv-support)" : "var(--pdv-white)",
-                  color: active ? "var(--pdv-primary)" : "var(--pdv-text-secondary)",
+                  borderRadius: 999,
+                  border: "1px solid var(--pdv-border)",
+                  background: "var(--pdv-support)",
+                  color: "var(--pdv-primary)",
                   fontSize: 11,
                   fontWeight: 800,
                   cursor: "pointer",
                 }}
               >
-                {tab.label}
+                Usar nome &ldquo;{suggestedName}&rdquo;
               </button>
-            );
-          })}
+            )}
+          </div>
         </div>
+      </div>
 
-        <button
-          type="button"
-          onClick={() => onChange(null)}
+      {/* Barra de Busca + Abas: Todos / Categorias / Ícones Bônus + Botão Automático */}
+      <div
+        style={{
+          display: "grid",
+          gap: 8,
+        }}
+      >
+        {!compact && (
+          <div style={{ position: "relative" }}>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Buscar ícone por nome ou estilo (ex: relógio, vestido, tênis, premium, inverno)..."
+              style={{
+                width: "100%",
+                padding: "8px 12px",
+                borderRadius: 10,
+                border: "1px solid var(--pdv-border)",
+                background: "var(--pdv-white)",
+                color: "var(--pdv-text)",
+                fontSize: 12,
+                fontWeight: 600,
+                outline: "none",
+              }}
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                style={{
+                  position: "absolute",
+                  right: 8,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  padding: "2px 8px",
+                  borderRadius: 6,
+                  border: "1px solid var(--pdv-border)",
+                  background: "var(--pdv-background)",
+                  color: "var(--pdv-text-secondary)",
+                  fontSize: 10,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                Limpar
+              </button>
+            )}
+          </div>
+        )}
+
+        <div
           style={{
-            padding: "5px 10px",
-            borderRadius: 8,
-            border: `1px solid ${!value ? "var(--pdv-primary)" : "var(--pdv-border)"}`,
-            background: !value ? "var(--pdv-primary)" : "var(--pdv-white)",
-            color: !value ? "var(--pdv-white)" : "var(--pdv-text-secondary)",
-            fontSize: 11,
-            fontWeight: 800,
-            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 6,
+            flexWrap: "wrap",
           }}
         >
-          Automático pelo nome
-        </button>
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+            {[
+              { id: "all" as const, label: `Todos (${CATEGORY_ICON_OPTIONS.length})` },
+              {
+                id: "category" as const,
+                label: `Categorias Loja (${CATEGORY_ICON_OPTIONS.filter((o) => o.group === "category").length})`,
+              },
+              {
+                id: "bonus" as const,
+                label: `Ícones Bônus (${CATEGORY_ICON_OPTIONS.filter((o) => o.group === "bonus").length})`,
+              },
+            ].map((tab) => {
+              const active = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  style={{
+                    padding: "5px 10px",
+                    borderRadius: 8,
+                    border: `1px solid ${active ? "var(--pdv-primary)" : "var(--pdv-border)"}`,
+                    background: active ? "var(--pdv-support)" : "var(--pdv-white)",
+                    color: active ? "var(--pdv-primary)" : "var(--pdv-text-secondary)",
+                    fontSize: 11,
+                    fontWeight: 800,
+                    cursor: "pointer",
+                  }}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => onChange(null)}
+            style={{
+              padding: "5px 10px",
+              borderRadius: 8,
+              border: `1px solid ${!value ? "var(--pdv-primary)" : "var(--pdv-border)"}`,
+              background: !value ? "var(--pdv-primary)" : "var(--pdv-white)",
+              color: !value ? "var(--pdv-white)" : "var(--pdv-text-secondary)",
+              fontSize: 11,
+              fontWeight: 800,
+              cursor: "pointer",
+            }}
+          >
+            Automático pelo nome
+          </button>
+        </div>
       </div>
 
       {/* Grade de Ícones para Escolha */}
@@ -1606,9 +1809,9 @@ export function CategoryIconPicker({
           display: "grid",
           gridTemplateColumns: compact
             ? "repeat(auto-fill, minmax(76px, 1fr))"
-            : "repeat(auto-fill, minmax(84px, 1fr))",
-          gap: 6,
-          maxHeight: compact ? 185 : 230,
+            : "repeat(auto-fill, minmax(92px, 1fr))",
+          gap: 7,
+          maxHeight: compact ? 185 : 270,
           overflowY: "auto",
           paddingRight: 2,
         }}
@@ -1622,16 +1825,21 @@ export function CategoryIconPicker({
             <button
               key={option.id}
               type="button"
-              onClick={() => onChange(option.id)}
-              title={option.label}
+              onClick={() => {
+                onChange(option.id);
+                if (onSuggestName && !categoryName.trim()) {
+                  onSuggestName(getSuggestedCategoryName(option.id));
+                }
+              }}
+              title={`${option.label} — Sugestão: ${getSuggestedCategoryName(option.id)}`}
               style={{
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
                 justifyContent: "center",
                 gap: 4,
-                padding: "7px 4px",
-                borderRadius: 9,
+                padding: "8px 5px",
+                borderRadius: 10,
                 border: active
                   ? "2px solid var(--pdv-primary)"
                   : "1px solid var(--pdv-border)",
@@ -1639,7 +1847,7 @@ export function CategoryIconPicker({
                 color: "var(--pdv-text)",
                 cursor: "pointer",
                 position: "relative",
-                minHeight: 62,
+                minHeight: 68,
               }}
             >
               {option.group === "bonus" && (
@@ -1660,7 +1868,7 @@ export function CategoryIconPicker({
                   BÔNUS
                 </span>
               )}
-              <CategoryIconBadge iconId={option.id} size={28} />
+              <CategoryIconBadge iconId={option.id} size={30} />
               <span
                 style={{
                   fontSize: 10,

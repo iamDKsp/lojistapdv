@@ -1,5 +1,17 @@
 # Histórico — PDV Lojista
 
+## 2026-11-01 — Estúdio de Categorias em 2 Colunas, Ativação/Desativação no PDV e Catálogo Completo de 28 Categorias com 10+ Grupos
+
+- **Ativação / Desativação de Categorias (`active: boolean`) e Ações em Lote (`backend/prisma/schema.prisma`, `backend/src/prisma/tenant-prisma.service.ts`, `backend/src/categories/categories.service.ts` e `backend/src/categories/categories.controller.ts`)**:
+  - Adicionado o campo `active Boolean @default(true)` ao modelo `Category` (com auto-DDL idempotente em `ensureTenantRuntimeSchema`), além do retorno de `_count: { retailGroups, products }` em `GET /api/categories`.
+  - Novos endpoints `POST /api/categories/bulk-status` (para ativar ou pausar múltiplas categorias em 1 clique) e `POST /api/categories/populate-showcase` (para criar as 28 categorias oficiais e completar cada uma com no mínimo 10 grupos de mercadorias com variações de tamanho/cor, lotes de estoque e histórico de movimentação), com invalidação imediata do cache de produtos da loja.
+- **Estúdio de Categorias Expandido em 2 Colunas (`/estoque/categorias` em `frontend/src/app/dashboard/inventory/categories/page.tsx` e `frontend/src/components/CategoryIcons.tsx`)**:
+  - Tela de gestão `/estoque/categorias` reformulada com cards de indicadores KPI (*Total Cadastradas*, *Ativas no PDV*, *Inativas / Ocultas* e *Mercadorias Vinculadas*), barra de sugestões rápidas das categorias restantes, busca textual, filtros por status/grupo e chave deslizante (*switch*) de 1 clique por linha (`Ativa no PDV` / `Inativa`) com feedback textual e visual na paleta roxa, branca e neutra aprovada.
+  - Modal de criação/edição expandido em formato de **Estúdio em 2 Colunas (`max-w-5xl`)** com barra superior de preenchimento em 1 clique para os 28 modelos oficiais, seletor de disponibilidade no PDV (*Ativa* vs *Inativa / Oculta*), opção de criação em sequência (*Salvar e Criar Próxima*), busca de ícones por palavra-chave e simulação dupla em tempo real (Card de Mercadoria + Pílula de Filtro do PDV).
+- **Filtro Dinâmico no PDV (`frontend/src/retail/RetailPosPage.tsx`) e Catálogo Mostruário Completo (`backend/src/categories/showcase-catalog.data.ts`)**:
+  - O Ponto de Venda (`/`) oculta automaticamente da barra de filtros e da grade de vendas as categorias marcadas como inativas (`active === false`).
+  - Alimentado o catálogo com todas as **28 categorias** (18 categorias da loja + 10 categorias de ícones bônus) e no mínimo **10 grupos de mercadorias por categoria** (280+ grupos no total, todos com grade de tamanho/cor, preço, custo e estoque).
+
 ## 2026-11-01 — Transição Roxa em Tela Cheia por Módulo e Navegação por Setas (Módulos e Abas)
 
 - **Transição Tela Cheia (`mode="transition"`, `once`) Exclusiva na Troca de Módulo (`frontend/src/retail/RetailLayout.tsx`, `frontend/src/App.tsx`, `frontend/src/components/PdvLojistaLoader.tsx` e `frontend/src/lib/routes.ts`)**:

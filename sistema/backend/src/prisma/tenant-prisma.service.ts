@@ -88,6 +88,7 @@ export class TenantConnectionManager implements OnModuleDestroy {
           ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "whatsappOptIn" BOOLEAN NOT NULL DEFAULT true;
           ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "creditNotes" TEXT;
           ALTER TABLE "categories" ADD COLUMN IF NOT EXISTS "icon" VARCHAR(60);
+          ALTER TABLE "categories" ADD COLUMN IF NOT EXISTS "active" BOOLEAN NOT NULL DEFAULT true;
 
           CREATE TABLE IF NOT EXISTS "customer_receivables" (
               "id" TEXT NOT NULL,

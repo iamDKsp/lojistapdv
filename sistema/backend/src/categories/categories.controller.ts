@@ -1,7 +1,15 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Body,
+  Param,
+  UseGuards,
+} from '@nestjs/common';
 import { CategoriesService } from './categories.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { CurrentUser } from '../auth/current-user.decorator';
 
 @UseGuards(JwtAuthGuard)
 @Controller('categories')
@@ -16,6 +24,16 @@ export class CategoriesController {
   @Post()
   create(@Body() body: any) {
     return this.categoriesService.create(body);
+  }
+
+  @Post('bulk-status')
+  bulkUpdateStatus(@Body() body: { ids?: string[]; active: boolean }) {
+    return this.categoriesService.bulkUpdateStatus(body);
+  }
+
+  @Post('populate-showcase')
+  populateShowcase(@Body() body?: { minPerCategory?: number }) {
+    return this.categoriesService.populateShowcaseCatalog(body);
   }
 
   @Patch(':id')

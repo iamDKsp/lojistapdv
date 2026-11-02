@@ -421,6 +421,19 @@ model Lead {
 }
 
 // ------------------------------------------------------------
+//  OperatorProfile — Foto de perfil sincronizada dos operadores por loja
+// ------------------------------------------------------------
+model OperatorProfile {
+  tenantId   String   @map("tenant_id")
+  operatorId String   @map("operator_id")
+  imageUrl   String?  @map("image_url") @db.Text
+  updatedAt  DateTime @default(now()) @map("updated_at")
+
+  @@id([tenantId, operatorId])
+  @@map("operator_profiles")
+}
+
+// ------------------------------------------------------------
 //  StorefrontRegistry — Registro público global da Loja Virtual no Heart
 // ------------------------------------------------------------
 model StorefrontRegistry {

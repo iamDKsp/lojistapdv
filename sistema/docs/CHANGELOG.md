@@ -1,5 +1,12 @@
 # Histórico — PDV Lojista
 
+## 2026-11-02 — Correção da Migração do Banco Heart (`operator_profiles` e `storefront_registry`) e Auto-DDL da Loja Virtual
+
+- **Mapeamento de `OperatorProfile` no Schema do Heart (`backend/prisma/heart.schema.prisma`)**:
+  - Adicionado o modelo `OperatorProfile` (`@@map("operator_profiles")`) ao `heart.schema.prisma` para que `npx prisma db push --schema="prisma/heart.schema.prisma"` reconheça a tabela criada por `ensureHeartColumnsAndTables()` e não aborte a migração no `/sys-init` com alerta de perda de dados (`You are about to drop the operator_profiles table`).
+- **Auto-DDL Idempotente da Loja Virtual no Heart e no Tenant (`backend/src/prisma/heart-prisma.service.ts`, `backend/src/prisma/tenant-prisma.service.ts` e `backend/src/tenants/tenants.service.ts`)**:
+  - Incluída a criação idempotente (`CREATE TABLE IF NOT EXISTS`) de `storefront_registry` em `HeartPrismaService.ensureHeartColumnsAndTables()` e das 8 tabelas da Loja Virtual (`storefront_settings`, `storefront_revisions`, `storefront_categories`, `storefront_products`, `storefront_orders`, `storefront_order_items`, `stock_reservations` e `storefront_order_events`) no bloco PL/pgSQL `ensureTenantRuntimeSchema()` e na ativação do módulo em `TenantsService.updateTenant`.
+
 ## 2026-11-01 — Correção de Injeção de Dependência (`SalesService`) no `StorefrontModule` e Feedback de Erro 5xx no `/sys-init`
 
 - **Exportação de `SalesService` no `SalesModule` (`backend/src/sales/sales.module.ts`)**:

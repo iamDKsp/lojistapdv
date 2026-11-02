@@ -154,7 +154,13 @@ export class TenantsService {
       if (data.modulos.lojaVirtual === true && this.heartPrisma?.tenant?.findUnique && this.tenantManager?.getTenantClient) {
         const targetTenant = await this.heartPrisma.tenant.findUnique({ where: { id: tenantId } });
         if (targetTenant?.databaseUrl) {
+          if (typeof (this.heartPrisma as any).ensureHeartColumnsAndTables === 'function') {
+            await (this.heartPrisma as any).ensureHeartColumnsAndTables();
+          }
           const tenantPrisma = await this.tenantManager.getTenantClient(tenantId, targetTenant.databaseUrl);
+          if (typeof (this.tenantManager as any).ensureTenantRuntimeSchema === 'function') {
+            await (this.tenantManager as any).ensureTenantRuntimeSchema(tenantPrisma, tenantId);
+          }
           const compat = await checkStorefrontSchemaCompatibility(this.heartPrisma, tenantPrisma);
           if (!compat.compatible) {
             throw new BadRequestException(

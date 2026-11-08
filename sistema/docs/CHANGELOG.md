@@ -1,5 +1,21 @@
 # Histórico — PDV Lojista
 
+## 2026-11-08 — Carrossel em Loop de 5s no Painel Direito do Login Desktop com Todos os Módulos da Versão Mobile
+
+- **Loop Contínuo de 10 Slides na Coluna Direita do Login Desktop (`frontend/src/retail/RetailLoginPage.tsx`, `frontend/src/retail/RetailMobileLogin.tsx` e `frontend/src/retail/retail.css`)**:
+  - `LoginShowcasePanel` na tela de login desktop agora percorre automaticamente a cada **5 segundos (`5000ms`)** em loop infinito todos os **10 diferenciais**:
+    1. **Slide 01**: Painel original de Vendas no Balcão (`R$ 189.374`), Ritmo do Balcão, Movimento de Mercadorias e Giro por Categoria (`6.248 Peças`);
+    2. **Slide 02**: Balcão & Atendimento (`BentoMosaicIllustration` — *Abra o Balcão e Venda Agora.*);
+    3. **Slide 03**: Grades & Trocas (`GradeTeamIllustration` — *Controle Grades com Facilidade.*);
+    4. **Slide 04**: Operadores & PIN (`StorefrontPosIllustration` — *Caixa por PIN e Giro Seguro.*);
+    5. **Slide 05**: Catálogo Online (`VirtualStoreModuleIllustration` — *Crie sua Loja Virtual Online.*);
+    6. **Slide 06**: Entrega Expressa (`HomeDeliveryMotoboyIllustration` — *Entrega em Casa com Motoboy.* com ciclo acelerado das 5 etapas);
+    7. **Slide 07**: Crediário & Carnê (`CustomersCreditModuleIllustration` — *Clientes, Crediário e Cobrança Fácil.*);
+    8. **Slide 08**: Inteligência Comercial (`CommercialIntelligenceModuleIllustration` — *Ranking, Pódio e Metas da Equipe.*);
+    9. **Slide 09**: Atacado São Paulo (`SuppliersSpModuleIllustration` — *Fornecedores e Atacado de SP.*);
+    10. **Slide 10**: Multi-Empresas (`MultiStoreNetworkModuleIllustration` — *Várias Lojas em um Único Login.*), retornando suavemente ao Slide 01 em loop contínuo.
+  - Adicionada barra inferior com indicadores de progresso animados de 5 segundos (`.retail-login-carousel-dot-fill`), contador `01 / 10` e botões de navegação manual sem interromper o loop automático.
+
 ## 2026-11-08 — Expansão do Carrossel Mobile de Login com Divulgação dos Módulos de Loja Virtual, Entrega em Casa, Clientes/Crediário e Inteligência Comercial
 
 - **Preservação Integral da Abertura Mobile Existente (`frontend/src/retail/RetailMobileLogin.tsx` e `frontend/src/retail/retail.css`)**:

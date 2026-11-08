@@ -1,13 +1,25 @@
-import { memo, useEffect, useRef, useState } from "react";
+import React, { memo, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Eye, EyeOff, Store, Monitor, SlidersHorizontal } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  EyeOff,
+  Store,
+  Monitor,
+  SlidersHorizontal,
+} from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/store/auth";
 import PdvLojistaLoader, {
   triggerSessionEntryTransition,
   TRANSITION_UNVEIL_EVENT,
 } from "@/components/PdvLojistaLoader";
-import { RetailMobileLogin } from "./RetailMobileLogin";
+import {
+  HomeDeliveryMotoboyIllustration,
+  ONBOARDING_SLIDES,
+  RetailMobileLogin,
+} from "./RetailMobileLogin";
 import { DemoLeadModal } from "./DemoLeadModal";
 import { apiError } from "./types";
 
@@ -71,10 +83,14 @@ function formatSeconds(totalSeconds: number): string {
   return `00:${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
 }
 
+const SHOWCASE_SLIDE_INTERVAL_MS = 5000;
+const TOTAL_SHOWCASE_SLIDES = 1 + ONBOARDING_SLIDES.length;
+
 /**
  * Painel institucional direito memoizado: preserva animações contínuas,
- * contagem progressiva dos indicadores e efeito parallax suave sem sofrer
- * re-renderizações enquanto o operador digita no formulário.
+ * contagem progressiva dos indicadores, carrossel automático em loop a cada 5s
+ * percorrendo o painel de vendas + todos os 9 slides da versão mobile e efeito
+ * parallax suave sem sofrer re-renderizações enquanto o operador digita no formulário.
  */
 const LoginShowcasePanel = memo(function LoginShowcasePanel({
   isUnveiled,
@@ -84,6 +100,8 @@ const LoginShowcasePanel = memo(function LoginShowcasePanel({
   const showcaseRef = useRef<HTMLElement | null>(null);
   const [countProgress, setCountProgress] = useState(0);
   const [activeRowIndex, setActiveRowIndex] = useState(0);
+  const [activeSlideIndex, setActiveSlideIndex] = useState(0);
+  const [hasCycledOnce, setHasCycledOnce] = useState(false);
 
   useEffect(() => {
     if (!isUnveiled) return;
@@ -122,12 +140,29 @@ const LoginShowcasePanel = memo(function LoginShowcasePanel({
   }, [isUnveiled]);
 
   useEffect(() => {
-    if (!isUnveiled) return;
+    if (!isUnveiled || activeSlideIndex !== 0) return;
     const intervalId = window.setInterval(() => {
       setActiveRowIndex((prev) => (prev + 1) % STORE_MOVEMENT_ROWS.length);
     }, 3200);
     return () => window.clearInterval(intervalId);
-  }, [isUnveiled]);
+  }, [isUnveiled, activeSlideIndex]);
+
+  useEffect(() => {
+    if (!isUnveiled) return;
+    const timerId = window.setTimeout(() => {
+      setHasCycledOnce(true);
+      setActiveSlideIndex((prev) => (prev + 1) % TOTAL_SHOWCASE_SLIDES);
+    }, SHOWCASE_SLIDE_INTERVAL_MS);
+    return () => window.clearTimeout(timerId);
+  }, [isUnveiled, activeSlideIndex]);
+
+  function handleSelectSlide(nextIndex: number) {
+    setHasCycledOnce(true);
+    setActiveSlideIndex(
+      ((nextIndex % TOTAL_SHOWCASE_SLIDES) + TOTAL_SHOWCASE_SLIDES) %
+        TOTAL_SHOWCASE_SLIDES,
+    );
+  }
 
   function handlePointerMove(event: React.PointerEvent<HTMLElement>) {
     const el = showcaseRef.current;
@@ -154,11 +189,15 @@ const LoginShowcasePanel = memo(function LoginShowcasePanel({
   const catShirts = Math.round(2180 * countProgress).toLocaleString("pt-BR");
   const catCaps = Math.round(1578 * countProgress).toLocaleString("pt-BR");
 
+  const mobileSlide =
+    activeSlideIndex > 0 ? ONBOARDING_SLIDES[activeSlideIndex - 1] : null;
+  const SlideIllustration = mobileSlide?.Illustration ?? null;
+
   return (
     <aside
       ref={showcaseRef}
       className="retail-login-showcase"
-      aria-label="Painel de gestão para comércios locais"
+      aria-label="Painel de gestão e módulos para comércios locais"
       onPointerMove={handlePointerMove}
       onPointerLeave={handlePointerLeave}
     >
@@ -172,213 +211,323 @@ const LoginShowcasePanel = memo(function LoginShowcasePanel({
       </div>
 
       <div className="retail-login-showcase-inner">
-        <div className="retail-login-showcase-copy">
-          <h2>
-            Gerencie sua equipe e o ritmo do seu comércio local sem esforço.
-          </h2>
-          <p>
-            Entre para acessar o painel da sua loja, controlar grades por
-            tamanho e cor e atender o balcão com agilidade.
-          </p>
-        </div>
-
-        <div className="retail-login-mockup-stage" aria-hidden="true">
-          {/* Card Principal do Painel */}
-          <div className="retail-login-mockup-main">
-            <div className="retail-login-mockup-top">
-              {/* Bloco Roxo de Vendas do Comércio */}
-              <div className="retail-login-metric-primary">
-                <div>
-                  <div className="retail-login-metric-head">
-                    <span>Vendas no Balcão</span>
-                    <span className="retail-login-metric-dots">•••</span>
-                  </div>
-                  <small style={{ fontSize: "8.5px", opacity: 0.82 }}>
-                    Total do comércio no mês
-                  </small>
-                </div>
-                <strong className="retail-number">R$ {salesTotal}</strong>
-                <div className="retail-login-metric-foot">
-                  <span className="retail-login-metric-pill">+18,4%</span>
-                  <span>vs. mês anterior</span>
-                </div>
-              </div>
-
-              {/* Coluna Central: Atendimento de Balcão + Gráfico de Giro */}
-              <div className="retail-login-metric-center">
-                <div>
-                  <div className="retail-login-mini-row">
-                    <span>Ritmo do Balcão</span>
-                    <span>Mensal ▾</span>
-                  </div>
-                  <div className="retail-login-time-val retail-number">
-                    {counterPace}
-                  </div>
-                </div>
-
-                <div className="retail-login-chart-row">
-                  <div className="retail-login-profit-block">
-                    <small>Giro Diário</small>
-                    <strong className="retail-number">R$ {dailyTurnover}</strong>
-                    <span>+12,8% na loja</span>
-                  </div>
-
-                  <div className="retail-login-spark-wrap">
-                    <svg
-                      width="86"
-                      height="48"
-                      viewBox="0 0 108 52"
-                      fill="none"
-                      className="retail-login-spark-svg"
-                    >
-                      <path
-                        className="retail-login-spark-area"
-                        d="M4 42 C 20 38, 26 24, 40 28 C 54 32, 62 16, 78 20 C 90 22, 96 10, 104 8 L 104 48 L 4 48 Z"
-                        fill="var(--pdv-support)"
-                      />
-                      <path
-                        className="retail-login-spark-line"
-                        pathLength={100}
-                        d="M4 42 C 20 38, 26 24, 40 28 C 54 32, 62 16, 78 20 C 90 22, 96 10, 104 8"
-                        stroke="var(--pdv-primary)"
-                        strokeWidth="2.2"
-                        strokeLinecap="round"
-                      />
-                      <circle
-                        className="retail-login-spark-dot is-d1"
-                        cx="40"
-                        cy="28"
-                        r="2.8"
-                        fill="var(--pdv-primary)"
-                      />
-                      <circle
-                        className="retail-login-spark-dot is-d2"
-                        cx="78"
-                        cy="20"
-                        r="2.8"
-                        fill="var(--pdv-primary)"
-                      />
-                      <circle
-                        className="retail-login-spark-pulse"
-                        cx="104"
-                        cy="8"
-                        r="6"
-                        fill="var(--pdv-primary)"
-                      />
-                      <circle
-                        className="retail-login-spark-dot is-d3"
-                        cx="104"
-                        cy="8"
-                        r="3.2"
-                        fill="var(--pdv-primary-hover)"
-                      />
-                    </svg>
-                    <div className="retail-login-vert-bar" />
-                  </div>
-                </div>
-              </div>
+        {activeSlideIndex === 0 || !mobileSlide ? (
+          <div
+            key="showcase-overview"
+            className={`retail-login-showcase-slide ${hasCycledOnce ? "is-cycled" : ""}`}
+          >
+            <div className="retail-login-showcase-copy">
+              <span className="retail-login-showcase-badge">
+                PAINEL DO COMÉRCIO • GIRO AO VIVO
+              </span>
+              <h2>
+                Gerencie sua equipe e o ritmo do seu comércio local sem esforço.
+              </h2>
+              <p>
+                Entre para acessar o painel da sua loja, controlar grades por
+                tamanho e cor e atender o balcão com agilidade.
+              </p>
             </div>
 
-            {/* Tabela Inferior: Movimento de Mercadorias */}
-            <div className="retail-login-mockup-table">
-              <div className="retail-login-mockup-table-head">
-                <span>Movimento de Mercadorias na Loja</span>
-                <SlidersHorizontal size={12} />
+            <div className="retail-login-mockup-stage" aria-hidden="true">
+              {/* Card Principal do Painel */}
+              <div className="retail-login-mockup-main">
+                <div className="retail-login-mockup-top">
+                  {/* Bloco Roxo de Vendas do Comércio */}
+                  <div className="retail-login-metric-primary">
+                    <div>
+                      <div className="retail-login-metric-head">
+                        <span>Vendas no Balcão</span>
+                        <span className="retail-login-metric-dots">•••</span>
+                      </div>
+                      <small style={{ fontSize: "8.5px", opacity: 0.82 }}>
+                        Total do comércio no mês
+                      </small>
+                    </div>
+                    <strong className="retail-number">R$ {salesTotal}</strong>
+                    <div className="retail-login-metric-foot">
+                      <span className="retail-login-metric-pill">+18,4%</span>
+                      <span>vs. mês anterior</span>
+                    </div>
+                  </div>
+
+                  {/* Coluna Central: Atendimento de Balcão + Gráfico de Giro */}
+                  <div className="retail-login-metric-center">
+                    <div>
+                      <div className="retail-login-mini-row">
+                        <span>Ritmo do Balcão</span>
+                        <span>Mensal ▾</span>
+                      </div>
+                      <div className="retail-login-time-val retail-number">
+                        {counterPace}
+                      </div>
+                    </div>
+
+                    <div className="retail-login-chart-row">
+                      <div className="retail-login-profit-block">
+                        <small>Giro Diário</small>
+                        <strong className="retail-number">
+                          R$ {dailyTurnover}
+                        </strong>
+                        <span>+12,8% na loja</span>
+                      </div>
+
+                      <div className="retail-login-spark-wrap">
+                        <svg
+                          width="86"
+                          height="48"
+                          viewBox="0 0 108 52"
+                          fill="none"
+                          className="retail-login-spark-svg"
+                        >
+                          <path
+                            className="retail-login-spark-area"
+                            d="M4 42 C 20 38, 26 24, 40 28 C 54 32, 62 16, 78 20 C 90 22, 96 10, 104 8 L 104 48 L 4 48 Z"
+                            fill="var(--pdv-support)"
+                          />
+                          <path
+                            className="retail-login-spark-line"
+                            pathLength={100}
+                            d="M4 42 C 20 38, 26 24, 40 28 C 54 32, 62 16, 78 20 C 90 22, 96 10, 104 8"
+                            stroke="var(--pdv-primary)"
+                            strokeWidth="2.2"
+                            strokeLinecap="round"
+                          />
+                          <circle
+                            className="retail-login-spark-dot is-d1"
+                            cx="40"
+                            cy="28"
+                            r="2.8"
+                            fill="var(--pdv-primary)"
+                          />
+                          <circle
+                            className="retail-login-spark-dot is-d2"
+                            cx="78"
+                            cy="20"
+                            r="2.8"
+                            fill="var(--pdv-primary)"
+                          />
+                          <circle
+                            className="retail-login-spark-pulse"
+                            cx="104"
+                            cy="8"
+                            r="6"
+                            fill="var(--pdv-primary)"
+                          />
+                          <circle
+                            className="retail-login-spark-dot is-d3"
+                            cx="104"
+                            cy="8"
+                            r="3.2"
+                            fill="var(--pdv-primary-hover)"
+                          />
+                        </svg>
+                        <div className="retail-login-vert-bar" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tabela Inferior: Movimento de Mercadorias */}
+                <div className="retail-login-mockup-table">
+                  <div className="retail-login-mockup-table-head">
+                    <span>Movimento de Mercadorias na Loja</span>
+                    <SlidersHorizontal size={12} />
+                  </div>
+
+                  {STORE_MOVEMENT_ROWS.map((row, idx) => (
+                    <div
+                      className={`retail-login-tx-row ${activeRowIndex === idx ? "is-live-row" : ""}`}
+                      style={{ "--row-index": idx } as React.CSSProperties}
+                      key={row.item}
+                      onPointerEnter={() => setActiveRowIndex(idx)}
+                    >
+                      <span className="retail-login-tx-item">
+                        <span className="retail-login-tx-dot">{row.tag}</span>
+                        <span>{row.item}</span>
+                      </span>
+                      <span>{row.origin}</span>
+                      <span>
+                        <span className="retail-login-tx-status">
+                          {row.status}
+                        </span>
+                      </span>
+                      <span className="retail-login-tx-amount retail-number">
+                        {row.amount}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
 
-              {STORE_MOVEMENT_ROWS.map((row, idx) => (
-                <div
-                  className={`retail-login-tx-row ${activeRowIndex === idx ? "is-live-row" : ""}`}
-                  style={{ "--row-index": idx } as React.CSSProperties}
-                  key={row.item}
-                  onPointerEnter={() => setActiveRowIndex(idx)}
-                >
-                  <span className="retail-login-tx-item">
-                    <span className="retail-login-tx-dot">{row.tag}</span>
-                    <span>{row.item}</span>
-                  </span>
-                  <span>{row.origin}</span>
-                  <span>
-                    <span className="retail-login-tx-status">
-                      {row.status}
-                    </span>
-                  </span>
-                  <span className="retail-login-tx-amount retail-number">
-                    {row.amount}
-                  </span>
+              {/* Card Flutuante Lateral: Giro por Categoria na Grade */}
+              <div className="retail-login-mockup-floating">
+                <div className="retail-login-mini-row">
+                  <strong style={{ color: "var(--pdv-text)", fontSize: "10px" }}>
+                    Categorias da Loja
+                  </strong>
+                  <span>Mensal ▾</span>
                 </div>
-              ))}
+
+                <div className="retail-login-gauge-box">
+                  <svg width="136" height="78" viewBox="0 0 136 78" fill="none">
+                    {/* Segmento 1 — Calçados */}
+                    <path
+                      className="retail-login-gauge-arc is-arc-1"
+                      pathLength={100}
+                      d="M 16 66 A 52 52 0 0 1 44 21"
+                      stroke="var(--pdv-primary-hover)"
+                      strokeWidth="13"
+                      strokeLinecap="round"
+                    />
+                    {/* Segmento 2 — Camisetas */}
+                    <path
+                      className="retail-login-gauge-arc is-arc-2"
+                      pathLength={100}
+                      d="M 59 15 A 52 52 0 0 1 95 21"
+                      stroke="var(--pdv-primary)"
+                      strokeWidth="13"
+                      strokeLinecap="round"
+                    />
+                    {/* Segmento 3 — Acessórios */}
+                    <path
+                      className="retail-login-gauge-arc is-arc-3"
+                      pathLength={100}
+                      d="M 107 31 A 52 52 0 0 1 120 66"
+                      stroke="var(--pdv-support)"
+                      strokeWidth="13"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <div className="retail-login-gauge-value">
+                    <strong className="retail-number">
+                      {totalPieces} Peças
+                    </strong>
+                    <small>Giro nas grades</small>
+                  </div>
+                </div>
+
+                <div className="retail-login-legend">
+                  <div className="retail-login-legend-item">
+                    <span className="retail-login-legend-label">
+                      <span className="retail-login-legend-swatch is-dark" />
+                      Calçados e Tênis
+                    </span>
+                    <span className="retail-number">{catShoes} un.</span>
+                  </div>
+                  <div className="retail-login-legend-item">
+                    <span className="retail-login-legend-label">
+                      <span className="retail-login-legend-swatch" />
+                      Camisetas e Moda
+                    </span>
+                    <span className="retail-number">{catShirts} un.</span>
+                  </div>
+                  <div className="retail-login-legend-item">
+                    <span className="retail-login-legend-label">
+                      <span className="retail-login-legend-swatch is-light" />
+                      Bonés e Acessórios
+                    </span>
+                    <span className="retail-number">{catCaps} un.</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-
-          {/* Card Flutuante Lateral: Giro por Categoria na Grade */}
-          <div className="retail-login-mockup-floating">
-            <div className="retail-login-mini-row">
-              <strong style={{ color: "var(--pdv-text)", fontSize: "10px" }}>
-                Categorias da Loja
-              </strong>
-              <span>Mensal ▾</span>
+        ) : (
+          <div
+            key={`showcase-slide-${mobileSlide.id}`}
+            className="retail-login-showcase-slide is-module-slide"
+          >
+            <div className="retail-login-showcase-copy is-module-copy">
+              <span className="retail-login-showcase-badge">
+                {mobileSlide.badge}
+              </span>
+              <h2>{mobileSlide.title.replace("\n", " ")}</h2>
+              <p>{mobileSlide.description}</p>
             </div>
 
-            <div className="retail-login-gauge-box">
-              <svg width="136" height="78" viewBox="0 0 136 78" fill="none">
-                {/* Segmento 1 — Calçados */}
-                <path
-                  className="retail-login-gauge-arc is-arc-1"
-                  pathLength={100}
-                  d="M 16 66 A 52 52 0 0 1 44 21"
-                  stroke="var(--pdv-primary-hover)"
-                  strokeWidth="13"
-                  strokeLinecap="round"
-                />
-                {/* Segmento 2 — Camisetas */}
-                <path
-                  className="retail-login-gauge-arc is-arc-2"
-                  pathLength={100}
-                  d="M 59 15 A 52 52 0 0 1 95 21"
-                  stroke="var(--pdv-primary)"
-                  strokeWidth="13"
-                  strokeLinecap="round"
-                />
-                {/* Segmento 3 — Acessórios */}
-                <path
-                  className="retail-login-gauge-arc is-arc-3"
-                  pathLength={100}
-                  d="M 107 31 A 52 52 0 0 1 120 66"
-                  stroke="var(--pdv-support)"
-                  strokeWidth="13"
-                  strokeLinecap="round"
-                />
-              </svg>
-              <div className="retail-login-gauge-value">
-                <strong className="retail-number">{totalPieces} Peças</strong>
-                <small>Giro nas grades</small>
+            <div className="retail-login-module-stage" aria-hidden="true">
+              <div className="retail-login-module-card">
+                <div className="retail-login-module-card-head">
+                  <span className="retail-login-module-card-tag">
+                    <span className="retail-login-module-card-dot" />
+                    <span>{mobileSlide.badge}</span>
+                  </span>
+                  <span className="retail-login-module-card-pill">
+                    Ecossistema PDV Lojista
+                  </span>
+                </div>
+                <div
+                  className={`retail-login-module-card-body ${
+                    mobileSlide.id === "home-delivery" ? "is-motoboy-body" : ""
+                  }`}
+                >
+                  {mobileSlide.id === "home-delivery" ? (
+                    <HomeDeliveryMotoboyIllustration stepDurationSec={0.95} />
+                  ) : (
+                    SlideIllustration && <SlideIllustration />
+                  )}
+                </div>
               </div>
             </div>
+          </div>
+        )}
 
-            <div className="retail-login-legend">
-              <div className="retail-login-legend-item">
-                <span className="retail-login-legend-label">
-                  <span className="retail-login-legend-swatch is-dark" />
-                  Calçados e Tênis
-                </span>
-                <span className="retail-number">{catShoes} un.</span>
-              </div>
-              <div className="retail-login-legend-item">
-                <span className="retail-login-legend-label">
-                  <span className="retail-login-legend-swatch" />
-                  Camisetas e Moda
-                </span>
-                <span className="retail-number">{catShirts} un.</span>
-              </div>
-              <div className="retail-login-legend-item">
-                <span className="retail-login-legend-label">
-                  <span className="retail-login-legend-swatch is-light" />
-                  Bonés e Acessórios
-                </span>
-                <span className="retail-number">{catCaps} un.</span>
-              </div>
-            </div>
+        {/* Barra Inferior de Loop Contínuo (5 em 5 segundos) */}
+        <div
+          className="retail-login-carousel-bar"
+          role="region"
+          aria-label="Navegação de módulos em destaque"
+        >
+          <div className="retail-login-carousel-dots" role="tablist">
+            {Array.from({ length: TOTAL_SHOWCASE_SLIDES }).map((_, idx) => {
+              const isActive = activeSlideIndex === idx;
+              const label =
+                idx === 0
+                  ? "Painel de Vendas e Giro"
+                  : ONBOARDING_SLIDES[idx - 1].title.replace("\n", " ");
+              return (
+                <button
+                  key={idx}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  aria-label={`Slide ${idx + 1}: ${label}`}
+                  className={`retail-login-carousel-dot ${isActive ? "is-active" : ""}`}
+                  onClick={() => handleSelectSlide(idx)}
+                >
+                  {isActive && (
+                    <span
+                      key={`fill-${activeSlideIndex}`}
+                      className="retail-login-carousel-dot-fill"
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="retail-login-carousel-controls">
+            <span className="retail-login-carousel-counter retail-number">
+              {String(activeSlideIndex + 1).padStart(2, "0")} /{" "}
+              {String(TOTAL_SHOWCASE_SLIDES).padStart(2, "0")}
+            </span>
+            <button
+              type="button"
+              className="retail-login-carousel-arrow"
+              onClick={() => handleSelectSlide(activeSlideIndex - 1)}
+              aria-label="Slide anterior"
+            >
+              <ChevronLeft size={14} strokeWidth={2.4} />
+            </button>
+            <button
+              type="button"
+              className="retail-login-carousel-arrow"
+              onClick={() => handleSelectSlide(activeSlideIndex + 1)}
+              aria-label="Próximo slide"
+            >
+              <ChevronRight size={14} strokeWidth={2.4} />
+            </button>
           </div>
         </div>
       </div>

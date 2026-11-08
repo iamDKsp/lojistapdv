@@ -1244,8 +1244,12 @@ const DELIVERY_ONBOARDING_STAGES = [
  * e parallax infinito do motoboy: 1. Encontrou motorista -> 2. Indo à loja ->
  * 3. Coletou pacote na loja PDV Lojista -> 4. Em rota -> 5. Entregou na casa do cliente).
  */
-const HomeDeliveryMotoboyIllustration = memo(
-  function HomeDeliveryMotoboyIllustration() {
+export const HomeDeliveryMotoboyIllustration = memo(
+  function HomeDeliveryMotoboyIllustration({
+    stepDurationSec = 3.4,
+  }: {
+    stepDurationSec?: number;
+  } = {}) {
     const svgRef = useRef<SVGSVGElement | null>(null);
     const [activeStep, setActiveStep] = useState(0);
     const controlRef = useRef<{
@@ -1305,7 +1309,7 @@ const HomeDeliveryMotoboyIllustration = memo(
         stepIndex: 0,
         stepElapsed: 0,
         autoCycle: true,
-        stepDuration: 3.4,
+        stepDuration: stepDurationSec,
         lastTime: performance.now(),
         camZoom: 1.12,
         camX: 332,
@@ -1727,7 +1731,7 @@ const HomeDeliveryMotoboyIllustration = memo(
 
       rafId = requestAnimationFrame(tick);
       return () => cancelAnimationFrame(rafId);
-    }, []);
+    }, [stepDurationSec]);
 
     return (
       <div
@@ -5166,9 +5170,10 @@ const MobileSuccessHeroIllustration = memo(function MobileSuccessHeroIllustratio
   );
 });
 
-const ONBOARDING_SLIDES = [
+export const ONBOARDING_SLIDES = [
   {
     id: "mosaic",
+    badge: "BALCÃO & ATENDIMENTO • MÓDULO 01",
     title: "Abra o Balcão e\nVenda Agora.",
     description:
       "Atenda clientes, organize grades por tamanho e cor e acompanhe o ritmo do seu comércio local com agilidade.",
@@ -5176,6 +5181,7 @@ const ONBOARDING_SLIDES = [
   },
   {
     id: "grades",
+    badge: "GRADES & TROCAS • MÓDULO 02",
     title: "Controle Grades\ncom Facilidade.",
     description:
       "Consulte peças por numeração e cor, registre trocas de mercadoria e emita crédito na loja sem esforço.",
@@ -5183,6 +5189,7 @@ const ONBOARDING_SLIDES = [
   },
   {
     id: "pos",
+    badge: "OPERADORES & PIN • MÓDULO 03",
     title: "Caixa por PIN e\nGiro Seguro.",
     description:
       "Cada atendente acessa o caixa rápido com seu PIN individual e todo o movimento fica protegido.",
@@ -5190,6 +5197,7 @@ const ONBOARDING_SLIDES = [
   },
   {
     id: "virtual-store",
+    badge: "CATÁLOGO ONLINE • MÓDULO 04",
     title: "Crie sua Loja\nVirtual Online.",
     description:
       "Publique seu catálogo digital com tamanhos e cores em tempo real, reserva automática de estoque e pedidos direto no WhatsApp.",
@@ -5197,6 +5205,7 @@ const ONBOARDING_SLIDES = [
   },
   {
     id: "home-delivery",
+    badge: "ENTREGA EXPRESSA • MÓDULO 05",
     title: "Entrega em Casa\ncom Motoboy.",
     description:
       "Acione motoboy direto da venda online: acompanhe a coleta do pacote na loja e a entrega na porta do cliente ao vivo.",
@@ -5204,6 +5213,7 @@ const ONBOARDING_SLIDES = [
   },
   {
     id: "customers-credit",
+    badge: "CREDIÁRIO & CARNÊ • MÓDULO 06",
     title: "Clientes, Crediário\ne Cobrança Fácil.",
     description:
       "Controle limite de crediário por cliente, parcelas em aberto no carnê, histórico de compras e envie lembretes de cobrança.",
@@ -5211,6 +5221,7 @@ const ONBOARDING_SLIDES = [
   },
   {
     id: "commercial-intel",
+    badge: "RANKING & METAS • MÓDULO 07",
     title: "Ranking, Pódio e\nMetas da Equipe.",
     description:
       "Acompanhe o pódio gamificado de vendedores, o campeão de cada dia no calendário, comissões e auditoria de descontos e trocas.",
@@ -5218,6 +5229,7 @@ const ONBOARDING_SLIDES = [
   },
   {
     id: "suppliers-sp",
+    badge: "ATACADO SÃO PAULO • MÓDULO 08",
     title: "Fornecedores e\nAtacado de SP.",
     description:
       "Explore o mapa do Brás, 25 de Março e Bom Retiro, compare peças na vitrine 3x2 com margem sugerida e faça pedidos direto.",
@@ -5225,6 +5237,7 @@ const ONBOARDING_SLIDES = [
   },
   {
     id: "multi-store",
+    badge: "MULTI-EMPRESAS • MÓDULO 09",
     title: "Várias Lojas em\num Único Login.",
     description:
       "Gerencie todas as suas unidades no mesmo painel, alterne de loja em 1 clique, consolide resultados e transfira estoque entre filiais.",

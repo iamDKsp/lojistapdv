@@ -2619,6 +2619,279 @@ textarea:focus-visible {
   background: var(--pdv-support);
   border: 1px solid var(--pdv-primary);
 }
+
+/* Carrossel de Módulos em Loop Contínuo (5s) na Coluna Direita do Login Desktop */
+@keyframes retailShowcaseSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateY(14px) scale(0.988);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes retailShowcaseCardEnter {
+  0% {
+    opacity: 0;
+    transform: translate3d(
+        calc(var(--px, 0) * -5px),
+        calc(var(--py, 0) * -4px + 18px),
+        0
+      )
+      scale(0.975);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(
+        calc(var(--px, 0) * -5px),
+        calc(var(--py, 0) * -4px),
+        0
+      )
+      scale(1);
+  }
+}
+
+@keyframes retailShowcaseDotFill {
+  0% {
+    transform: scaleX(0);
+  }
+  100% {
+    transform: scaleX(1);
+  }
+}
+
+.retail-login-showcase-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--pdv-white) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--pdv-support) 32%, transparent);
+  color: var(--pdv-support);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.retail-login-showcase-slide.is-cycled .retail-login-showcase-copy,
+.retail-login-showcase-slide.is-module-slide .retail-login-showcase-copy {
+  animation: retailShowcaseSlideIn 560ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.retail-login-showcase-slide.is-cycled .retail-login-mockup-main {
+  animation: retailShowcaseCardEnter 600ms cubic-bezier(0.22, 1, 0.36, 1) 40ms forwards;
+}
+
+.retail-login-showcase-slide.is-cycled .retail-login-mockup-floating {
+  animation:
+    retailMockupFloatingEnter 620ms cubic-bezier(0.22, 1, 0.36, 1) 140ms forwards,
+    retailCardLevitate 5.8s ease-in-out 760ms infinite;
+}
+
+.retail-login-showcase-slide.is-cycled .retail-login-tx-row {
+  animation: retailStaggerIn 420ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation-delay: calc(var(--row-index, 0) * 55ms + 120ms);
+}
+
+.retail-login-module-stage {
+  position: relative;
+  min-height: 298px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.retail-login-module-card {
+  background: var(--pdv-white);
+  color: var(--pdv-text);
+  border-radius: 16px;
+  padding: 14px 18px 16px;
+  box-shadow: 0 24px 54px color-mix(in srgb, var(--pdv-text) 28%, transparent);
+  transform: translate3d(
+    calc(var(--px, 0) * -5px),
+    calc(var(--py, 0) * -4px),
+    0
+  );
+  transition:
+    transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 260ms ease;
+  animation: retailShowcaseCardEnter 600ms cubic-bezier(0.22, 1, 0.36, 1) 30ms both;
+}
+
+.retail-login-module-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 10px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--pdv-border);
+}
+
+.retail-login-module-card-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--pdv-text);
+  text-transform: uppercase;
+}
+
+.retail-login-module-card-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--pdv-primary);
+  box-shadow: 0 0 0 3px var(--pdv-support);
+}
+
+.retail-login-module-card-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--pdv-support);
+  color: var(--pdv-primary);
+  font-size: 9.5px;
+  font-weight: 700;
+}
+
+.retail-login-module-card-body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 256px;
+}
+
+.retail-login-module-card-body .retail-mlogin-illustration-wrap {
+  min-height: 248px;
+  max-height: none;
+  width: 100%;
+  margin: 0;
+}
+
+.retail-login-module-card-body .retail-mlogin-svg {
+  max-width: 318px;
+  max-height: 254px;
+}
+
+.retail-login-module-card-body.is-motoboy-body {
+  padding-top: 2px;
+}
+
+.retail-login-module-card-body.is-motoboy-body .retail-mlogin-illustration-wrap {
+  min-height: 0;
+  max-height: none;
+}
+
+.retail-login-module-card-body.is-motoboy-body .retail-mlogin-motoboy-card {
+  max-width: 364px;
+  border: 0;
+  padding: 0;
+  box-shadow: none;
+  gap: 8px;
+}
+
+.retail-login-carousel-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 20px;
+  padding-top: 4px;
+}
+
+.retail-login-carousel-dots {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.retail-login-carousel-dot {
+  position: relative;
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--pdv-support) 34%, transparent);
+  overflow: hidden;
+  cursor: pointer;
+  transition:
+    width 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 200ms ease,
+    transform 200ms ease;
+}
+
+.retail-login-carousel-dot:hover {
+  background: color-mix(in srgb, var(--pdv-support) 62%, transparent);
+  transform: scale(1.12);
+}
+
+.retail-login-carousel-dot.is-active {
+  width: 34px;
+  background: color-mix(in srgb, var(--pdv-support) 28%, transparent);
+  transform: none;
+}
+
+.retail-login-carousel-dot-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: var(--pdv-white);
+  transform-origin: left center;
+  animation: retailShowcaseDotFill 5000ms linear forwards;
+}
+
+.retail-login-carousel-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.retail-login-carousel-counter {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--pdv-support);
+  letter-spacing: 0.04em;
+  margin-right: 4px;
+}
+
+.retail-login-carousel-arrow {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--pdv-support) 32%, transparent);
+  background: color-mix(in srgb, var(--pdv-white) 10%, transparent);
+  color: var(--pdv-white);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.retail-login-carousel-arrow:hover {
+  background: color-mix(in srgb, var(--pdv-white) 22%, transparent);
+  border-color: var(--pdv-white);
+  transform: translateY(-1px);
+}
+
+.retail-login-carousel-arrow:active {
+  transform: scale(0.94);
+}
 .retail-sidebar-brand {
   display: flex;
   justify-content: space-between;

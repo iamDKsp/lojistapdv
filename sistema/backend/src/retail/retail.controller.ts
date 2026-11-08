@@ -14,6 +14,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RetailCatalogService } from './retail-catalog.service';
 import { RetailReturnsService } from './retail-returns.service';
 import { RetailOverviewService } from './retail-overview.service';
+import { RetailIntelligenceService } from './retail-intelligence.service';
 
 function requireRole(req: any, roles: string[]) {
   if (!roles.includes(req.user?.role))
@@ -29,6 +30,7 @@ export class RetailController {
     private readonly catalog: RetailCatalogService,
     private readonly returns: RetailReturnsService,
     private readonly overview: RetailOverviewService,
+    private readonly intelligence: RetailIntelligenceService,
   ) {}
   @Get('overview') getOverview(
     @Request() req: any,
@@ -37,6 +39,21 @@ export class RetailController {
   ) {
     requireRole(req, ['admin', 'superadmin']);
     return this.overview.overview(start, end);
+  }
+  @Get('intelligence') getIntelligence(
+    @Request() req: any,
+    @Query('startDate') start: string,
+    @Query('endDate') end: string,
+  ) {
+    requireRole(req, ['admin', 'superadmin']);
+    return this.intelligence.getIntelligence(start, end);
+  }
+  @Put('intelligence/goals') updateIntelligenceGoals(
+    @Request() req: any,
+    @Body() body: any,
+  ) {
+    requireRole(req, ['admin', 'superadmin']);
+    return this.intelligence.updateGoals(body);
   }
   @Get('groups') list(@Query() query: any) {
     return this.catalog.list(query);

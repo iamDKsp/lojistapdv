@@ -1,5 +1,20 @@
 # Histórico — PDV Lojista
 
+## 2026-11-08 — Módulo Exclusivo de Inteligência Comercial & Ranking de Vendedores (`/inteligencia-comercial`)
+
+- **Feature Flag Independente no `/sys-init` (`modulos.inteligenciaComercial` em `frontend/src/app/sys-init/page.tsx`, `frontend/src/retail/RetailLayout.tsx`, `backend/src/tenants/tenants.service.ts` e `scripts/demo-local.cjs`)**:
+  - Módulo habilitado separadamente por loja (`modulos.inteligenciaComercial`), exibindo o selo *Inteligência* na listagem de tenants e a chave de ativação dedicada na aba *Módulos* do `/sys-init` (já habilitado por padrão na Loja Demonstração).
+- **Motor Backend de Inteligência de Vendedores (`backend/src/retail/retail-intelligence.service.ts`, `backend/src/retail/retail.controller.ts` e `backend/src/retail/retail-intelligence.service.spec.ts`)**:
+  - Novos endpoints `GET /api/retail/intelligence` e `PUT /api/retail/intelligence/goals` com agregação no fuso `America/Sao_Paulo` cruzando operadores (`Operator`), fotos sincronizadas do Heart (`operator_profiles` / `users`), vendas (`Sale` + `SaleItem` com custo congelado `priceCost`) e devoluções/trocas (`RetailReturn`).
+  - **Atribuição Fiel de Trocas ao Vendedor de Origem**: cada troca (`RetailReturn`) é contabilizada na carteira do vendedor que realizou a **venda original** (`return.sale.operatorId`), calculando taxa de troca (`%` sobre o bruto vendido), valor trocado, peças devolvidas e principais motivos de devolução por vendedor.
+  - **Auditoria de Descontos**: cálculo do índice de desconto (`%` sobre o subtotal original antes do desconto), total concedido em R$, frequência de vendas com desconto e alerta configurável de teto saudável.
+  - **Persistência Zero-Migration de Metas e Comissões**: metas mensais da loja, cotas individuais, alíquota base, bônus de 1º lugar e gatilho de supermeta persistidos em `TenantSettings.paymentMethodsConfig._commercialIntelligenceConfig`, sem exigir migração de schema em bancos de clientes.
+- **Interface Gamificada de Ranking, Pódio Top 3, Calendário de Vendas e Raio-X 360º (`frontend/src/retail/RetailIntelligencePage.tsx` e `frontend/src/retail/retail.css`)**:
+  - **Aba 1 — Ranking e Pódio (`/inteligencia-comercial`)**: palco escuro de alto contraste inspirado no layout de referência (*UI Design Ranking*), com seletor estilo `Challenges v` para reordenar o pódio e a lista em tempo real por 7 critérios (*Faturamento Líquido*, *Faturamento Bruto*, *Dias em 1º Lugar / Vitórias*, *Volume de Peças*, *PA — Peças por Atendimento*, *Ticket Médio* e *Fidelização de Clientes*), Pódio Top 3 (`#2` à esquerda, `#1` ao centro com coroa/escudo e `#3` à direita) e leaderboard numerado com foto, `Win(%)`, PA, índice de desconto, taxa de trocas, melhor dia e vendas líquidas.
+  - **Aba 2 — Calendário de Vendas (`/inteligencia-comercial/calendario`)**: grade mensal interativa exibindo faturamento líquido diário, quantidade de vendas/peças, barra térmica e o **Campeão do Dia (`#1`)** em cada data; ao clicar em qualquer dia, exibe o ranking dos vendedores naquela data e a auditoria completa de todas as vendas realizadas (horário, código, vendedor, cliente, itens com tamanho/cor, pagamentos, desconto e se houve troca posterior).
+  - **Aba 3 — Descontos, Trocas e Metas (`/inteligencia-comercial/auditoria-e-metas`)**: matriz comparativa de desconto vs. taxa de troca com principais motivos por vendedor e simulador/configurador de metas mensais e comissões líquidas.
+  - **Modal Raio-X 360º do Vendedor**: aberto ao clicar em qualquer vendedor no pódio ou no leaderboard, detalhando progresso de meta, comissão estimada, margem bruta deixada na loja, dia recorde, melhor dia da semana, horário de pico, mix de categorias/produtos mais vendidos, motivos de troca e histórico de vendas do período.
+
 ## 2026-11-08 — Correção de Sobreposição (`z-index` / Stacking Context) nos Menus Flutuantes do Cabeçalho
 
 - **Camada de Empilhamento dos Menus do Cabeçalho (`frontend/src/retail/retail.css`, `frontend/src/retail/RetailPosPage.tsx` e `frontend/src/retail/RetailLayout.tsx`)**:

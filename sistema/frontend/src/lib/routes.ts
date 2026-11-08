@@ -51,6 +51,12 @@ export const ROUTES = {
     aparencia: "/vitrine/aparencia",
   },
 
+  inteligenciaComercial: {
+    ranking: "/inteligencia-comercial",
+    calendario: "/inteligencia-comercial/calendario",
+    metas: "/inteligencia-comercial/auditoria-e-metas",
+  },
+
   lojaVirtual: {
     visaoGeral: "/loja-virtual",
     aparencia: "/loja-virtual/aparencia",
@@ -186,6 +192,28 @@ export const LEGACY_AND_ALIAS_REDIRECTS: ReadonlyArray<{
   { from: "/vitrine/configuracoes", to: ROUTES.vitrine.aparencia },
   { from: "/dashboard/vitrine/aparencia", to: ROUTES.vitrine.aparencia },
 
+  // Módulo Inteligência Comercial & Ranking de Vendedores
+  {
+    from: "/dashboard/inteligencia-comercial",
+    to: ROUTES.inteligenciaComercial.ranking,
+  },
+  {
+    from: "/inteligenciacomercial",
+    to: ROUTES.inteligenciaComercial.ranking,
+  },
+  {
+    from: "/inteligencia-comercial/ranking",
+    to: ROUTES.inteligenciaComercial.ranking,
+  },
+  {
+    from: "/inteligencia-comercial/metas",
+    to: ROUTES.inteligenciaComercial.metas,
+  },
+  {
+    from: "/ranking-vendedores",
+    to: ROUTES.inteligenciaComercial.ranking,
+  },
+
   // Módulo Loja Virtual
   { from: "/dashboard/loja-virtual", to: ROUTES.lojaVirtual.visaoGeral },
   { from: "/loja-virtual/visao-geral", to: ROUTES.lojaVirtual.visaoGeral },
@@ -303,6 +331,13 @@ export function getCanonicalModuleId(pathname: string): string {
     clean.startsWith("/dashboard/vitrine")
   ) {
     return "vitrine";
+  }
+  if (
+    clean.startsWith("/inteligencia-comercial") ||
+    clean.startsWith("/inteligenciacomercial") ||
+    clean.startsWith("/dashboard/inteligencia-comercial")
+  ) {
+    return "inteligencia-comercial";
   }
   if (
     clean.startsWith("/loja-virtual") ||

@@ -4,6 +4,7 @@ import { RetailCatalogService } from './retail-catalog.service';
 import { RetailReturnsService } from './retail-returns.service';
 import { RetailController } from './retail.controller';
 import { RetailOverviewService } from './retail-overview.service';
+import { RetailIntelligenceService } from './retail-intelligence.service';
 
 @Module({
   imports: [ProductsModule],
@@ -11,6 +12,7 @@ import { RetailOverviewService } from './retail-overview.service';
     RetailCatalogService,
     RetailReturnsService,
     RetailOverviewService,
+    RetailIntelligenceService,
   ],
   controllers: [RetailController],
 })

@@ -28,6 +28,7 @@ import { RetailDashboardPage } from "@/retail/RetailDashboardPage";
 import { RetailVitrinePage } from "@/retail/RetailVitrinePage";
 import { RetailVitrineTvPage } from "@/retail/RetailVitrineTvPage";
 import { RetailStorefrontPage } from "@/retail/RetailStorefrontPage";
+import { RetailIntelligencePage } from "@/retail/RetailIntelligencePage";
 import { PublicStorefrontApp } from "@/storefront/PublicStorefrontApp";
 import {
   PdvLojistaLoader,
@@ -348,6 +349,20 @@ export function App() {
 
                 {/* Módulo Equipe */}
                 <Route path="/equipe" element={<UsersPage />} />
+
+                {/* Módulo Inteligência Comercial */}
+                <Route
+                  path="/inteligencia-comercial"
+                  element={<RetailIntelligencePage />}
+                />
+                <Route
+                  path="/inteligencia-comercial/calendario"
+                  element={<RetailIntelligencePage />}
+                />
+                <Route
+                  path="/inteligencia-comercial/auditoria-e-metas"
+                  element={<RetailIntelligencePage />}
+                />
 
                 {/* Módulo Clientes e Pós-Venda */}
                 <Route path="/clientes" element={<RetailCustomersPage />} />

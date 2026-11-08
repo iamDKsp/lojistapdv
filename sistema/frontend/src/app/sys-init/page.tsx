@@ -64,6 +64,7 @@ const MODULE_BADGES: Record<string, { label: string; color: string }> = {
   importacaoXml:  { label: 'XML',         color: 'bg-support text-brand border-brand' },
   digitalSignage: { label: 'Signage',     color: 'bg-support text-brand border-brand' },
   crediario:      { label: 'Crediário',   color: 'bg-support text-brand border-brand' },
+  inteligenciaComercial: { label: 'Inteligência', color: 'bg-support text-brand border-brand' },
 };
 
 function ModuleBadges({ modulosRaw }: { modulosRaw: any }) {
@@ -2376,6 +2377,7 @@ export default function SysInitPage() {
                       { id: 'vitrineDigital', title: 'Vitrine Digital TV', desc: 'Exibe promoções e produtos em uma TV/tela secundária via URL pública.', badge: MODULE_BADGES.vitrineDigital },
                       { id: 'lojaVirtual', title: 'Loja Virtual (Catálogo Público & WhatsApp)', desc: 'Catálogo online personalizável em /loja/:slug com carrinho, reserva de estoque, pedidos pelo WhatsApp e conversão em venda no PDV.', badge: MODULE_BADGES.lojaVirtual },
                       { id: 'crediario', title: 'Crediário (Fiado) & Cobrança WhatsApp', desc: 'Contas de clientes com limite, venda a prazo no PDV e cobrança automática via WhatsApp (Baileys).', badge: MODULE_BADGES.crediario },
+                      { id: 'inteligenciaComercial', title: 'Inteligência Comercial & Ranking de Vendedores', desc: 'Pódio gamificado do time de vendas, índice de descontos, taxa de trocas por vendedor, metas/comissões e calendário diário de vendas.', badge: MODULE_BADGES.inteligenciaComercial },
                     ].map(item => (
                       <div key={item.id} className="flex items-center justify-between p-4 bg-page border border-line rounded-xl hover:border-brand transition">
                         <div className="flex items-center gap-3">

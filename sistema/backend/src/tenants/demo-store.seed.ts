@@ -679,11 +679,21 @@ export async function resetDemoDatabaseState(
     },
   });
 
-  await client.operator.create({
+  const opMariana = await client.operator.create({
     data: {
       name: 'Mariana Consultora',
       pin: defaultPinHash,
       jobTitle: 'Vendas & Grade',
+      active: true,
+      isManager: false,
+    },
+  });
+
+  const opBeatriz = await client.operator.create({
+    data: {
+      name: 'Beatriz Moda',
+      pin: defaultPinHash,
+      jobTitle: 'Consultora de Estilo',
       active: true,
       isManager: false,
     },
@@ -1007,6 +1017,164 @@ export async function resetDemoDatabaseState(
       },
     });
   }
+
+  // 12b. Vendas históricas do mês (para alimentar o Ranking, Pódio e Calendário de Inteligência Comercial)
+  const pRelogio = createdProducts.find((p) => p.groupKey === 'relogio_casual') || createdProducts[0];
+  const pJeans = createdProducts.find((p) => p.groupKey === 'calca_jeans') || createdProducts[1];
+  const pBasica = createdProducts.find((p) => p.groupKey === 'camiseta_basica') || createdProducts[2];
+
+  // Venda #5 — Mariana Consultora (há 2 dias, com leve desconto promocional)
+  await client.sale.create({
+    data: {
+      code: 5,
+      customerId: custFernanda.id,
+      operatorId: opMariana.id,
+      cashRegisterId: closedReg.id,
+      subtotal: 469.6,
+      discount: 20.0,
+      total: 449.6,
+      status: 'completed',
+      source: 'pdv',
+      createdAt: new Date(now.getTime() - 2 * 86400000),
+      items: {
+        create: [
+          {
+            productId: pTenis40.id,
+            productName: pTenis40.name,
+            unit: 'UN',
+            quantity: 1,
+            priceUnit: pTenis40.priceSell,
+            priceCost: pTenis40.priceCost,
+            subtotal: pTenis40.priceSell,
+            ncm: pTenis40.ncm,
+            cfop: '5102',
+            csosn: '102',
+          },
+          {
+            productId: pJeans.id,
+            productName: pJeans.name,
+            unit: 'UN',
+            quantity: 2,
+            priceUnit: pJeans.priceSell,
+            priceCost: pJeans.priceCost,
+            subtotal: 279.8,
+            ncm: pJeans.ncm,
+            cfop: '5102',
+            csosn: '102',
+          },
+        ],
+      },
+      payments: {
+        create: [{ tPag: '03', method: 'credito', label: 'Cartão de Crédito', value: 449.6, troco: 0 }],
+      },
+    },
+  });
+
+  // Venda #6 — Mariana Consultora (há 4 dias, combo 3 peças)
+  await client.sale.create({
+    data: {
+      code: 6,
+      customerId: custCamila.id,
+      operatorId: opMariana.id,
+      cashRegisterId: closedReg.id,
+      subtotal: 349.7,
+      discount: 0,
+      total: 349.7,
+      status: 'completed',
+      source: 'pdv',
+      createdAt: new Date(now.getTime() - 4 * 86400000),
+      items: {
+        create: [
+          {
+            productId: pJaqueta.id,
+            productName: pJaqueta.name,
+            unit: 'UN',
+            quantity: 1,
+            priceUnit: pJaqueta.priceSell,
+            priceCost: pJaqueta.priceCost,
+            subtotal: pJaqueta.priceSell,
+            ncm: pJaqueta.ncm,
+            cfop: '5102',
+            csosn: '102',
+          },
+          {
+            productId: pRelogio.id,
+            productName: pRelogio.name,
+            unit: 'UN',
+            quantity: 1,
+            priceUnit: pRelogio.priceSell,
+            priceCost: pRelogio.priceCost,
+            subtotal: pRelogio.priceSell,
+            ncm: pRelogio.ncm,
+            cfop: '5102',
+            csosn: '102',
+          },
+          {
+            productId: pCarteira.id,
+            productName: pCarteira.name,
+            unit: 'UN',
+            quantity: 1,
+            priceUnit: pCarteira.priceSell,
+            priceCost: pCarteira.priceCost,
+            subtotal: pCarteira.priceSell,
+            ncm: pCarteira.ncm,
+            cfop: '5102',
+            csosn: '102',
+          },
+        ],
+      },
+      payments: {
+        create: [{ tPag: '17', method: 'pix', label: 'Pix', value: 349.7, troco: 0 }],
+      },
+    },
+  });
+
+  // Venda #7 — Beatriz Moda (há 3 dias, com desconto)
+  await client.sale.create({
+    data: {
+      code: 7,
+      customerId: custRafael.id,
+      operatorId: opBeatriz.id,
+      cashRegisterId: closedReg.id,
+      subtotal: 274.6,
+      discount: 14.6,
+      total: 260.0,
+      status: 'completed',
+      source: 'pdv',
+      createdAt: new Date(now.getTime() - 3 * 86400000),
+      items: {
+        create: [
+          {
+            productId: pBasica.id,
+            productName: pBasica.name,
+            unit: 'UN',
+            quantity: 3,
+            priceUnit: pBasica.priceSell,
+            priceCost: pBasica.priceCost,
+            subtotal: 134.7,
+            ncm: pBasica.ncm,
+            cfop: '5102',
+            csosn: '102',
+          },
+          {
+            productId: pJeans.id,
+            productName: pJeans.name,
+            unit: 'UN',
+            quantity: 1,
+            priceUnit: pJeans.priceSell,
+            priceCost: pJeans.priceCost,
+            subtotal: pJeans.priceSell,
+            ncm: pJeans.ncm,
+            cfop: '5102',
+            csosn: '102',
+          },
+        ],
+      },
+      payments: {
+        create: [{ tPag: '17', method: 'pix', label: 'Pix', value: 260.0, troco: 0 }],
+      },
+    },
+  });
 
   // 13. Vitrine Digital & TV Promocional pré-configurada e publicada na Loja Demonstração
   const grpPima = createdGroups.find((g) => g.key === 'camiseta_pima');

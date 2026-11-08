@@ -34,6 +34,7 @@ import {
   Monitor,
   Tv2,
   ShoppingBag,
+  Trophy,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { useShift } from "@/contexts/ShiftContext";
@@ -450,6 +451,8 @@ export function RetailLayout() {
       return Boolean(modules.vitrineDigital || modules.digitalSignage);
     if (path.includes("/loja-virtual"))
       return Boolean(modules.lojaVirtual);
+    if (path.includes("/inteligencia-comercial"))
+      return Boolean(modules.inteligenciaComercial);
     return true;
   }
 
@@ -536,6 +539,17 @@ export function RetailLayout() {
             iconKind: "team",
             active: pathname.startsWith("/equipe"),
           },
+          ...(moduleAllowed("/inteligencia-comercial")
+            ? [
+                {
+                  name: "Inteligência comercial",
+                  path: "/inteligencia-comercial",
+                  icon: Trophy,
+                  iconKind: "team",
+                  active: pathname.startsWith("/inteligencia-comercial"),
+                },
+              ]
+            : []),
           {
             name: "Clientes e trocas",
             path: "/clientes",
@@ -680,6 +694,19 @@ export function RetailLayout() {
         { label: "Aparência e link da TV", path: "/vitrine/aparencia" },
       ];
     }
+    if (pathname.startsWith("/inteligencia-comercial")) {
+      return [
+        { label: "Ranking e pódio", path: "/inteligencia-comercial" },
+        {
+          label: "Calendário de vendas",
+          path: "/inteligencia-comercial/calendario",
+        },
+        {
+          label: "Descontos, trocas e metas",
+          path: "/inteligencia-comercial/auditoria-e-metas",
+        },
+      ];
+    }
     if (pathname.startsWith("/loja-virtual")) {
       return [
         { label: "Visão geral", path: "/loja-virtual" },
@@ -701,6 +728,7 @@ export function RetailLayout() {
     modules.vitrineDigital,
     modules.digitalSignage,
     modules.lojaVirtual,
+    modules.inteligenciaComercial,
   ]);
 
   const sectionHeading = useMemo(() => {
@@ -711,6 +739,8 @@ export function RetailLayout() {
     if (pathname.startsWith("/inicio/operacoes")) return "Operações Locais";
     if (pathname.startsWith("/inicio/relatorios")) return "Relatórios da Loja";
     if (pathname.startsWith("/equipe")) return "Equipe e Acessos";
+    if (pathname.startsWith("/inteligencia-comercial"))
+      return "Inteligência Comercial";
     if (pathname.startsWith("/clientes/trocas")) return "Trocas e Créditos";
     if (pathname.startsWith("/clientes")) return "Clientes e Pós-Venda";
     if (pathname.startsWith("/crediario")) return "Crediário e Cobrança";
@@ -734,6 +764,7 @@ export function RetailLayout() {
     )
       return "registers";
     if (pathname.startsWith("/equipe")) return "team";
+    if (pathname.startsWith("/inteligencia-comercial")) return "overview";
     if (pathname.startsWith("/clientes")) return "returns";
     if (pathname.startsWith("/configuracoes")) return "settings";
     return "overview";
@@ -751,6 +782,7 @@ export function RetailLayout() {
       tab.path === "/clientes" ||
       tab.path === "/crediario" ||
       tab.path === "/vitrine" ||
+      tab.path === "/inteligencia-comercial" ||
       tab.path === "/loja-virtual"
         ? pathname === tab.path
         : pathname.startsWith(tab.path),

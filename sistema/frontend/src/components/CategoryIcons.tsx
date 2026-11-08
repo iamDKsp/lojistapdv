@@ -337,7 +337,18 @@ export function detectIconFromText(text: string): string {
   return "cabide";
 }
 
+export function getCategoryIcon(iconOrName?: string | null) {
+  const iconId = resolveCategoryIconId({
+    explicitIcon: iconOrName,
+    categoryName: iconOrName,
+  });
+  return function CategoryResolvedIcon({ size = 16 }: { size?: number }) {
+    return <CategoryIconBadge iconId={iconId} size={size} />;
+  };
+}
+
 export function resolveCategoryIconId(params: {
+
   explicitIcon?: string | null;
   categoryId?: string | null;
   categoryName?: string | null;

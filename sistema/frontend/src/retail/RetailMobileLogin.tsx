@@ -1140,20 +1140,20 @@ const VirtualStoreModuleIllustration = memo(
             />
             <rect
               x="50"
-              y="161"
-              width="52"
-              height="10"
-              rx="3"
+              y="160.5"
+              width="60"
+              height="11"
+              rx="3.5"
               fill="#7C3AED"
             />
             <text
-              x="76"
-              y="168.5"
+              x="80"
+              y="168.2"
               textAnchor="middle"
-              fontSize="6.8"
+              fontSize="6.3"
               fontWeight="800"
               fill="#FFFFFF"
-              letterSpacing="0.4"
+              letterSpacing="0.3"
             >
               RESERVADO
             </text>
@@ -1191,7 +1191,7 @@ const DELIVERY_ONBOARDING_STAGES = [
   },
   {
     index: 1,
-    shortLabel: "2. Indo à loja",
+    shortLabel: "2. Trajeto",
     title: "Motorista vai até a loja",
     badge: "ETAPA 2 • EM DESLOCAMENTO",
     sub: "Indo coletar na loja",
@@ -1319,6 +1319,8 @@ const HomeDeliveryMotoboyIllustration = memo(
         totemX: 255,
         storeX: 920,
         clientX: 920,
+        bubbleX: 345,
+        bubbleY: 192,
       };
 
       const clamp = (v: number, min: number, max: number) =>
@@ -1562,7 +1564,7 @@ const HomeDeliveryMotoboyIllustration = memo(
             const endPkgY = 248;
             const fx = lerp(startPkgX, endPkgX, pj);
             const fy =
-              lerp(startPkgY, endPkgY, pj) - Math.sin(pj * Math.PI) * 58;
+              lerp(startPkgY, endPkgY, pj) - Math.sin(pj * Math.PI) * 30;
             el.parabolicPkgNode?.setAttribute("opacity", "1");
             el.parabolicPkgNode?.setAttribute(
               "transform",
@@ -1573,8 +1575,16 @@ const HomeDeliveryMotoboyIllustration = memo(
           }
         } else if (idx === 3) {
           hasPackage = true;
+          el.storeCounterPkg?.setAttribute("opacity", "0");
+          el.storeScannerLine?.setAttribute("opacity", "0");
           el.parabolicPkgNode?.setAttribute("opacity", "0");
+          el.clientDeliveredPkg?.setAttribute("opacity", "0");
+          el.clientCheckBadge?.setAttribute("opacity", "0");
+          el.clientConfirmWave?.setAttribute("opacity", "0");
+          el.clientConfetti?.setAttribute("opacity", "0");
         } else if (idx === 4) {
+          el.storeCounterPkg?.setAttribute("opacity", "0");
+          el.storeScannerLine?.setAttribute("opacity", "0");
           if (t < 0.75) {
             tiltDeg = Math.sin((t / 0.75) * Math.PI) * 5.5;
           }
@@ -1590,7 +1600,7 @@ const HomeDeliveryMotoboyIllustration = memo(
           if (t >= 0.72 && t <= 1.32) {
             const pd = norm(t, 0.72, 1.3);
             const fx = lerp(320, state.clientX + 56, pd);
-            const fy = lerp(248, 232, pd) - Math.sin(pd * Math.PI) * 54;
+            const fy = lerp(248, 232, pd) - Math.sin(pd * Math.PI) * 24;
             el.parabolicPkgNode?.setAttribute("opacity", "1");
             el.parabolicPkgNode?.setAttribute(
               "transform",
@@ -1640,7 +1650,13 @@ const HomeDeliveryMotoboyIllustration = memo(
             el.clientConfetti?.setAttribute("opacity", "0");
           }
         } else {
+          el.storeCounterPkg?.setAttribute("opacity", "0");
+          el.storeScannerLine?.setAttribute("opacity", "0");
           el.parabolicPkgNode?.setAttribute("opacity", "0");
+          el.clientDeliveredPkg?.setAttribute("opacity", "0");
+          el.clientCheckBadge?.setAttribute("opacity", "0");
+          el.clientConfirmWave?.setAttribute("opacity", "0");
+          el.clientConfetti?.setAttribute("opacity", "0");
         }
 
         el.motoSuspension?.setAttribute(
@@ -1689,9 +1705,13 @@ const HomeDeliveryMotoboyIllustration = memo(
         el.bagActiveDot?.setAttribute("opacity", hasPackage ? "1" : "0");
 
         const isHighlighted = hasPackage || (idx === 4 && t > 1.3);
+        const targetBubbleX = idx === 2 ? 360 : idx === 4 ? 372 : 345;
+        const targetBubbleY = idx === 2 || idx === 4 ? 104 : 192;
+        state.bubbleX = lerp(state.bubbleX, targetBubbleX, camSmooth);
+        state.bubbleY = lerp(state.bubbleY, targetBubbleY, camSmooth);
         el.heroSpeechBubble?.setAttribute(
           "transform",
-          `translate(345,${(192 + suspY * 0.6).toFixed(1)})`,
+          `translate(${state.bubbleX.toFixed(1)},${(state.bubbleY + suspY * 0.6).toFixed(1)})`,
         );
         el.heroBubbleBg?.setAttribute(
           "fill",
@@ -3130,19 +3150,19 @@ const CustomersCreditModuleIllustration = memo(
           <g className="retail-mlogin-float-slow">
             {/* Sombra sólida deslocada */}
             <rect
-              x="64"
-              y="22"
-              width="156"
-              height="186"
+              x="74"
+              y="30"
+              width="148"
+              height="182"
               rx="12"
               fill="#272321"
             />
             {/* Corpo da Ficha do Cliente */}
             <rect
-              x="58"
-              y="16"
-              width="156"
-              height="186"
+              x="68"
+              y="24"
+              width="148"
+              height="182"
               rx="12"
               fill="#FFFFFF"
               stroke="#272321"
@@ -3151,30 +3171,30 @@ const CustomersCreditModuleIllustration = memo(
 
             {/* Cabeçalho Roxo da Ficha com Avatar Editorial do Cliente */}
             <path
-              d="M58 28 C58 21.4, 63.4 16, 70 16 H202 C208.6 16, 214 21.4, 214 28 V58 H58 Z"
+              d="M68 36 C68 29.4, 73.4 24, 80 24 H204 C210.6 24, 216 29.4, 216 36 V62 H68 Z"
               fill="#7C3AED"
               stroke="#272321"
               strokeWidth="1.4"
             />
             <circle
-              cx="80"
-              cy="37"
-              r="13"
+              cx="84"
+              cy="43"
+              r="11.5"
               fill="#F3E8FF"
               stroke="#272321"
               strokeWidth="1.3"
             />
             {/* Busto estilizado do cliente */}
             <circle
-              cx="80"
-              cy="33"
-              r="4.2"
+              cx="84"
+              cy="39.5"
+              r="3.8"
               fill="#FFFFFF"
               stroke="#272321"
               strokeWidth="1.2"
             />
             <path
-              d="M71 45 C72 40, 88 40, 89 45"
+              d="M76 50.2 C77 45.8, 91 45.8, 92 50.2"
               fill="#6D28D9"
               stroke="#272321"
               strokeWidth="1.2"
@@ -3182,61 +3202,61 @@ const CustomersCreditModuleIllustration = memo(
             />
             {/* Nome do cliente e selo Crediário Ativo */}
             <rect
-              x="99"
-              y="27"
-              width="66"
-              height="7"
-              rx="3.5"
+              x="100"
+              y="32"
+              width="50"
+              height="6.5"
+              rx="3.2"
               fill="#FFFFFF"
             />
             <rect
-              x="99"
-              y="38"
-              width="48"
-              height="11"
+              x="100"
+              y="42.5"
+              width="54"
+              height="12"
               rx="4"
               fill="#6D28D9"
               stroke="#FFFFFF"
               strokeWidth="1"
             />
             <text
-              x="123"
-              y="45.8"
+              x="127"
+              y="50.5"
               textAnchor="middle"
-              fontSize="6.5"
+              fontSize="5.6"
               fontWeight="800"
               fill="#FFFFFF"
-              letterSpacing="0.3"
+              letterSpacing="0.2"
             >
               CREDIÁRIO OK
             </text>
 
             {/* Bloco de Limite de Crédito com Barra de Progresso Animada */}
             <rect
-              x="68"
-              y="66"
-              width="136"
-              height="36"
+              x="78"
+              y="68"
+              width="130"
+              height="34"
               rx="7"
               fill="#F8F7FC"
               stroke="#272321"
               strokeWidth="1.2"
             />
             <text
-              x="76"
-              y="78"
-              fontSize="7.2"
+              x="85"
+              y="79.5"
+              fontSize="6.8"
               fontWeight="800"
               fill="#665F70"
-              letterSpacing="0.3"
+              letterSpacing="0.2"
             >
               LIMITE DISPONÍVEL
             </text>
             <text
-              x="196"
-              y="78"
+              x="200"
+              y="79.5"
               textAnchor="end"
-              fontSize="8"
+              fontSize="7.6"
               fontWeight="800"
               fill="#7C3AED"
             >
@@ -3244,52 +3264,52 @@ const CustomersCreditModuleIllustration = memo(
             </text>
             {/* Trilho da barra de limite */}
             <rect
-              x="76"
-              y="84"
-              width="120"
-              height="9"
-              rx="4.5"
+              x="85"
+              y="85"
+              width="115"
+              height="8.5"
+              rx="4.2"
               fill="#F3E8FF"
               stroke="#272321"
               strokeWidth="1.1"
             />
             {/* Preenchimento animado do limite liberado */}
             <rect
-              x="77.5"
-              y="85.5"
-              width="94"
-              height="6"
-              rx="3"
+              x="86.5"
+              y="86.5"
+              width="90"
+              height="5.5"
+              rx="2.7"
               fill="#7C3AED"
               className="retail-mlogin-credit-bar"
             />
 
             {/* Carnê / Controle de Parcelas (1/3, 2/3, 3/3) */}
             {/* Parcela 1/3 — Quitada */}
-            <g transform="translate(68, 110)">
+            <g transform="translate(78, 108)">
               <rect
                 x="0"
                 y="0"
-                width="136"
+                width="130"
                 height="22"
                 rx="6"
                 fill="#F3E8FF"
                 stroke="#272321"
                 strokeWidth="1.2"
               />
-              <circle cx="13" cy="11" r="6.5" fill="#7C3AED" />
+              <circle cx="12" cy="11" r="6" fill="#7C3AED" />
               <path
-                d="M10 11 L12.2 13.2 L16.2 8.8"
+                d="M9.2 11 L11.2 13 L15 8.8"
                 stroke="#FFFFFF"
                 strokeWidth="1.6"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
-              <text x="25" y="14" fontSize="8" fontWeight="800" fill="#272321">
+              <text x="22" y="13.8" fontSize="7.4" fontWeight="800" fill="#272321">
                 1/3 • PARCELA
               </text>
               <rect
-                x="94"
+                x="88"
                 y="5"
                 width="35"
                 height="12"
@@ -3299,10 +3319,10 @@ const CustomersCreditModuleIllustration = memo(
                 strokeWidth="1"
               />
               <text
-                x="111.5"
+                x="105.5"
                 y="13.2"
                 textAnchor="middle"
-                fontSize="6.8"
+                fontSize="6.5"
                 fontWeight="800"
                 fill="#7C3AED"
               >
@@ -3311,30 +3331,30 @@ const CustomersCreditModuleIllustration = memo(
             </g>
 
             {/* Parcela 2/3 — Quitada */}
-            <g transform="translate(68, 137)">
+            <g transform="translate(78, 134)">
               <rect
                 x="0"
                 y="0"
-                width="136"
+                width="130"
                 height="22"
                 rx="6"
                 fill="#F3E8FF"
                 stroke="#272321"
                 strokeWidth="1.2"
               />
-              <circle cx="13" cy="11" r="6.5" fill="#7C3AED" />
+              <circle cx="12" cy="11" r="6" fill="#7C3AED" />
               <path
-                d="M10 11 L12.2 13.2 L16.2 8.8"
+                d="M9.2 11 L11.2 13 L15 8.8"
                 stroke="#FFFFFF"
                 strokeWidth="1.6"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
-              <text x="25" y="14" fontSize="8" fontWeight="800" fill="#272321">
+              <text x="22" y="13.8" fontSize="7.4" fontWeight="800" fill="#272321">
                 2/3 • PARCELA
               </text>
               <rect
-                x="94"
+                x="88"
                 y="5"
                 width="35"
                 height="12"
@@ -3344,10 +3364,10 @@ const CustomersCreditModuleIllustration = memo(
                 strokeWidth="1"
               />
               <text
-                x="111.5"
+                x="105.5"
                 y="13.2"
                 textAnchor="middle"
-                fontSize="6.8"
+                fontSize="6.5"
                 fontWeight="800"
                 fill="#7C3AED"
               >
@@ -3357,47 +3377,47 @@ const CustomersCreditModuleIllustration = memo(
 
             {/* Parcela 3/3 — Baixa Animada no Caixa */}
             <g
-              transform="translate(68, 164)"
+              transform="translate(78, 160)"
               className="retail-mlogin-credit-installment"
             >
               <rect
                 x="0"
                 y="0"
-                width="136"
+                width="130"
                 height="24"
                 rx="6"
                 fill="#272321"
               />
               <circle
-                cx="13"
+                cx="12"
                 cy="12"
-                r="6.5"
+                r="6"
                 fill="#7C3AED"
                 className="retail-mlogin-vstore-pulse"
               />
               <path
-                d="M10 12 L12.2 14.2 L16.2 9.8"
+                d="M9.2 12 L11.2 14 L15 9.8"
                 stroke="#FFFFFF"
                 strokeWidth="1.6"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
-              <text x="25" y="15" fontSize="8" fontWeight="800" fill="#FFFFFF">
+              <text x="22" y="14.8" fontSize="7.4" fontWeight="800" fill="#FFFFFF">
                 3/3 • RECEBER
               </text>
               <rect
-                x="88"
+                x="84"
                 y="5"
-                width="41"
+                width="39"
                 height="14"
                 rx="4"
                 fill="#7C3AED"
               />
               <text
-                x="108.5"
-                y="14.2"
+                x="103.5"
+                y="14"
                 textAnchor="middle"
-                fontSize="6.8"
+                fontSize="6.5"
                 fontWeight="800"
                 fill="#FFFFFF"
               >
@@ -3409,87 +3429,87 @@ const CustomersCreditModuleIllustration = memo(
           {/* CARD FLUTUANTE SUPERIOR DIREITO — Régua de Cobrança / Lembrete Amigável */}
           <g className="retail-mlogin-credit-reminder">
             <path
-              d="M168 14 H262 C266.4 14, 270 17.6, 270 22 V62 C270 66.4, 266.4 70, 262 70 H196 L182 80 V70 H168 C163.6 70, 160 66.4, 160 62 V22 C160 17.6, 163.6 14, 168 14 Z"
+              d="M174 6 H265 C269.4 6, 273 9.6, 273 14 V46 C273 50.4, 269.4 54, 265 54 H232 L222 61 V54 H174 C169.6 54, 166 50.4, 166 46 V14 C166 9.6, 169.6 6, 174 6 Z"
               fill="#272321"
               stroke="#272321"
               strokeWidth="1.4"
               strokeLinejoin="round"
             />
-            <circle cx="180" cy="42" r="12" fill="#7C3AED" />
+            <circle cx="182" cy="30" r="10.5" fill="#7C3AED" />
             {/* Ícone de sino / lembrete de cobrança */}
             <path
-              d="M180 34 C176.5 34, 175 36.8, 175 40 V44 L173.5 46 H186.5 L185 44 V40 C185 36.8, 183.5 34, 180 34 Z"
+              d="M182 23 C179 23, 177.5 25.5, 177.5 28.2 V31.8 L176 33.5 H188 L186.5 31.8 V28.2 C186.5 25.5, 185 23, 182 23 Z"
               fill="#FFFFFF"
             />
-            <circle cx="180" cy="48.2" r="1.8" fill="#F3E8FF" />
+            <circle cx="182" cy="35.5" r="1.6" fill="#F3E8FF" />
             <rect
-              x="198"
-              y="26"
-              width="62"
-              height="11"
+              x="196"
+              y="13"
+              width="71"
+              height="12"
               rx="3.5"
               fill="#7C3AED"
             />
             <text
-              x="229"
-              y="33.8"
+              x="231.5"
+              y="21"
               textAnchor="middle"
-              fontSize="6.5"
+              fontSize="5.6"
               fontWeight="800"
               fill="#FFFFFF"
-              letterSpacing="0.3"
+              letterSpacing="0.2"
             >
               COBRANÇA 1-CLICK
             </text>
-            <rect x="198" y="42" width="58" height="5.5" rx="2.7" fill="#FFFFFF" />
-            <rect x="198" y="51" width="42" height="5" rx="2.5" fill="#F3E8FF" />
+            <rect x="196" y="29" width="60" height="5" rx="2.5" fill="#FFFFFF" />
+            <rect x="196" y="37" width="44" height="4.5" rx="2.2" fill="#F3E8FF" />
           </g>
 
           {/* CARD FLUTUANTE INFERIOR ESQUERDO — Cartão de Crediário Exclusivo da Loja */}
           <g className="retail-mlogin-float-fast">
-            <g transform="rotate(-6 56 174)">
+            <g transform="rotate(-4 40 182)">
               <rect
-                x="8"
-                y="142"
-                width="96"
-                height="62"
-                rx="9"
+                x="6"
+                y="158"
+                width="68"
+                height="48"
+                rx="8"
                 fill="#7C3AED"
                 stroke="#272321"
                 strokeWidth="1.4"
               />
               {/* Faixa geométrica escura do cartão */}
               <path
-                d="M8 156 H104 V170 H8 Z"
+                d="M6 169 H74 V179 H6 Z"
                 fill="#6D28D9"
               />
               {/* Chip branco do cartão */}
               <rect
-                x="18"
-                y="176"
-                width="16"
-                height="12"
-                rx="3"
+                x="13"
+                y="184"
+                width="13"
+                height="10"
+                rx="2.5"
                 fill="#FFFFFF"
                 stroke="#272321"
                 strokeWidth="1.1"
               />
               {/* Símbolo L oficial no canto do cartão */}
-              <path d="M84 176 H88 V185 H95 V189 H84 Z" fill="#FFFFFF" />
+              <path d="M59 184 H62.5 V191.5 H68 V195 H59 Z" fill="#FFFFFF" />
               <rect
-                x="40"
-                y="179"
-                width="36"
-                height="5"
-                rx="2.5"
-                fill="#F3E8FF"
-              />
-              <rect
-                x="40"
-                y="187"
+                x="30"
+                y="186"
                 width="24"
                 height="4.5"
                 rx="2.2"
+                fill="#F3E8FF"
+              />
+              <rect
+                x="30"
+                y="193"
+                width="16"
+                height="4"
+                rx="2"
                 fill="#FFFFFF"
               />
             </g>
@@ -3874,21 +3894,21 @@ const CommercialIntelligenceModuleIllustration = memo(
               strokeWidth="1.4"
             />
             <rect
-              x="188"
-              y="26"
-              width="74"
-              height="12"
+              x="185"
+              y="25"
+              width="80"
+              height="13"
               rx="3.5"
               fill="#7C3AED"
             />
             <text
               x="225"
-              y="34.5"
+              y="33.8"
               textAnchor="middle"
-              fontSize="6.5"
+              fontSize="5.9"
               fontWeight="800"
               fill="#FFFFFF"
-              letterSpacing="0.3"
+              letterSpacing="0.2"
             >
               COMISSÃO & METAS
             </text>
@@ -4041,61 +4061,61 @@ const SuppliersSpModuleIllustration = memo(
               strokeWidth="1.5"
             />
 
-            {/* Cabeçalho do Mapa com Pílulas dos Polos (Brás / 25 de Março) */}
+            {/* Cabeçalho do Mapa com Pílulas dos Polos (Brás / 25 de Março / Retiro) */}
             <path
               d="M22 32 C22 25.4, 27.4 20, 34 20 H174 C180.6 20, 186 25.4, 186 32 V52 H22 Z"
               fill="#272321"
             />
             <rect
-              x="30"
+              x="28"
               y="28"
-              width="44"
-              height="15"
+              width="42"
+              height="14"
               rx="4"
               fill="#7C3AED"
             />
             <text
-              x="52"
-              y="38"
+              x="49"
+              y="37.2"
               textAnchor="middle"
-              fontSize="7"
+              fontSize="6"
               fontWeight="800"
               fill="#FFFFFF"
-              letterSpacing="0.3"
+              letterSpacing="0.2"
             >
               BRÁS • SP
             </text>
             <rect
-              x="79"
+              x="73"
               y="28"
-              width="58"
-              height="15"
+              width="52"
+              height="14"
               rx="4"
               fill="#F3E8FF"
             />
             <text
-              x="108"
-              y="38"
+              x="99"
+              y="37.2"
               textAnchor="middle"
-              fontSize="6.8"
+              fontSize="5.8"
               fontWeight="800"
               fill="#272321"
             >
               25 DE MARÇO
             </text>
             <rect
-              x="142"
+              x="128"
               y="28"
-              width="36"
-              height="15"
+              width="32"
+              height="14"
               rx="4"
               fill="#6D28D9"
             />
             <text
-              x="160"
-              y="38"
+              x="144"
+              y="37.2"
               textAnchor="middle"
-              fontSize="6.5"
+              fontSize="5.8"
               fontWeight="800"
               fill="#FFFFFF"
             >
@@ -4174,18 +4194,18 @@ const SuppliersSpModuleIllustration = memo(
               <circle cx="0" cy="-11" r="6" fill="#FFFFFF" />
               {/* Etiqueta de menor preço no pino */}
               <rect
-                x="-28"
+                x="-34"
                 y="12"
-                width="56"
+                width="68"
                 height="14"
                 rx="4"
                 fill="#272321"
               />
               <text
                 x="0"
-                y="21.5"
+                y="21.2"
                 textAnchor="middle"
-                fontSize="7.2"
+                fontSize="6.4"
                 fontWeight="800"
                 fill="#FFFFFF"
               >
@@ -4197,9 +4217,9 @@ const SuppliersSpModuleIllustration = memo(
           {/* CARD FLUTUANTE SUPERIOR DIREITO — Grade 3x2 de Peças do Fornecedor */}
           <g className="retail-mlogin-vstore-builder">
             <rect
-              x="166"
+              x="170"
               y="32"
-              width="104"
+              width="102"
               height="94"
               rx="9"
               fill="#FFFFFF"
@@ -4207,28 +4227,28 @@ const SuppliersSpModuleIllustration = memo(
               strokeWidth="1.4"
             />
             <rect
-              x="174"
-              y="40"
-              width="88"
-              height="13"
+              x="176"
+              y="39"
+              width="90"
+              height="14"
               rx="4"
               fill="#7C3AED"
             />
             <text
-              x="218"
-              y="49"
+              x="221"
+              y="48.2"
               textAnchor="middle"
-              fontSize="6.8"
+              fontSize="5.9"
               fontWeight="800"
               fill="#FFFFFF"
-              letterSpacing="0.3"
+              letterSpacing="0.2"
             >
               VITRINE 3x2 • ATACADO
             </text>
 
             {/* Fileira 1 da Grade 3x2 (3 mini cards de peças) */}
             <rect
-              x="174"
+              x="176"
               y="58"
               width="26"
               height="26"
@@ -4237,10 +4257,10 @@ const SuppliersSpModuleIllustration = memo(
               stroke="#272321"
               strokeWidth="1.1"
             />
-            <path d="M182 65 H192 L190 77 H184 Z" fill="#7C3AED" />
+            <path d="M184 65 H194 L192 77 H186 Z" fill="#7C3AED" />
 
             <rect
-              x="205"
+              x="208"
               y="58"
               width="26"
               height="26"
@@ -4250,10 +4270,10 @@ const SuppliersSpModuleIllustration = memo(
               strokeWidth="1.1"
               className="retail-mlogin-vstore-size"
             />
-            <path d="M213 65 H223 L221 77 H215 Z" fill="#FFFFFF" />
+            <path d="M216 65 H226 L224 77 H218 Z" fill="#FFFFFF" />
 
             <rect
-              x="236"
+              x="240"
               y="58"
               width="26"
               height="26"
@@ -4262,11 +4282,11 @@ const SuppliersSpModuleIllustration = memo(
               stroke="#272321"
               strokeWidth="1.1"
             />
-            <path d="M244 65 H254 L252 77 H246 Z" fill="#6D28D9" />
+            <path d="M248 65 H258 L256 77 H250 Z" fill="#6D28D9" />
 
             {/* Fileira 2 da Grade 3x2 (3 mini cards de peças) */}
             <rect
-              x="174"
+              x="176"
               y="89"
               width="26"
               height="26"
@@ -4275,10 +4295,10 @@ const SuppliersSpModuleIllustration = memo(
               stroke="#272321"
               strokeWidth="1.1"
             />
-            <circle cx="187" cy="102" r="6" fill="#6D28D9" />
+            <circle cx="189" cy="102" r="6" fill="#6D28D9" />
 
             <rect
-              x="205"
+              x="208"
               y="89"
               width="26"
               height="26"
@@ -4287,10 +4307,10 @@ const SuppliersSpModuleIllustration = memo(
               stroke="#272321"
               strokeWidth="1.1"
             />
-            <circle cx="218" cy="102" r="6" fill="#7C3AED" />
+            <circle cx="221" cy="102" r="6" fill="#7C3AED" />
 
             <rect
-              x="236"
+              x="240"
               y="89"
               width="26"
               height="26"
@@ -4300,7 +4320,7 @@ const SuppliersSpModuleIllustration = memo(
               strokeWidth="1.1"
             />
             <text
-              x="249"
+              x="253"
               y="104.5"
               textAnchor="middle"
               fontSize="7"
@@ -4314,9 +4334,9 @@ const SuppliersSpModuleIllustration = memo(
           {/* CARD FLUTUANTE INFERIOR — Pedido Direto no Fornecedor Homologado */}
           <g className="retail-mlogin-vstore-order">
             <rect
-              x="14"
+              x="12"
               y="168"
-              width="148"
+              width="168"
               height="44"
               rx="8"
               fill="#272321"
@@ -4324,7 +4344,7 @@ const SuppliersSpModuleIllustration = memo(
               strokeWidth="1.4"
             />
             <rect
-              x="24"
+              x="20"
               y="178"
               width="24"
               height="24"
@@ -4334,11 +4354,11 @@ const SuppliersSpModuleIllustration = memo(
               strokeWidth="1.2"
             />
             {/* Fita da caixa de fardo atacadista */}
-            <rect x="33.5" y="178" width="5" height="24" fill="#F3E8FF" />
+            <rect x="29.5" y="178" width="5" height="24" fill="#F3E8FF" />
             <text
-              x="56"
-              y="187"
-              fontSize="7.5"
+              x="50"
+              y="186.5"
+              fontSize="7.2"
               fontWeight="800"
               fill="#FFFFFF"
               letterSpacing="0.2"
@@ -4346,9 +4366,9 @@ const SuppliersSpModuleIllustration = memo(
               PEDIDO DIRETO • SP
             </text>
             <text
-              x="56"
-              y="198.5"
-              fontSize="7"
+              x="50"
+              y="198"
+              fontSize="6.1"
               fontWeight="700"
               fill="#F3E8FF"
             >
@@ -4411,17 +4431,17 @@ const MultiStoreNetworkModuleIllustration = memo(
           {/* HUB SUPERIOR CENTRAL — PAINEL CONSOLIDADO DO DONO (LOGIN ÚNICO) */}
           <g className="retail-mlogin-float-slow">
             <rect
-              x="66"
+              x="52"
               y="18"
-              width="156"
+              width="184"
               height="58"
               rx="10"
               fill="#272321"
             />
             <rect
-              x="62"
+              x="48"
               y="14"
-              width="156"
+              width="184"
               height="58"
               rx="10"
               fill="#FFFFFF"
@@ -4430,7 +4450,7 @@ const MultiStoreNetworkModuleIllustration = memo(
             />
             {/* Símbolo Oficial L + Rede do Proprietário */}
             <rect
-              x="72"
+              x="58"
               y="24"
               width="34"
               height="38"
@@ -4439,23 +4459,23 @@ const MultiStoreNetworkModuleIllustration = memo(
               stroke="#272321"
               strokeWidth="1.2"
             />
-            <path d="M83 33 H88 V47 H97 V52 H83 Z" fill="#FFFFFF" />
+            <path d="M69 33 H74 V47 H83 V52 H69 Z" fill="#FFFFFF" />
 
             <text
-              x="114"
+              x="100"
               y="32"
-              fontSize="7.5"
+              fontSize="6.9"
               fontWeight="800"
               fill="#272321"
-              letterSpacing="0.3"
+              letterSpacing="0.2"
             >
               PAINEL DO PROPRIETÁRIO
             </text>
             {/* Seletor 1-Clique de Unidades */}
             <rect
-              x="114"
+              x="100"
               y="38"
-              width="94"
+              width="118"
               height="14"
               rx="4"
               fill="#F3E8FF"
@@ -4463,19 +4483,19 @@ const MultiStoreNetworkModuleIllustration = memo(
               strokeWidth="1.1"
             />
             <text
-              x="161"
+              x="159"
               y="47.5"
               textAnchor="middle"
-              fontSize="6.8"
+              fontSize="6.5"
               fontWeight="800"
               fill="#7C3AED"
             >
               TROCA EM 1 CLIQUE ⇄
             </text>
             <rect
-              x="114"
+              x="100"
               y="56"
-              width="68"
+              width="84"
               height="5"
               rx="2.5"
               fill="#6D28D9"
@@ -4697,9 +4717,9 @@ const MultiStoreNetworkModuleIllustration = memo(
           {/* PACOTE ANIMADO DE TRANSFERÊNCIA DE MERCADORIA ENTRE LOJAS */}
           <g className="retail-mlogin-multi-transfer">
             <rect
-              x="92"
+              x="76"
               y="188"
-              width="96"
+              width="128"
               height="26"
               rx="7"
               fill="#272321"
@@ -4707,7 +4727,7 @@ const MultiStoreNetworkModuleIllustration = memo(
               strokeWidth="1.3"
             />
             <rect
-              x="98"
+              x="83"
               y="193"
               width="16"
               height="16"
@@ -4715,16 +4735,16 @@ const MultiStoreNetworkModuleIllustration = memo(
               fill="#7C3AED"
             />
             <path
-              d="M102 201 H110 M107 198 L110 201 L107 204"
+              d="M87 201 H95 M92 198 L95 201 L92 204"
               stroke="#FFFFFF"
               strokeWidth="1.6"
               strokeLinecap="round"
               strokeLinejoin="round"
             />
             <text
-              x="120"
-              y="200"
-              fontSize="6.5"
+              x="105"
+              y="199.5"
+              fontSize="6.2"
               fontWeight="800"
               fill="#FFFFFF"
               letterSpacing="0.2"
@@ -4732,9 +4752,9 @@ const MultiStoreNetworkModuleIllustration = memo(
               ESTOQUE INTEGRADO
             </text>
             <text
-              x="120"
-              y="208.5"
-              fontSize="6.2"
+              x="105"
+              y="208.2"
+              fontSize="6"
               fontWeight="700"
               fill="#F3E8FF"
             >

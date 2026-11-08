@@ -3344,14 +3344,14 @@ textarea:focus-visible {
 @keyframes retailMloginCreditInstallmentPop {
   0%,
   24% {
-    transform: translate(68px, 164px) scale(1);
+    transform: translate(78px, 160px) scale(1);
   }
   48%,
   72% {
-    transform: translate(68px, 162px) scale(1.02);
+    transform: translate(78px, 158px) scale(1.02);
   }
   100% {
-    transform: translate(68px, 164px) scale(1);
+    transform: translate(78px, 160px) scale(1);
   }
 }
 
@@ -3362,7 +3362,7 @@ textarea:focus-visible {
   }
   50%,
   70% {
-    transform: translate(-6px, 5px) rotate(-1.5deg);
+    transform: translate(-4px, 3px) rotate(-1deg);
   }
   100% {
     transform: translate(0, 0) rotate(0deg);

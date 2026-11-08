@@ -16,6 +16,13 @@
   - Criada ilustração editorial com o mapa interativo dos polos atacadistas de São Paulo (*Brás*, *25 de Março*, *Feirinha* e *Bom Retiro*), pino central animado (`ATACADO R$ 19`), vitrine lateral flutuante com a **Grade 3x2 de peças** e card de pedido direto com margem sugerida (`+140%`).
 - **Slide 9 — Módulo Multi-Empresas / Rede Multi-Lojas do Mesmo Dono (`MultiStoreNetworkModuleIllustration` em `frontend/src/retail/RetailMobileLogin.tsx` e `frontend/src/retail/retail.css`)**:
   - Criada ilustração editorial exibindo o **Painel do Proprietário (`TROCA EM 1 CLIQUE ⇄`)** conectado simultaneamente às fachadas de `LOJA MATRIZ`, `FILIAL 02` e `FILIAL 03`, com pacote animado de transferência e integração de estoque entre unidades.
+- **Calibração de Textos, Pílulas e Posicionamento em Viewport Mobile (`375x812`) nos Slides 4 a 9 (`frontend/src/retail/RetailMobileLogin.tsx` e `frontend/src/retail/retail.css`)**:
+  - **Slide 4 (Loja Virtual)**: Ampliada a largura da pílula `RESERVADO` para evitar aperto lateral.
+  - **Slide 5 (Entrega com Motoboy)**: Ajustado o rótulo da 2ª etapa para `2. Trajeto` evitando reticências em telas mobile compactas e reposicionado dinamicamente o balão de status (`#mloginHeroSpeechBubble`) acima do telhado da loja/casa nas etapas 3 e 5, liberando a fachada `PDV LOJISTA / COLETA EXPRESSA` e a placa `Nº 409`.
+  - **Slide 6 (Clientes, Crediário e Cobrança)**: Ampliadas as pílulas `CREDIÁRIO OK` e `COBRANÇA 1-CLICK`, elevado o balão de lembrete superior direito para não cobrir o valor `R$ 1.200` do limite disponível e reposicionado o cartão de crediário inferior esquerdo para deixar as parcelas `1/3 • PARCELA`, `2/3 • PARCELA` e `3/3 • RECEBER` 100% visíveis.
+  - **Slide 7 (Inteligência Comercial & Ranking)**: Ampliada a pílula `COMISSÃO & METAS` com margem lateral folgada.
+  - **Slide 8 (Fornecedores de SP)**: Ajustadas as 3 pílulas do cabeçalho do mapa (`BRÁS • SP`, `25 DE MARÇO` e `RETIRO`) para não serem cobertas pelo card flutuante `VITRINE 3x2 • ATACADO`, ampliada a etiqueta `ATACADO R$ 19` do pino central e alargado o card inferior `PEDIDO DIRETO • SP` para enquadrar integralmente o subtítulo `Margem +140% • Entrega Garantida`.
+  - **Slide 9 (Multi-Empresas / Várias Lojas)**: Alargado o card superior do `PAINEL DO PROPRIETÁRIO` (`TROCA EM 1 CLIQUE ⇄`) e o card animado inferior de `ESTOQUE INTEGRADO / Transferência entre Lojas` para eliminar qualquer transbordo de texto nas bordas direitas.
 
 ## 2026-11-08 — Correção da Simulação em Tempo Real (Live Preview), Seções da Vitrine e Endpoints de Configurações e Mídia da Loja Virtual
 

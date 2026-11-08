@@ -1,5 +1,12 @@
 # Histórico — PDV Lojista
 
+## 2026-11-08 — Correção de Sobreposição (`z-index` / Stacking Context) nos Menus Flutuantes do Cabeçalho
+
+- **Camada de Empilhamento dos Menus do Cabeçalho (`frontend/src/retail/retail.css`, `frontend/src/retail/RetailPosPage.tsx` e `frontend/src/retail/RetailLayout.tsx`)**:
+  - Definido `position: relative; z-index: 30` em `.retail-canvas-header` (e `z-index: 100` em `.retail-canvas-header:has(.retail-floating-menu)`, `.retail-profile-dropdown-wrap:has(.retail-floating-menu)` e `.retail-floating-menu`), garantindo que os menus de notificações, controle do caixa e perfil fiquem sempre acima da barra de busca (`Buscar produto ou código · F3`), da grade de produtos e do painel `Detalhes da Transação`.
+  - Substituído `animation-fill-mode: both` por `backwards` nas animações de entrada de palco/catálogo/pedido e movida a animação de título do PDV para `.retail-pos-stage .retail-canvas-title-wrap`, evitando a criação permanente de contextos de empilhamento por `transform` após o término da animação.
+  - Adicionado fechamento automático dos menus flutuantes ao clicar fora de `.retail-profile-dropdown-wrap` ou pressionar `Escape`.
+
 ## 2026-11-08 — Remoção da Sobreposição Roxa em Tela Cheia ao Trocar de Módulo
 
 - **Troca Instantânea de Módulos (`frontend/src/retail/RetailLayout.tsx` e `frontend/src/pages/GroupPortalPage.tsx`)**:

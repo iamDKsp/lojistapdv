@@ -763,12 +763,34 @@ export function RetailPosPage() {
   const storeTitle =
     config?.nomeFantasia || shell.config?.nomeFantasia || "Frente de caixa";
 
+  useEffect(() => {
+    if (!openMenu) return;
+    const handleOutsidePointerDown = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target && !target.closest(".retail-profile-dropdown-wrap")) {
+        setOpenMenu(null);
+      }
+    };
+    const handleEsc = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpenMenu(null);
+      }
+    };
+    document.addEventListener("mousedown", handleOutsidePointerDown);
+    document.addEventListener("touchstart", handleOutsidePointerDown, {
+      passive: true,
+    });
+    window.addEventListener("keydown", handleEsc);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsidePointerDown);
+      document.removeEventListener("touchstart", handleOutsidePointerDown);
+      window.removeEventListener("keydown", handleEsc);
+    };
+  }, [openMenu]);
+
   return (
-    <div className="retail-pos" onClick={() => openMenu && setOpenMenu(null)}>
-      <header
-        className="retail-canvas-header"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <div className="retail-pos">
+      <header className="retail-canvas-header">
         <div className="retail-canvas-title-wrap">
           <h1>Criar Transação</h1>
           <div className="retail-pos-subline">

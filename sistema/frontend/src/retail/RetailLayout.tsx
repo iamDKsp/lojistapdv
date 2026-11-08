@@ -296,6 +296,31 @@ export function RetailLayout() {
   }, [menuOpen]);
 
   useEffect(() => {
+    if (!profileMenuOpen) return;
+    const handleOutsidePointerDown = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target && !target.closest(".retail-profile-dropdown-wrap")) {
+        setProfileMenuOpen(false);
+      }
+    };
+    const handleEsc = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setProfileMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutsidePointerDown);
+    document.addEventListener("touchstart", handleOutsidePointerDown, {
+      passive: true,
+    });
+    window.addEventListener("keydown", handleEsc);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsidePointerDown);
+      document.removeEventListener("touchstart", handleOutsidePointerDown);
+      window.removeEventListener("keydown", handleEsc);
+    };
+  }, [profileMenuOpen]);
+
+  useEffect(() => {
     if (typeof window === "undefined") return;
     let lastWinY = Math.max(0, window.scrollY || 0);
     const onWinScroll = () => {

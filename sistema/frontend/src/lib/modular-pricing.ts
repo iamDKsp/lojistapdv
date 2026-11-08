@@ -82,12 +82,12 @@ export const COMMERCIAL_MODULES: ReadonlyArray<CommercialModuleDefinition> = [
   },
   {
     id: "vendedores",
-    label: "Módulo Vendedores & Comissões",
+    label: "Módulo Vendedores & Equipe",
     shortBadge: "Vendedores",
     price: 29.9,
-    title: "Módulo Vendedores, Metas & Comissões",
+    title: "Módulo Vendedores, Operadores & Comissões",
     description:
-      "Gestão de múltiplos vendedores e operadores, vínculo por venda, metas de faturamento, cálculo automático de comissão e ranking da equipe.",
+      "Gestão de múltiplos vendedores e operadores no balcão, troca rápida por PIN/avatar no PDV, vínculo por venda e controle de comissões da equipe.",
     demandLevel: "alta",
   },
   {
@@ -95,9 +95,9 @@ export const COMMERCIAL_MODULES: ReadonlyArray<CommercialModuleDefinition> = [
     label: "Módulo Inteligência Comercial",
     shortBadge: "Inteligência",
     price: 29.9,
-    title: "Inteligência Comercial (CRM 360º, RFM & Curva ABC)",
+    title: "Inteligência Comercial, Pódio de Vendedores & CRM 360º",
     description:
-      "Segmentação RFM (VIPs, ativos, sumidos +60d), Raio-X 360º com DNA de tamanhos e cores preferidos do cliente e análise de giro de estoque.",
+      "Pódio gamificado do time de vendas, calendário diário de vendas, auditoria de descontos/trocas, metas, segmentação RFM e Raio-X 360º de clientes.",
     demandLevel: "complementar",
   },
   {

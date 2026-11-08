@@ -177,7 +177,7 @@ function Protected() {
 
 function Management() {
   const role = useAuthStore((s) => s.user?.role);
-  return ["admin", "superadmin", "stockist"].includes(role || "") ? (
+  return ["admin", "superadmin", "group_owner", "stockist"].includes(role || "") ? (
     <Outlet />
   ) : (
     <Navigate to="/" replace />
@@ -292,14 +292,15 @@ export function App() {
             element={<PublicStorefrontApp />}
           />
           <Route element={<Protected />}>
-            <Route path="/grupo-portal/:tab" element={<GroupPortalPage />} />
-            <Route
-              path="/grupo-portal/produtos/:subTab"
-              element={<GroupPortalPage />}
-            />
             <Route element={<RetailLayout />}>
               <Route path="/" element={<Pos />} />
               <Route element={<Management />}>
+                {/* Módulo Rede Multi-Lojas */}
+                <Route path="/grupo-portal/:tab" element={<GroupPortalPage />} />
+                <Route
+                  path="/grupo-portal/produtos/:subTab"
+                  element={<GroupPortalPage />}
+                />
                 {/* Módulo Início */}
                 <Route path="/inicio" element={<RetailDashboardPage />} />
                 <Route

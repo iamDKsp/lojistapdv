@@ -136,12 +136,32 @@ export class AuthService {
   }
 
   async login(user: any) {
+    let effectiveGroupId: string | null = user.groupId ?? null;
+    if (
+      !effectiveGroupId &&
+      user.tenant?.id &&
+      ['admin', 'superadmin', 'group_owner'].includes(user.role) &&
+      this.heartPrisma?.tenantGroupMember?.findFirst
+    ) {
+      const membership = await this.heartPrisma.tenantGroupMember
+        .findFirst({
+          where: { tenantId: user.tenant.id },
+          select: { groupId: true },
+        })
+        .catch(() => null);
+      if (membership?.groupId) {
+        effectiveGroupId = membership.groupId;
+      }
+    }
+
+    const effectiveRole = user.role === 'group_owner' ? 'admin' : user.role;
+
     const payload = {
       sub: user.id,
       email: user.email,
       tenantId: user.tenant.id,
-      role: user.role,
-      groupId: user.groupId ?? null,
+      role: effectiveRole,
+      groupId: effectiveGroupId,
     };
     const isDemo =
       user.email === DEMO_USER_EMAIL ||
@@ -152,10 +172,10 @@ export class AuthService {
         id: user.id,
         email: user.email,
         name: user.name,
-        role: user.role,
-        groupId: user.groupId ?? null,
+        role: effectiveRole,
+        groupId: effectiveGroupId,
         tenant: user.tenant.id,
-        tenantName: user.tenant.name,
+        tenantName: user.tenant.nomeFantasia || user.tenant.name,
         logoUrl: user.tenant.logoUrl ?? null,
         termsAccepted: isDemo ? true : !!user.tenant.termsAcceptedAt,
         isDemo,

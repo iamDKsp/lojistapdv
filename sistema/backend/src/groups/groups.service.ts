@@ -1,4 +1,12 @@
-import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  UnauthorizedException,
+  Optional,
+  Logger,
+} from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import { HeartPrismaService } from '../prisma/heart-prisma.service';
 import { ProductsService } from '../products/products.service';
 import { getActiveReservedQuantities } from '../prisma/stock-reservations.helper';
@@ -13,6 +21,7 @@ export class GroupsService {
   constructor(
     private heartPrisma: HeartPrismaService,
     private productsService: ProductsService,
+    @Optional() private jwtService?: JwtService,
   ) {}
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -29,11 +38,175 @@ export class GroupsService {
       include: {
         members: {
           include: { tenant: true },
+          orderBy: { id: 'asc' },
         },
       },
     });
     if (!group) throw new NotFoundException(`Grupo ${groupId} não encontrado`);
     return group;
+  }
+
+  /**
+   * Resolve automaticamente o groupId a partir do usuário logado ou do vínculo
+   * da loja (tenantId) na tabela tenant_group_members.
+   * Isso permite que o próprio login admin da loja acesse o módulo Multi-Lojas
+   * sem precisar de um usuário separado.
+   */
+  async resolveUserGroupId(user: any): Promise<string> {
+    if (user?.groupId) {
+      const exists = await this.heartPrisma.tenantGroup
+        .findUnique({ where: { id: user.groupId }, select: { id: true } })
+        .catch(() => null);
+      if (exists?.id) return exists.id;
+    }
+
+    if (
+      user?.tenantId &&
+      ['admin', 'superadmin', 'group_owner'].includes(user?.role)
+    ) {
+      const membership = await this.heartPrisma.tenantGroupMember
+        .findFirst({
+          where: { tenantId: user.tenantId },
+          select: { groupId: true },
+        })
+        .catch(() => null);
+      if (membership?.groupId) {
+        return membership.groupId;
+      }
+    }
+
+    throw new UnauthorizedException(
+      'Esta loja não está vinculada a nenhum grupo multiempresa.',
+    );
+  }
+
+  /**
+   * Retorna o contexto completo do grupo da loja/usuário logado (sem lançar 401 se não houver grupo).
+   */
+  async getMyGroupContext(user: any) {
+    let groupId: string | null = null;
+    try {
+      groupId = await this.resolveUserGroupId(user);
+    } catch {
+      groupId = null;
+    }
+
+    if (!groupId) {
+      return {
+        hasGroup: false,
+        groupId: null,
+        groupName: null,
+        currentTenantId: user?.tenantId ?? null,
+        members: [],
+      };
+    }
+
+    const group = await this.getGroupWithMembers(groupId);
+    return {
+      hasGroup: true,
+      groupId: group.id,
+      groupName: group.name,
+      currentTenantId: user?.tenantId ?? null,
+      members: group.members.map((m) => ({
+        tenantId: m.tenantId,
+        alias: m.alias || m.tenant.nomeFantasia || m.tenant.name,
+        name: m.tenant.nomeFantasia || m.tenant.name,
+        razaoSocial: m.tenant.razaoSocial || null,
+        logoUrl: m.tenant.logoUrl || null,
+        status: m.tenant.status,
+        isCurrent: m.tenantId === user?.tenantId,
+      })),
+    };
+  }
+
+  /**
+   * Troca instantaneamente a sessão ativa do administrador para outra loja do mesmo grupo,
+   * sem exigir novo login ou senha.
+   */
+  async switchTenant(user: any, targetTenantId: string) {
+    if (!targetTenantId?.trim()) {
+      throw new BadRequestException('A loja de destino é obrigatória.');
+    }
+    if (!['admin', 'superadmin', 'group_owner'].includes(user?.role)) {
+      throw new UnauthorizedException(
+        'Apenas administradores podem alternar entre lojas do grupo.',
+      );
+    }
+
+    const groupId = await this.resolveUserGroupId(user);
+    const group = await this.getGroupWithMembers(groupId);
+
+    const targetMember = group.members.find(
+      (m) => m.tenantId === targetTenantId,
+    );
+    if (!targetMember) {
+      throw new UnauthorizedException(
+        'A loja selecionada não pertence ao seu grupo multiempresa.',
+      );
+    }
+
+    if (
+      targetMember.tenant.status === 'suspended' ||
+      targetMember.tenant.status === 'inactive'
+    ) {
+      throw new BadRequestException(
+        'O acesso da loja selecionada encontra-se suspenso ou inativo.',
+      );
+    }
+
+    const targetAdmin = await this.heartPrisma.user
+      .findFirst({
+        where: { tenantId: targetTenantId, role: 'admin', active: true },
+        orderBy: { createdAt: 'asc' },
+      })
+      .catch(() => null);
+
+    const currentUser = user?.sub
+      ? await this.heartPrisma.user
+          .findUnique({ where: { id: user.sub } })
+          .catch(() => null)
+      : null;
+
+    const effectiveUserId =
+      targetAdmin?.id || currentUser?.id || user.sub || user.id;
+    const effectiveEmail =
+      currentUser?.email || user.email || targetAdmin?.email || '';
+    const effectiveName =
+      currentUser?.name || targetAdmin?.name || 'Gestor da Rede';
+    const effectiveRole =
+      user.role === 'superadmin' ? 'superadmin' : 'admin';
+
+    if (!this.jwtService) {
+      throw new BadRequestException('Serviço de autenticação indisponível.');
+    }
+
+    const payload = {
+      sub: effectiveUserId,
+      email: effectiveEmail,
+      tenantId: targetMember.tenant.id,
+      role: effectiveRole,
+      groupId: group.id,
+    };
+
+    const access_token = this.jwtService.sign(payload);
+
+    return {
+      access_token,
+      user: {
+        id: effectiveUserId,
+        email: effectiveEmail,
+        name: effectiveName,
+        role: effectiveRole,
+        groupId: group.id,
+        tenant: targetMember.tenant.id,
+        tenantName:
+          targetMember.alias ||
+          targetMember.tenant.nomeFantasia ||
+          targetMember.tenant.name,
+        logoUrl: targetMember.tenant.logoUrl ?? null,
+        termsAccepted: true,
+      },
+    };
   }
 
   // ── Group CRUD ─────────────────────────────────────────────────────────────

@@ -1,5 +1,17 @@
 # Histórico — PDV Lojista
 
+## 2026-11-08 — Unificação do Módulo Rede Multi-Lojas (`Multi-Empresa`) ao Sistema da Loja, Login Único e Troca de Unidade em 1 Clique
+
+- **Login Único e Resolução Automática de Grupo por Loja (`backend/src/auth/auth.service.ts`, `backend/src/groups/groups.service.ts`, `backend/src/groups/groups.controller.ts`, `backend/src/groups/groups.module.ts` e `backend/src/tenants/tenants.service.ts`)**:
+  - Qualquer administrador (`admin`, `superadmin` ou `group_owner`) autenticado em uma loja (`Tenant`) que faça parte de um grupo (`tenant_group_members`) recebe automaticamente o `groupId` na sessão e o contexto completo da rede (`groupId`, `groupName` e `groupMembers` em `GET /api/tenants/me` e `GET /api/groups/my/context`), eliminando a necessidade de criar uma conta separada (`group_owner`) ou acessar uma URL desconectada.
+  - Novo endpoint `POST /api/groups/my/switch-tenant` que valida a pertinência da loja de destino ao mesmo `TenantGroup` e emite instantaneamente um novo JWT para a unidade escolhida, preservando o isolamento de banco por tenant (`TenantInterceptor`).
+- **Módulo Rede Multi-Lojas Integrado ao `RetailLayout` (`frontend/src/App.tsx`, `frontend/src/retail/RetailLayout.tsx`, `frontend/src/pages/GroupPortalPage.tsx`, `frontend/src/retail/RetailLoginPage.tsx` e `frontend/src/lib/routes.ts`)**:
+  - As rotas `/grupo-portal/:tab` e `/grupo-portal/produtos/:subTab` (além dos atalhos `/multi-lojas`, `/multi-empresa` e `/rede`) agora renderizam dentro do `RetailLayout`, compartilhando a barra lateral (`Rede Multi-Lojas`), o cabeçalho superior e a barra horizontal de sub-abas (`Visão geral da rede`, `Estoque das lojas`, `Catálogo e preços`, `Transferências` e `Previsão de compras`).
+  - `GroupPortalPage.tsx` redesenhado integralmente com os tokens claros aprovados da paleta `roxo-branco` (`bg-surface`, `bg-page`, `bg-support`, `text-ink`, `text-brand`, `border-line`), removendo a antiga casca escura duplicada.
+- **Seletor Rápido de Lojas (1 Clique) sem Re-Login (`frontend/src/retail/RetailLayout.tsx`, `frontend/src/pages/GroupPortalPage.tsx`, `frontend/src/store/auth.ts` e `frontend/src/contexts/ShiftContext.tsx`)**:
+  - Adicionado botão rápido no topo (`Multi-Lojas` / `Painel da Loja`), seletor de unidades no cabeçalho e no menu de perfil, além do botão **Entrar na Loja** / **Abrir Loja** diretamente nos cards de cada filial e na gaveta de detalhes do painel Multi-Lojas.
+  - `switchTenantSession` em `useAuthStore` e a guarda de mudança de tenant em `ShiftContext` limpam imediatamente o estado de operador da unidade anterior antes de recarregar os dados da nova loja.
+
 ## 2026-11-08 — Módulo Exclusivo de Inteligência Comercial & Ranking de Vendedores (`/inteligencia-comercial`)
 
 - **Feature Flag Independente no `/sys-init` (`modulos.inteligenciaComercial` em `frontend/src/app/sys-init/page.tsx`, `frontend/src/retail/RetailLayout.tsx`, `backend/src/tenants/tenants.service.ts` e `scripts/demo-local.cjs`)**:

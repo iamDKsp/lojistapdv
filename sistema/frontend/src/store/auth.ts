@@ -20,9 +20,11 @@ interface AuthState {
   token: string | null;
   user: User | null;
   login: (token: string, user: User) => void;
+  switchTenantSession: (token: string, user: User) => void;
   logout: () => void;
   setTermsAccepted: () => void;
   setTenantLogo: (logoUrl: string | null) => void;
+  setGroupId: (groupId: string | null) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -37,6 +39,16 @@ export const useAuthStore = create<AuthState>()(
           } catch {
             // ignore
           }
+        }
+        set({ token, user });
+      },
+      switchTenantSession: (token, user) => {
+        useOperatorTokenStore.getState().clearToken();
+        try {
+          localStorage.removeItem('garcom_operator');
+          localStorage.removeItem('lojista-currentOperator');
+        } catch {
+          // ignore
         }
         set({ token, user });
       },
@@ -67,6 +79,7 @@ export const useAuthStore = create<AuthState>()(
       },
       setTermsAccepted: () => set((state) => ({ user: state.user ? { ...state.user, termsAccepted: true } : null })),
       setTenantLogo: (logoUrl) => set((state) => ({ user: state.user ? { ...state.user, logoUrl } : null })),
+      setGroupId: (groupId) => set((state) => ({ user: state.user ? { ...state.user, groupId } : null })),
     }),
     { name: 'lojista-auth' }
   )

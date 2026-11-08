@@ -254,12 +254,17 @@ export const LEGACY_AND_ALIAS_REDIRECTS: ReadonlyArray<{
   { from: "/configuracoes/gestaonfce", to: ROUTES.configuracoes.nfce },
   { from: "/dashboard/audit", to: ROUTES.configuracoes.empresa },
 
-  // Portal do Grupo
+  // Portal do Grupo / Rede Multi-Lojas
   { from: "/grupo-portal", to: ROUTES.grupoPortal.visaoGeral },
   { from: "/grupo-portal/dashboard", to: ROUTES.grupoPortal.visaoGeral },
   { from: "/grupo-portal/visaogeral", to: ROUTES.grupoPortal.visaoGeral },
   { from: "/grupo-portal/forecast", to: ROUTES.grupoPortal.previsao },
   { from: "/grupo-portal/previsaodecompras", to: ROUTES.grupoPortal.previsao },
+  { from: "/multi-lojas", to: ROUTES.grupoPortal.visaoGeral },
+  { from: "/multilojas", to: ROUTES.grupoPortal.visaoGeral },
+  { from: "/multi-empresa", to: ROUTES.grupoPortal.visaoGeral },
+  { from: "/multiempresa", to: ROUTES.grupoPortal.visaoGeral },
+  { from: "/rede", to: ROUTES.grupoPortal.visaoGeral },
 ];
 
 /**

@@ -22,6 +22,16 @@ import { LeadgerIntegrationPanel } from "@/components/sys-init/LeadgerIntegratio
 import { LeadsPanel } from "@/components/sys-init/LeadsPanel";
 import { TenantXrayPanel } from "@/components/sys-init/TenantXrayPanel";
 import { SysInitLogin, SYS_INIT_PROFILES, type SysInitProfile } from "@/components/sys-init/SysInitLogin";
+import {
+  BASE_PLAN_PRICE,
+  BRANCH_PLAN_PRICE,
+  BRANCH_DISCOUNT_VALUE,
+  COMMERCIAL_MODULES,
+  DEFAULT_TENANT_MODULES,
+  calculateTenantMonthlyPrice,
+  formatBrlCurrency,
+  normalizeTenantModules,
+} from "@/lib/modular-pricing";
 const ImageOptimizationPanel = lazy(() => import("@/components/ImageOptimizationPanel"));
 
 
@@ -56,31 +66,28 @@ function parseDateLocal(dateStr: string): Date {
 }
 
 const MODULE_BADGES: Record<string, { label: string; color: string }> = {
-  nfce:           { label: 'NFC-e',       color: 'bg-support text-brand border-brand' },
-  estoque:        { label: 'Estoque',     color: 'bg-support text-brand border-brand' },
-  dashboardMobile:{ label: 'Mobile',      color: 'bg-support text-brand border-brand' },
-  vitrineDigital: { label: 'Vitrine',     color: 'bg-support text-brand border-brand' },
-  lojaVirtual:    { label: 'Loja Virtual',color: 'bg-support text-brand border-brand' },
-  importacaoXml:  { label: 'XML',         color: 'bg-support text-brand border-brand' },
-  digitalSignage: { label: 'Signage',     color: 'bg-support text-brand border-brand' },
-  crediario:      { label: 'Crediário',   color: 'bg-support text-brand border-brand' },
-  inteligenciaComercial: { label: 'Inteligência', color: 'bg-support text-brand border-brand' },
+  nfce:                   { label: 'NFC-e & XML',   color: 'bg-support text-brand border-brand' },
+  lojaVirtual:            { label: 'Loja Virtual',  color: 'bg-support text-brand border-brand' },
+  entregaLojaVirtual:     { label: '99 Entregas',   color: 'bg-support text-brand border-brand' },
+  crediario:              { label: 'Crediário',     color: 'bg-support text-brand border-brand' },
+  fornecedores:           { label: 'Fornecedores SP', color: 'bg-support text-brand border-brand' },
+  vendedores:             { label: 'Vendedores',    color: 'bg-support text-brand border-brand' },
+  inteligenciaComercial:  { label: 'Inteligência',  color: 'bg-support text-brand border-brand' },
+  vitrineDigital:         { label: 'Vitrine TV',    color: 'bg-support text-brand border-brand' },
+  multiEmpresa:           { label: 'Multi-Empresa', color: 'bg-support text-brand border-brand' },
+  filialMultiEmpresa:     { label: 'Filial (-R$ 50)', color: 'bg-surface text-ink border-line' },
 };
 
 function ModuleBadges({ modulosRaw }: { modulosRaw: any }) {
-  let m: Record<string, boolean> = { nfce: true, estoque: true, dashboardMobile: true };
-  try {
-    if (modulosRaw) {
-      m = typeof modulosRaw === 'string' ? JSON.parse(modulosRaw) : modulosRaw;
-    }
-  } catch (e) { /* skip */ }
-
-  const active = Object.entries(m).filter(([, v]) => v).map(([k]) => k);
-  if (active.length === 0) return <span className="text-muted text-xs">Nenhum</span>;
+  const m = normalizeTenantModules(modulosRaw);
+  const commercialKeys = COMMERCIAL_MODULES.map((mod) => mod.id).filter((id) => Boolean(m[id]));
 
   return (
     <div className="flex flex-wrap gap-1">
-      {active.map(key => {
+      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md border bg-surface text-ink border-line">
+        {m.filialMultiEmpresa ? 'Base Filial R$ 99,90' : 'Base R$ 149,90'}
+      </span>
+      {commercialKeys.map(key => {
         const badge = MODULE_BADGES[key] || { label: key, color: 'bg-support text-muted border-line' };
         return (
           <span key={key} className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${badge.color}`}>
@@ -217,7 +224,11 @@ export default function SysInitPage() {
   const [newTelefone, setNewTelefone] = useState("");
   const [newSyncLeadger, setNewSyncLeadger] = useState(true);
   const [seedProducts, setSeedProducts] = useState(true);
-  const [mensalidadeValor, setMensalidadeValor] = useState("0.00");
+  const [createModulos, setCreateModulos] = useState<Record<string, boolean>>(() => ({
+    ...DEFAULT_TENANT_MODULES,
+  }));
+  const [createAutoPrice, setCreateAutoPrice] = useState(true);
+  const [mensalidadeValor, setMensalidadeValor] = useState(BASE_PLAN_PRICE.toFixed(2));
   const [mensalidadeVencimento, setMensalidadeVencimento] = useState("");
   const [createLogoFile, setCreateLogoFile] = useState<File | null>(null);
   const [createLogoPreview, setCreateLogoPreview] = useState<string>("");
@@ -230,8 +241,80 @@ export default function SysInitPage() {
   const [editTab, setEditTab] = useState<"identidade" | "modulos" | "fiscal" | "financeiro" | "usuarios" | "xray">("identidade");
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [editLogoPreview, setEditLogoPreview] = useState<string>("");
-  const [modulos, setModulos] = useState<any>({});
+  const [modulos, setModulos] = useState<Record<string, boolean>>(() => ({
+    ...DEFAULT_TENANT_MODULES,
+  }));
+  const [autoSyncPrice, setAutoSyncPrice] = useState(true);
   const [editLoading, setEditLoading] = useState(false);
+
+  const applyModuleChangeRules = (
+    current: Record<string, boolean>,
+    key: string,
+    nextVal: boolean,
+  ): Record<string, boolean> => {
+    const updated: Record<string, boolean> = {
+      ...normalizeTenantModules(current),
+      [key]: nextVal,
+    };
+    if (key === "nfce") {
+      updated.importacaoXml = nextVal;
+    } else if (key === "importacaoXml") {
+      updated.nfce = nextVal;
+    }
+    if (key === "entregaLojaVirtual" && nextVal) {
+      updated.lojaVirtual = true;
+    }
+    if (key === "lojaVirtual" && !nextVal) {
+      updated.entregaLojaVirtual = false;
+    }
+    return updated;
+  };
+
+  const handleToggleCreateModule = (key: string) => {
+    setCreateModulos((prev) => {
+      const next = applyModuleChangeRules(prev, key, !prev[key]);
+      if (createAutoPrice) {
+        const calc = calculateTenantMonthlyPrice(next);
+        setMensalidadeValor(calc.totalPrice.toFixed(2));
+      }
+      return next;
+    });
+  };
+
+  const handleToggleEditModule = (key: string) => {
+    setModulos((prev) => {
+      const next = applyModuleChangeRules(prev, key, !prev[key]);
+      if (autoSyncPrice) {
+        const calc = calculateTenantMonthlyPrice(next);
+        setEditingTenant((curr: any) =>
+          curr ? { ...curr, mensalidadeValor: calc.totalPrice.toFixed(2) } : curr,
+        );
+      }
+      return next;
+    });
+  };
+
+  const handleApplyEditModulesPreset = (mode: "base" | "full") => {
+    setModulos((prev) => {
+      const next: Record<string, boolean> = {
+        ...DEFAULT_TENANT_MODULES,
+        filialMultiEmpresa: Boolean(prev.filialMultiEmpresa),
+      };
+      if (mode === "full") {
+        COMMERCIAL_MODULES.forEach((m) => {
+          next[m.id] = true;
+        });
+        next.importacaoXml = true;
+      }
+      if (autoSyncPrice) {
+        const calc = calculateTenantMonthlyPrice(next);
+        setEditingTenant((curr: any) =>
+          curr ? { ...curr, mensalidadeValor: calc.totalPrice.toFixed(2) } : curr,
+        );
+      }
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (!createLogoFile) {
@@ -592,6 +675,7 @@ export default function SysInitPage() {
     setFormLoading(true);
     try {
       const pin = pinDigits.join("");
+      const normalizedCreateModulos = normalizeTenantModules(createModulos);
       const { data } = await api.post("/tenants/setup", {
         pin, tenantName, dbName, adminName, adminEmail, adminPassword, seedProducts,
         cnpj: newCnpj || undefined,
@@ -599,7 +683,8 @@ export default function SysInitPage() {
         telefoneContato: newTelefone || undefined,
         syncWithLeadger: newSyncLeadger,
         syncLeadger: newSyncLeadger,
-        mensalidadeValor: Number(mensalidadeValor) || 0,
+        modulos: normalizedCreateModulos,
+        mensalidadeValor: Number(mensalidadeValor) || BASE_PLAN_PRICE,
         mensalidadeVencimento: mensalidadeVencimento ? parseDateLocal(mensalidadeVencimento).toISOString() : null,
       });
 
@@ -629,10 +714,7 @@ export default function SysInitPage() {
 
   const openEdit = async (tenant: any, initialTab: "identidade" | "modulos" | "fiscal" | "financeiro" | "usuarios" | "xray" = "identidade") => {
     setEditingTenant(tenant); setLogoFile(null);
-    let parsedModulos = { nfce: true, estoque: true, dashboardMobile: true };
-    try {
-      if (tenant.modulos) parsedModulos = typeof tenant.modulos === 'string' ? JSON.parse(tenant.modulos) : tenant.modulos;
-    } catch (e) { console.error("Erro ao fazer parse dos módulos:", e); }
+    const parsedModulos = normalizeTenantModules(tenant.modulos);
     setModulos(parsedModulos);
     setEditTab(initialTab);
     setPaymentHistory([]);
@@ -2139,10 +2221,110 @@ export default function SysInitPage() {
                   <div><label className="text-xs text-muted uppercase font-bold">Senha Inicial</label><input type="password" required value={adminPassword} onChange={e => setAdminPassword(e.target.value)} className="w-full p-2.5 bg-page border border-line rounded-xl mt-1 text-ink focus:border-brand outline-none" /></div>
                   <div><label className="text-xs text-muted uppercase font-bold">Confirmar Senha</label><input type="password" required value={adminPasswordConfirm} onChange={e => setAdminPasswordConfirm(e.target.value)} className="w-full p-2.5 bg-page border border-line rounded-xl mt-1 text-ink focus:border-brand outline-none" /></div>
                 </div>
+                {/* — PLANO E MÓDULOS NA CRIAÇÃO — */}
+                {(() => {
+                  const createPricing = calculateTenantMonthlyPrice(createModulos);
+                  return (
+                    <div className="bg-page border border-line rounded-2xl p-4 space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-2.5">
+                        <div>
+                          <p className="text-xs font-bold uppercase tracking-wider text-brand">Plano Padrão & Módulos Contratados</p>
+                          <p className="text-[11px] text-muted">
+                            Já inclui: Estoque, Compras & Financeiro, Gestão Mobile e Relatórios.
+                          </p>
+                        </div>
+                        <span className="text-xs font-black px-2.5 py-1 rounded-full bg-support text-brand border border-brand">
+                          Total: {formatBrlCurrency(createPricing.totalPrice)}/mês
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-surface border border-line">
+                        <div>
+                          <p className="text-xs font-bold text-ink">
+                            Filial Conectada Multi-Empresa (Desconto de {formatBrlCurrency(BRANCH_DISCOUNT_VALUE)})
+                          </p>
+                          <p className="text-[11px] text-muted">
+                            Reduz o Plano Padrão de {formatBrlCurrency(BASE_PLAN_PRICE)} para {formatBrlCurrency(BRANCH_PLAN_PRICE)}/mês nesta loja adicional.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleCreateModule("filialMultiEmpresa")}
+                          className={`transition-colors shrink-0 ${createModulos.filialMultiEmpresa ? "text-brand" : "text-muted"}`}
+                        >
+                          {createModulos.filialMultiEmpresa ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-2 max-h-56 overflow-y-auto pr-1 custom-scrollbar">
+                        {COMMERCIAL_MODULES.map((mod) => {
+                          const isChecked = Boolean(createModulos[mod.id]);
+                          return (
+                            <div
+                              key={mod.id}
+                              onClick={() => handleToggleCreateModule(mod.id)}
+                              className={`flex items-center justify-between gap-3 p-2.5 rounded-xl border cursor-pointer transition ${
+                                isChecked
+                                  ? "bg-support border-brand"
+                                  : "bg-surface border-line hover:border-brand"
+                              }`}
+                            >
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <span className="text-xs font-bold text-ink">{mod.label}</span>
+                                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-page text-brand border border-brand">
+                                    + {formatBrlCurrency(mod.price)}
+                                  </span>
+                                </div>
+                                <p className="text-[11px] text-muted truncate">{mod.description}</p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={(ev) => {
+                                  ev.stopPropagation();
+                                  handleToggleCreateModule(mod.id);
+                                }}
+                                className={`transition-colors shrink-0 ${isChecked ? "text-brand" : "text-muted"}`}
+                              >
+                                {isChecked ? <ToggleRight size={26} /> : <ToggleLeft size={26} />}
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs text-muted uppercase font-bold tracking-wider">Mensalidade (R$)</label>
-                    <input type="number" step="0.01" placeholder="0.00" value={mensalidadeValor} onChange={e => setMensalidadeValor(e.target.value)} className="w-full p-3 bg-page border border-line rounded-2xl mt-1 text-ink font-bold focus:border-brand outline-none" />
+                    <div className="flex items-center justify-between gap-1">
+                      <label className="text-xs text-muted uppercase font-bold tracking-wider">Mensalidade (R$)</label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const nextAuto = !createAutoPrice;
+                          setCreateAutoPrice(nextAuto);
+                          if (nextAuto) {
+                            setMensalidadeValor(calculateTenantMonthlyPrice(createModulos).totalPrice.toFixed(2));
+                          }
+                        }}
+                        className="text-[10px] font-bold text-brand hover:underline"
+                      >
+                        {createAutoPrice ? "Auto (pelos módulos)" : "Manual"}
+                      </button>
+                    </div>
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder="149.90"
+                      value={mensalidadeValor}
+                      onChange={e => {
+                        setCreateAutoPrice(false);
+                        setMensalidadeValor(e.target.value);
+                      }}
+                      className="w-full p-3 bg-page border border-line rounded-2xl mt-1 text-ink font-bold focus:border-brand outline-none"
+                    />
                   </div>
                   <div>
                     <label className="text-xs text-muted uppercase font-bold tracking-wider">1º Vencimento</label>
@@ -2366,34 +2548,179 @@ export default function SysInitPage() {
                 )}
 
                 {/* TAB: Módulos */}
-                {editTab === 'modulos' && (
-                  <div className="space-y-4">
-                    <p className="text-muted text-sm mb-4">Habilite ou desabilite os recursos (Feature Flags) para este cliente.</p>
-                    {[
-                      { id: 'nfce', title: 'NFC-e / Emissão Fiscal', desc: 'Permite a emissão de cupons fiscais eletrônicos (NFC-e).', badge: MODULE_BADGES.nfce },
-                      { id: 'importacaoXml', title: 'Entrada por XML (Upload Manual)', desc: 'Permite a importação manual de arquivos XML de NF-e.', badge: MODULE_BADGES.importacaoXml },
-                      { id: 'estoque', title: 'Estoque', desc: 'Módulo completo de controle de produtos e inventário.', badge: MODULE_BADGES.estoque },
-                      { id: 'dashboardMobile', title: 'Dashboard Mobile', desc: 'Acesso ao painel resumido em dispositivos móveis.', badge: MODULE_BADGES.dashboardMobile },
-                      { id: 'vitrineDigital', title: 'Vitrine Digital TV', desc: 'Exibe promoções e produtos em uma TV/tela secundária via URL pública.', badge: MODULE_BADGES.vitrineDigital },
-                      { id: 'lojaVirtual', title: 'Loja Virtual (Catálogo Público & WhatsApp)', desc: 'Catálogo online personalizável em /loja/:slug com carrinho, reserva de estoque, pedidos pelo WhatsApp e conversão em venda no PDV.', badge: MODULE_BADGES.lojaVirtual },
-                      { id: 'crediario', title: 'Crediário (Fiado) & Cobrança WhatsApp', desc: 'Contas de clientes com limite, venda a prazo no PDV e cobrança automática via WhatsApp (Baileys).', badge: MODULE_BADGES.crediario },
-                      { id: 'inteligenciaComercial', title: 'Inteligência Comercial & Ranking de Vendedores', desc: 'Pódio gamificado do time de vendas, índice de descontos, taxa de trocas por vendedor, metas/comissões e calendário diário de vendas.', badge: MODULE_BADGES.inteligenciaComercial },
-                    ].map(item => (
-                      <div key={item.id} className="flex items-center justify-between p-4 bg-page border border-line rounded-xl hover:border-brand transition">
-                        <div className="flex items-center gap-3">
-                          {item.badge && <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${item.badge.color}`}>{item.badge.label}</span>}
+                {editTab === 'modulos' && (() => {
+                  const pricing = calculateTenantMonthlyPrice(modulos);
+                  const currentSavedPrice = Number(editingTenant.mensalidadeValor || 0);
+                  const priceMatchesCalc = Math.abs(currentSavedPrice - pricing.totalPrice) < 0.05;
+
+                  return (
+                    <div className="space-y-5">
+                      {/* Card de Resumo do Plano Padrão e Calculadora Modular */}
+                      <div className="bg-page border border-brand rounded-2xl p-4 space-y-4">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
                           <div>
-                            <p className="font-semibold text-ink">{item.title}</p>
-                            <p className="text-xs text-muted">{item.desc}</p>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-black uppercase tracking-wider text-brand">
+                                Plano Padrão do Sistema
+                              </span>
+                              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-support text-brand border border-brand">
+                                {pricing.isBranch
+                                  ? `${formatBrlCurrency(BRANCH_PLAN_PRICE)}/mês (Filial)`
+                                  : `${formatBrlCurrency(BASE_PLAN_PRICE)}/mês`}
+                              </span>
+                            </div>
+                            <p className="text-xs text-muted mt-1">
+                              Inclusos nativamente: <strong>Frente de Caixa (PDV)</strong>, <strong>Estoque & Grades</strong>, <strong>Compras & Financeiro</strong>, <strong>Gestão Mobile</strong> e <strong>Relatórios</strong>.
+                            </p>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleApplyEditModulesPreset("base")}
+                              className="px-3 py-1.5 rounded-xl text-xs font-bold bg-surface hover:bg-support text-ink border border-line transition"
+                            >
+                              Apenas Plano Padrão
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleApplyEditModulesPreset("full")}
+                              className="px-3 py-1.5 rounded-xl text-xs font-bold bg-brand hover:bg-brand-hover text-on-brand transition"
+                            >
+                              Ativar Todos os 9 Módulos
+                            </button>
                           </div>
                         </div>
-                        <button onClick={() => setModulos({...modulos, [item.id]: !modulos[item.id]})} className={`transition-colors ${modulos[item.id] ? 'text-brand' : 'text-muted'}`}>
-                          {modulos[item.id] ? <ToggleRight size={36} /> : <ToggleLeft size={36} />}
-                        </button>
+
+                        {/* Chave de Desconto de Filial Multi-Empresa */}
+                        <div className="flex items-center justify-between gap-4 p-3 rounded-xl bg-surface border border-line">
+                          <div>
+                            <p className="text-sm font-bold text-ink">
+                              Loja Adicional / Filial Conectada Multi-Empresa (Desconto de {formatBrlCurrency(BRANCH_DISCOUNT_VALUE)})
+                            </p>
+                            <p className="text-xs text-muted">
+                              Para lojistas com 2, 3, 4 ou mais lojas conectadas ao Grupo: reduz a base desta unidade de {formatBrlCurrency(BASE_PLAN_PRICE)} para {formatBrlCurrency(BRANCH_PLAN_PRICE)}/mês.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleEditModule("filialMultiEmpresa")}
+                            className={`transition-colors shrink-0 ${modulos.filialMultiEmpresa ? "text-brand" : "text-muted"}`}
+                          >
+                            {modulos.filialMultiEmpresa ? <ToggleRight size={34} /> : <ToggleLeft size={34} />}
+                          </button>
+                        </div>
+
+                        {/* Barra de Cálculo da Mensalidade */}
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-1">
+                          <div className="bg-surface border border-line rounded-xl p-3">
+                            <p className="text-[10px] font-bold uppercase text-muted">Base da Loja</p>
+                            <p className="text-base font-black text-ink mt-0.5">{formatBrlCurrency(pricing.basePrice)}</p>
+                            <p className="text-[10px] text-muted">{pricing.isBranch ? "Filial c/ desconto" : "Loja Padrão / Matriz"}</p>
+                          </div>
+                          <div className="bg-surface border border-line rounded-xl p-3">
+                            <p className="text-[10px] font-bold uppercase text-muted">Módulos Ativos ({pricing.activeAddons.length}/9)</p>
+                            <p className="text-base font-black text-brand mt-0.5">+ {formatBrlCurrency(pricing.addonsTotal)}</p>
+                            <p className="text-[10px] text-muted">Soma dos add-ons</p>
+                          </div>
+                          <div className="bg-support border border-brand rounded-xl p-3">
+                            <p className="text-[10px] font-bold uppercase text-brand">Total Calculado</p>
+                            <p className="text-lg font-black text-brand mt-0.5">{formatBrlCurrency(pricing.totalPrice)}</p>
+                            <p className="text-[10px] text-muted">Por mês</p>
+                          </div>
+                          <div className="bg-surface border border-line rounded-xl p-3 flex flex-col justify-between">
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="text-[10px] font-bold uppercase text-muted">Mensalidade Salva</span>
+                              <button
+                                type="button"
+                                onClick={() => setAutoSyncPrice(!autoSyncPrice)}
+                                className="text-[10px] font-bold text-brand hover:underline"
+                              >
+                                {autoSyncPrice ? "Auto: ON" : "Auto: OFF"}
+                              </button>
+                            </div>
+                            <p className="text-base font-black text-ink mt-0.5">
+                              {formatBrlCurrency(currentSavedPrice)}
+                            </p>
+                            {!priceMatchesCalc ? (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setEditingTenant({
+                                    ...editingTenant,
+                                    mensalidadeValor: pricing.totalPrice.toFixed(2),
+                                  })
+                                }
+                                className="mt-1 w-full py-1 px-2 rounded-lg bg-brand text-on-brand text-[10px] font-bold hover:bg-brand-hover transition"
+                              >
+                                Aplicar {formatBrlCurrency(pricing.totalPrice)}
+                              </button>
+                            ) : (
+                              <span className="text-[10px] font-bold text-brand">Sincronizada com módulos</span>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    ))}
-                  </div>
-                )}
+
+                      {/* Lista dos 9 Módulos de Venda */}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-bold uppercase tracking-wider text-muted">
+                            Módulos Adicionais de Venda (9 Módulos)
+                          </p>
+                          <p className="text-xs text-muted">
+                            Clique para ativar ou desativar no pacote desta loja
+                          </p>
+                        </div>
+
+                        {COMMERCIAL_MODULES.map((item) => {
+                          const isEnabled = Boolean(modulos[item.id]);
+                          const badge = MODULE_BADGES[item.id];
+                          return (
+                            <div
+                              key={item.id}
+                              onClick={() => handleToggleEditModule(item.id)}
+                              className={`flex items-center justify-between gap-4 p-4 border rounded-xl cursor-pointer transition ${
+                                isEnabled
+                                  ? "bg-support border-brand"
+                                  : "bg-page border-line hover:border-brand"
+                              }`}
+                            >
+                              <div className="flex items-start gap-3 min-w-0">
+                                {badge && (
+                                  <span
+                                    className={`text-[10px] font-bold px-2 py-1 rounded-md border shrink-0 mt-0.5 ${badge.color}`}
+                                  >
+                                    {badge.label}
+                                  </span>
+                                )}
+                                <div className="min-w-0">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <p className="font-bold text-ink text-sm">{item.title}</p>
+                                    <span className="text-xs font-black px-2 py-0.5 rounded-full bg-page text-brand border border-brand">
+                                      + {formatBrlCurrency(item.price)}/mês
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-muted mt-1">{item.description}</p>
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={(ev) => {
+                                  ev.stopPropagation();
+                                  handleToggleEditModule(item.id);
+                                }}
+                                className={`transition-colors shrink-0 ${isEnabled ? "text-brand" : "text-muted"}`}
+                              >
+                                {isEnabled ? <ToggleRight size={36} /> : <ToggleLeft size={36} />}
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* TAB: Fiscal */}
                 {editTab === 'fiscal' && (
@@ -2860,6 +3187,11 @@ export default function SysInitPage() {
               <div className="p-6 border-b border-line flex justify-between items-center bg-page">
                 <h2 className="text-xl font-bold flex items-center gap-2 text-brand">Gerenciar Grupo: {selectedGroup.name}</h2>
                 <button onClick={() => { setSelectedGroup(null); loadGroups(); }} className="p-1.5 hover:bg-surface rounded-lg text-muted hover:text-ink transition"><X size={20} /></button>
+              </div>
+              <div className="px-6 pt-5">
+                <div className="bg-support border border-brand/25 rounded-2xl p-4 text-xs text-ink">
+                  <strong className="text-brand">Login único ativo:</strong> Ao vincular uma loja (Tenant) como membro deste grupo, o próprio login <strong>admin</strong> de cada loja passa a exibir automaticamente o módulo <strong>Rede Multi-Lojas</strong> e o seletor rápido de unidades no topo do sistema (sem precisar criar um usuário separado).
+                </div>
               </div>
               <div className="p-6 overflow-y-auto flex-1 grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-4">

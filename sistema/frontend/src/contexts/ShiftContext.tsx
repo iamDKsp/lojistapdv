@@ -141,21 +141,6 @@ export function ShiftProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  useEffect(() => {
-    if (!currentTenant) {
-      setOperators([]);
-      return;
-    }
-    void refreshOperators();
-    const onOperatorsUpdated = () => {
-      void refreshOperators();
-    };
-    window.addEventListener('operators-updated', onOperatorsUpdated);
-    return () => {
-      window.removeEventListener('operators-updated', onOperatorsUpdated);
-    };
-  }, [currentTenant, refreshOperators]);
-
   // ─── performRegisterQuery: Pipeline Único de Consulta de Caixa ──────────────
   const performRegisterQuery = useCallback(async (targetOpId: string) => {
     if (!targetOpId) return;
@@ -373,6 +358,28 @@ export function ShiftProvider({ children }: { children: ReactNode }) {
       setOperatorState(newOp);
     }
   }, []);
+
+  const prevTenantRef = useRef<string>(currentTenant);
+
+  useEffect(() => {
+    if (prevTenantRef.current && prevTenantRef.current !== currentTenant) {
+      setOperator(null);
+    }
+    prevTenantRef.current = currentTenant;
+
+    if (!currentTenant) {
+      setOperators([]);
+      return;
+    }
+    void refreshOperators();
+    const onOperatorsUpdated = () => {
+      void refreshOperators();
+    };
+    window.addEventListener('operators-updated', onOperatorsUpdated);
+    return () => {
+      window.removeEventListener('operators-updated', onOperatorsUpdated);
+    };
+  }, [currentTenant, refreshOperators, setOperator]);
 
   // ─── Troca Rápida 1-Clique pelo Avatar no Topo ─────────────────────────────
   const quickSwitchOperator = useCallback(async (targetOp: Operator): Promise<boolean> => {

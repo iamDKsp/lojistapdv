@@ -101,11 +101,16 @@ export class TenantsService {
         tvPublicId: 'DEMOLOJA',
         modulos: {
           nfce: true,
+          importacaoXml: true,
           estoque: true,
           crediario: true,
           vitrineDigital: true,
           lojaVirtual: true,
+          entregaLojaVirtual: true,
+          fornecedores: true,
+          vendedores: true,
           inteligenciaComercial: true,
+          multiEmpresa: true,
           dashboardMobile: true,
           comandas: false,
           kds: false,
@@ -131,6 +136,47 @@ export class TenantsService {
     const { certPfx, certSenha, databaseUrl, ...safeTenant } = tenant as any;
     const modules = typeof safeTenant.modulos === 'string' ? JSON.parse(safeTenant.modulos) : (safeTenant.modulos || {});
     safeTenant.modulos = { lojaVirtual: false, ...modules, comandas: false, kds: false, restaurante: false, carvoaria: false };
+
+    if (this.heartPrisma?.tenantGroupMember?.findFirst) {
+      const membership = await this.heartPrisma.tenantGroupMember
+        .findFirst({
+          where: { tenantId },
+          include: {
+            group: {
+              include: {
+                members: {
+                  include: {
+                    tenant: {
+                      select: {
+                        id: true,
+                        name: true,
+                        nomeFantasia: true,
+                        razaoSocial: true,
+                        logoUrl: true,
+                        status: true,
+                      },
+                    },
+                  },
+                  orderBy: { id: 'asc' },
+                },
+              },
+            },
+          },
+        })
+        .catch(() => null);
+
+      if (membership?.group) {
+        safeTenant.groupId = membership.group.id;
+        safeTenant.groupName = membership.group.name;
+        safeTenant.groupMembers = membership.group.members.map((m: any) => ({
+          tenantId: m.tenantId,
+          alias: m.alias || m.tenant?.nomeFantasia || m.tenant?.name || 'Loja',
+          name: m.tenant?.nomeFantasia || m.tenant?.name || 'Loja',
+          logoUrl: m.tenant?.logoUrl ?? null,
+          status: m.tenant?.status ?? 'active',
+        }));
+      }
+    }
 
     try {
       const tenantPrisma = await this.tenantManager.getTenantClient(tenantId, tenant.databaseUrl);
@@ -336,12 +382,31 @@ export class TenantsService {
       throw new NotFoundException('Usuário solicitado não encontrado nesta empresa.');
     }
 
+    let effectiveGroupId: string | null = targetUser.groupId ?? null;
+    if (
+      !effectiveGroupId &&
+      ['admin', 'superadmin', 'group_owner'].includes(targetUser.role) &&
+      this.heartPrisma?.tenantGroupMember?.findFirst
+    ) {
+      const membership = await this.heartPrisma.tenantGroupMember
+        .findFirst({
+          where: { tenantId: tenant.id },
+          select: { groupId: true },
+        })
+        .catch(() => null);
+      if (membership?.groupId) {
+        effectiveGroupId = membership.groupId;
+      }
+    }
+
+    const effectiveRole = targetUser.role === 'group_owner' ? 'admin' : targetUser.role;
+
     const payload = {
       sub: targetUser.id,
       email: targetUser.email,
       tenantId: tenant.id,
-      role: targetUser.role,
-      groupId: targetUser.groupId ?? null,
+      role: effectiveRole,
+      groupId: effectiveGroupId,
       impersonatedBy: 'sys-init',
     };
 
@@ -353,8 +418,8 @@ export class TenantsService {
         id: targetUser.id,
         name: targetUser.name,
         email: targetUser.email,
-        role: targetUser.role,
-        groupId: targetUser.groupId ?? null,
+        role: effectiveRole,
+        groupId: effectiveGroupId,
         tenant: tenant.id,
         tenantName: tenant.nomeFantasia || tenant.name,
         logoUrl: tenant.logoUrl ?? null,
@@ -744,6 +809,27 @@ export class TenantsService {
 
     const hashedPassword = await bcrypt.hash(adminPassword, 10);
     const cleanCnpj = cnpj ? String(cnpj).replace(/\D/g, '') || null : null;
+    const rawModulos = dto.modulos && typeof dto.modulos === 'object' ? dto.modulos : {};
+    const sanitizedModulos = {
+      estoque: true,
+      dashboardMobile: true,
+      nfce: false,
+      importacaoXml: false,
+      lojaVirtual: false,
+      entregaLojaVirtual: false,
+      crediario: false,
+      fornecedores: false,
+      vendedores: false,
+      inteligenciaComercial: false,
+      vitrineDigital: false,
+      multiEmpresa: false,
+      filialMultiEmpresa: false,
+      ...rawModulos,
+      comandas: false,
+      kds: false,
+      restaurante: false,
+      carvoaria: false,
+    };
 
     const tenant = await this.heartPrisma.tenant.create({
       data: {
@@ -757,7 +843,8 @@ export class TenantsService {
         telefone: resolvedTelefone,
         telefoneContato: resolvedTelefone,
         emailContato: emailContato || adminEmail || null,
-        mensalidadeValor: mensalidadeValor != null ? Number(mensalidadeValor) : 0,
+        modulos: sanitizedModulos,
+        mensalidadeValor: mensalidadeValor != null ? Number(mensalidadeValor) : 149.9,
         mensalidadeVencimento: mensalidadeVencimento ? new Date(mensalidadeVencimento) : null,
         leadgerSyncEnabled: resolvedSyncLeadger,
         users: {
@@ -1795,7 +1882,11 @@ export class TenantsService {
         vitrineDigital: true,
         digitalSignage: true,
         lojaVirtual: true,
+        entregaLojaVirtual: true,
+        fornecedores: true,
+        vendedores: true,
         inteligenciaComercial: true,
+        multiEmpresa: true,
         comandas: false,
         kds: false,
         restaurante: false,

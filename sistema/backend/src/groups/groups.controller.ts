@@ -179,7 +179,22 @@ export class GroupsController {
     return this.groupsService.deleteGroupUser(id, userId);
   }
 
-  // ── JWT-protected endpoints (group_owner login) ──────────────────────────
+  // ── JWT-protected endpoints (admin da loja ou group_owner) ───────────────
+
+  @UseGuards(JwtAuthGuard)
+  @Get('my/context')
+  async myContext(@Request() req: any) {
+    return this.groupsService.getMyGroupContext(req.user);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('my/switch-tenant')
+  async switchTenant(
+    @Request() req: any,
+    @Body() body: { tenantId: string },
+  ) {
+    return this.groupsService.switchTenant(req.user, body?.tenantId);
+  }
 
   @UseGuards(JwtAuthGuard)
   @Get('my/dashboard')
@@ -188,15 +203,15 @@ export class GroupsController {
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
   ) {
-    if (!req.user.groupId) throw new UnauthorizedException('Usuário não pertence a nenhum grupo');
-    return this.groupsService.getDashboard(req.user.groupId, startDate, endDate);
+    const groupId = await this.groupsService.resolveUserGroupId(req.user);
+    return this.groupsService.getDashboard(groupId, startDate, endDate);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('my/stock')
   async myStock(@Request() req: any) {
-    if (!req.user.groupId) throw new UnauthorizedException('Usuário não pertence a nenhum grupo');
-    return this.groupsService.getConsolidatedStock(req.user.groupId);
+    const groupId = await this.groupsService.resolveUserGroupId(req.user);
+    return this.groupsService.getConsolidatedStock(groupId);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -205,8 +220,8 @@ export class GroupsController {
     @Request() req: any,
     @Body() body: { tenantId: string; productId: string; quantity: number; costPrice?: number },
   ) {
-    if (!req.user.groupId) throw new UnauthorizedException('Usuário não pertence a nenhum grupo');
-    return this.groupsService.stockEntry(req.user.groupId, body);
+    const groupId = await this.groupsService.resolveUserGroupId(req.user);
+    return this.groupsService.stockEntry(groupId, body);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -215,15 +230,15 @@ export class GroupsController {
     @Request() req: any,
     @Body() body: { fromTenantId: string; toTenantId: string; productId: string; quantity: number },
   ) {
-    if (!req.user.groupId) throw new UnauthorizedException('Usuário não pertence a nenhum grupo');
-    return this.groupsService.stockTransfer(req.user.groupId, body);
+    const groupId = await this.groupsService.resolveUserGroupId(req.user);
+    return this.groupsService.stockTransfer(groupId, body);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('my/products')
   async myProducts(@Request() req: any) {
-    if (!req.user.groupId) throw new UnauthorizedException('Usuário não pertence a nenhum grupo');
-    return this.groupsService.getGroupProducts(req.user.groupId);
+    const groupId = await this.groupsService.resolveUserGroupId(req.user);
+    return this.groupsService.getGroupProducts(groupId);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -232,8 +247,8 @@ export class GroupsController {
     @Request() req: any,
     @Body() body: { name: string; priceSell: number; priceCost: number; unit: string; categoryName: string },
   ) {
-    if (!req.user.groupId) throw new UnauthorizedException('Usuário não pertence a nenhum grupo');
-    return this.groupsService.createProductAllTenants(req.user.groupId, body);
+    const groupId = await this.groupsService.resolveUserGroupId(req.user);
+    return this.groupsService.createProductAllTenants(groupId, body);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -242,8 +257,8 @@ export class GroupsController {
     @Request() req: any,
     @Body() body: { productName: string; priceSell: number },
   ) {
-    if (!req.user.groupId) throw new UnauthorizedException('Usuário não pertence a nenhum grupo');
-    return this.groupsService.updatePriceAllTenants(req.user.groupId, body);
+    const groupId = await this.groupsService.resolveUserGroupId(req.user);
+    return this.groupsService.updatePriceAllTenants(groupId, body);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -252,9 +267,9 @@ export class GroupsController {
     @Request() req: any,
     @Query('daysToForecast') daysToForecast?: string,
   ) {
-    if (!req.user.groupId) throw new UnauthorizedException('Usuário não pertence a nenhum grupo');
+    const groupId = await this.groupsService.resolveUserGroupId(req.user);
     const days = daysToForecast ? parseInt(daysToForecast, 10) : 15;
-    return this.groupsService.getPurchaseForecast(req.user.groupId, days);
+    return this.groupsService.getPurchaseForecast(groupId, days);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -263,8 +278,8 @@ export class GroupsController {
     @Request() req: any,
     @Param('tenantId') tenantId: string,
   ) {
-    if (!req.user.groupId) throw new UnauthorizedException('Usuário não pertence a nenhum grupo');
-    return this.groupsService.getTenantDetail(req.user.groupId, tenantId);
+    const groupId = await this.groupsService.resolveUserGroupId(req.user);
+    return this.groupsService.getTenantDetail(groupId, tenantId);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -273,15 +288,15 @@ export class GroupsController {
     @Request() req: any,
     @Body() body: { tenantId: string; productId: string; newStock: number },
   ) {
-    if (!req.user.groupId) throw new UnauthorizedException('Usuário não pertence a nenhum grupo');
-    return this.groupsService.stockAdjust(req.user.groupId, body);
+    const groupId = await this.groupsService.resolveUserGroupId(req.user);
+    return this.groupsService.stockAdjust(groupId, body);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('my/products-catalog')
   async myProductsCatalog(@Request() req: any) {
-    if (!req.user.groupId) throw new UnauthorizedException('Usuário não pertence a nenhum grupo');
-    return this.groupsService.getProductsCatalog(req.user.groupId);
+    const groupId = await this.groupsService.resolveUserGroupId(req.user);
+    return this.groupsService.getProductsCatalog(groupId);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -290,8 +305,8 @@ export class GroupsController {
     @Request() req: any,
     @Body() body: { productName: string; updates: { tenantId: string; priceSell: number; priceCost?: number }[] },
   ) {
-    if (!req.user.groupId) throw new UnauthorizedException('Usuário não pertence a nenhum grupo');
-    return this.groupsService.updatePricePerTenant(req.user.groupId, body);
+    const groupId = await this.groupsService.resolveUserGroupId(req.user);
+    return this.groupsService.updatePricePerTenant(groupId, body);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -300,15 +315,15 @@ export class GroupsController {
     @Request() req: any,
     @Body() body: any,
   ) {
-    if (!req.user.groupId) throw new UnauthorizedException('Usuário não pertence a nenhum grupo');
-    return this.groupsService.createProductInTenants(req.user.groupId, body);
+    const groupId = await this.groupsService.resolveUserGroupId(req.user);
+    return this.groupsService.createProductInTenants(groupId, body);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('my/products/sync-status')
   async mySyncStatus(@Request() req: any) {
-    if (!req.user.groupId) throw new UnauthorizedException('Usuário não pertence a nenhum grupo');
-    return this.groupsService.getSyncStatus(req.user.groupId);
+    const groupId = await this.groupsService.resolveUserGroupId(req.user);
+    return this.groupsService.getSyncStatus(groupId);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -317,7 +332,7 @@ export class GroupsController {
     @Request() req: any,
     @Body() body: { products: { name: string; targetTenantIds: string[] }[] },
   ) {
-    if (!req.user.groupId) throw new UnauthorizedException('Usuário não pertence a nenhum grupo');
-    return this.groupsService.syncProductsToTenants(req.user.groupId, body);
+    const groupId = await this.groupsService.resolveUserGroupId(req.user);
+    return this.groupsService.syncProductsToTenants(groupId, body);
   }
 }

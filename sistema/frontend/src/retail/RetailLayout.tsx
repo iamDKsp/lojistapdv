@@ -35,15 +35,30 @@ import {
   Tv2,
   ShoppingBag,
   Trophy,
+  Building2,
+  Store,
+  Check,
+  Loader2,
+  ArrowLeftRight,
 } from "lucide-react";
+import { toast } from "sonner";
 import { useAuthStore } from "@/store/auth";
 import { useShift } from "@/contexts/ShiftContext";
 import { api } from "@/lib/api";
 import { getFullUrl } from "@/lib/getFullUrl";
+import { SESSION_TRANSITION_EVENT } from "@/components/ui";
 import {
   getCanonicalModuleId,
   shouldIgnoreArrowNavigation,
 } from "@/lib/routes";
+
+export interface GroupMemberStore {
+  tenantId: string;
+  alias: string;
+  name: string;
+  logoUrl: string | null;
+  status: string;
+}
 
 interface RetailShellContextValue {
   config: any;
@@ -52,6 +67,11 @@ interface RetailShellContextValue {
   showSidebar: boolean;
   cashierOnlyMode: boolean;
   setCashierOnlyMode: (val: boolean | ((prev: boolean) => boolean)) => void;
+  hasMultiStoreGroup: boolean;
+  groupName: string | null;
+  groupMembers: GroupMemberStore[];
+  switchingStoreId: string | null;
+  switchStore: (targetTenantId: string, navigateTo?: string) => Promise<void>;
 }
 
 const RetailShellContext = createContext<RetailShellContextValue>({
@@ -61,6 +81,11 @@ const RetailShellContext = createContext<RetailShellContextValue>({
   showSidebar: false,
   cashierOnlyMode: false,
   setCashierOnlyMode: () => {},
+  hasMultiStoreGroup: false,
+  groupName: null,
+  groupMembers: [],
+  switchingStoreId: null,
+  switchStore: async () => {},
 });
 
 export function useRetailShell() {
@@ -243,7 +268,7 @@ export function RetailOperatorAvatar({
 }
 
 export function RetailLayout() {
-  const { user, logout, setTenantLogo } = useAuthStore();
+  const { user, logout, setTenantLogo, setGroupId, switchTenantSession } = useAuthStore();
   const shift = useShift();
   const location = useLocation();
   const navigate = useNavigate();
@@ -251,6 +276,8 @@ export function RetailLayout() {
   const [logoLoadError, setLogoLoadError] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [storeSwitcherOpen, setStoreSwitcherOpen] = useState(false);
+  const [switchingStoreId, setSwitchingStoreId] = useState<string | null>(null);
   const [cashierOnlyMode, setCashierOnlyMode] = useState(false);
   const [mobileNavHidden, setMobileNavHidden] = useState(false);
   const canvasRef = useRef<HTMLElement | null>(null);
@@ -267,10 +294,13 @@ export function RetailLayout() {
         if (res.data?.logoUrl !== undefined) {
           setTenantLogo(res.data.logoUrl ?? null);
         }
+        if (res.data?.groupId !== undefined) {
+          setGroupId(res.data.groupId ?? null);
+        }
       })
       .catch(() => {});
     return () => controller.abort();
-  }, [user?.tenant, setTenantLogo]);
+  }, [user?.tenant, setTenantLogo, setGroupId]);
 
   const tenantLogoUrl = useMemo(() => {
     const raw = config?.logoUrl || user?.logoUrl || null;
@@ -284,6 +314,7 @@ export function RetailLayout() {
   useEffect(() => {
     setMenuOpen(false);
     setProfileMenuOpen(false);
+    setStoreSwitcherOpen(false);
     setMobileNavHidden(false);
     if (canvasRef.current) {
       canvasRef.current.scrollTop = 0;
@@ -297,16 +328,20 @@ export function RetailLayout() {
   }, [menuOpen]);
 
   useEffect(() => {
-    if (!profileMenuOpen) return;
+    if (!profileMenuOpen && !storeSwitcherOpen) return;
     const handleOutsidePointerDown = (event: MouseEvent | TouchEvent) => {
       const target = event.target as HTMLElement | null;
       if (target && !target.closest(".retail-profile-dropdown-wrap")) {
         setProfileMenuOpen(false);
       }
+      if (target && !target.closest(".retail-store-switcher-wrap")) {
+        setStoreSwitcherOpen(false);
+      }
     };
     const handleEsc = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setProfileMenuOpen(false);
+        setStoreSwitcherOpen(false);
       }
     };
     document.addEventListener("mousedown", handleOutsidePointerDown);
@@ -319,7 +354,7 @@ export function RetailLayout() {
       document.removeEventListener("touchstart", handleOutsidePointerDown);
       window.removeEventListener("keydown", handleEsc);
     };
-  }, [profileMenuOpen]);
+  }, [profileMenuOpen, storeSwitcherOpen]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -418,8 +453,66 @@ export function RetailLayout() {
   };
 
   const role = user?.role || "";
-  const isAdmin = role === "admin" || role === "superadmin";
+  const isAdmin =
+    role === "admin" || role === "superadmin" || role === "group_owner";
   const isStockist = role === "stockist";
+
+  const groupName: string | null = config?.groupName || null;
+  const groupMembers: GroupMemberStore[] = useMemo(() => {
+    return Array.isArray(config?.groupMembers) ? config.groupMembers : [];
+  }, [config?.groupMembers]);
+
+  const switchStore = useMemo(
+    () => async (targetTenantId: string, navigateTo?: string) => {
+      if (!targetTenantId || switchingStoreId) return;
+      if (targetTenantId === user?.tenant) {
+        setStoreSwitcherOpen(false);
+        setProfileMenuOpen(false);
+        if (navigateTo) navigate(navigateTo);
+        return;
+      }
+      setSwitchingStoreId(targetTenantId);
+      try {
+        const res = await api.post("/groups/my/switch-tenant", {
+          tenantId: targetTenantId,
+        });
+        if (res.data?.access_token && res.data?.user) {
+          switchTenantSession(res.data.access_token, res.data.user);
+          window.dispatchEvent(
+            new CustomEvent(SESSION_TRANSITION_EVENT, {
+              detail: {
+                label: `Alternando para ${res.data.user.tenantName || "loja"}…`,
+              },
+            }),
+          );
+          setStoreSwitcherOpen(false);
+          setProfileMenuOpen(false);
+          if (navigateTo) {
+            navigate(navigateTo);
+          } else if (location.pathname.startsWith("/grupo-portal")) {
+            navigate("/inicio");
+          }
+          toast.success(
+            `Conectado à loja ${res.data.user.tenantName || "selecionada"}`,
+          );
+        }
+      } catch (err: any) {
+        toast.error(
+          err?.response?.data?.message ||
+            "Não foi possível alternar para a loja selecionada.",
+        );
+      } finally {
+        setSwitchingStoreId(null);
+      }
+    },
+    [
+      switchingStoreId,
+      user?.tenant,
+      switchTenantSession,
+      navigate,
+      location.pathname,
+    ],
+  );
 
   // Regra solicitada: Só tem menu lateral quando for ADM (ou estoquista no módulo de estoque).
   // Quando for caixa (role === 'operator' ou modo caixa ativo), não tem menu lateral, apenas o Ponto de Venda.
@@ -435,6 +528,10 @@ export function RetailLayout() {
     }
   })();
 
+  const hasMultiStoreGroup = Boolean(
+    isAdmin && (config?.groupId || user?.groupId || modules.multiEmpresa),
+  );
+
   function moduleAllowed(path: string) {
     if (path.includes("entrada-xml") || path.includes("purchases/imports"))
       return modules.nfce !== false || modules.importacaoXml === true;
@@ -446,6 +543,10 @@ export function RetailLayout() {
       return modules.nfce !== false;
     if (path.includes("/estoque/contagem") || path.includes("stock-count"))
       return modules.estoque !== false;
+    if (path.includes("/financeiro/fornecedores"))
+      return modules.fornecedores !== false;
+    if (path.includes("/equipe"))
+      return modules.vendedores !== false;
     if (path.includes("/crediario")) return Boolean(modules.crediario);
     if (path.includes("/vitrine"))
       return Boolean(modules.vitrineDigital || modules.digitalSignage);
@@ -499,6 +600,17 @@ export function RetailLayout() {
             iconKind: "home",
             active: pathname === "/inicio",
           },
+          ...(hasMultiStoreGroup
+            ? [
+                {
+                  name: "Rede Multi-Lojas",
+                  path: "/grupo-portal/visao-geral",
+                  icon: Building2,
+                  iconKind: "overview",
+                  active: pathname.startsWith("/grupo-portal"),
+                },
+              ]
+            : []),
           {
             name: "Frente de caixa",
             path: "/",
@@ -532,13 +644,17 @@ export function RetailLayout() {
               pathname.startsWith("/inicio/operacoes") ||
               pathname.startsWith("/inicio/relatorios"),
           },
-          {
-            name: "Equipe",
-            path: "/equipe",
-            icon: UserPlus,
-            iconKind: "team",
-            active: pathname.startsWith("/equipe"),
-          },
+          ...(moduleAllowed("/equipe")
+            ? [
+                {
+                  name: "Equipe",
+                  path: "/equipe",
+                  icon: UserPlus,
+                  iconKind: "team",
+                  active: pathname.startsWith("/equipe"),
+                },
+              ]
+            : []),
           ...(moduleAllowed("/inteligencia-comercial")
             ? [
                 {
@@ -646,7 +762,9 @@ export function RetailLayout() {
       return [
         { label: "Contas a pagar", path: "/financeiro/contas-a-pagar" },
         { label: "Pedidos de compra", path: "/financeiro/pedidos-de-compra" },
-        { label: "Fornecedores", path: "/financeiro/fornecedores" },
+        ...(moduleAllowed("/financeiro/fornecedores")
+          ? [{ label: "Fornecedores", path: "/financeiro/fornecedores" }]
+          : []),
       ];
     }
     if (pathname.startsWith("/inicio")) {
@@ -717,6 +835,15 @@ export function RetailLayout() {
         { label: "Configurações", path: "/loja-virtual/configuracoes" },
       ];
     }
+    if (pathname.startsWith("/grupo-portal")) {
+      return [
+        { label: "Visão geral da rede", path: "/grupo-portal/visao-geral" },
+        { label: "Estoque das lojas", path: "/grupo-portal/estoque" },
+        { label: "Catálogo e preços", path: "/grupo-portal/produtos" },
+        { label: "Transferências", path: "/grupo-portal/transferencias" },
+        { label: "Previsão de compras", path: "/grupo-portal/previsao" },
+      ];
+    }
     return [];
   }, [
     isPosRoute,
@@ -732,6 +859,10 @@ export function RetailLayout() {
   ]);
 
   const sectionHeading = useMemo(() => {
+    if (pathname.startsWith("/grupo-portal"))
+      return groupName
+        ? `Rede Multi-Lojas · ${groupName}`
+        : "Rede Multi-Lojas";
     if (pathname.startsWith("/estoque")) return "Catálogo e Estoque";
     if (pathname.startsWith("/financeiro")) return "Compras e Financeiro";
     if (pathname.startsWith("/inicio/historico-de-caixas"))
@@ -749,10 +880,11 @@ export function RetailLayout() {
     if (pathname.startsWith("/configuracoes/nfce")) return "Gestão Fiscal";
     if (pathname.startsWith("/configuracoes")) return "Configurações da Loja";
     return config?.nomeFantasia || config?.razaoSocial || "Painel da Loja";
-  }, [pathname, config?.nomeFantasia, config?.razaoSocial]);
+  }, [pathname, config?.nomeFantasia, config?.razaoSocial, groupName]);
 
   const moduleKind = useMemo(() => {
     if (pathname === "/") return "pos";
+    if (pathname.startsWith("/grupo-portal")) return "overview";
     if (pathname.startsWith("/estoque")) return "inventory";
     if (pathname.startsWith("/crediario")) return "finance";
     if (pathname.startsWith("/vitrine")) return "vitrine";
@@ -976,8 +1108,24 @@ export function RetailLayout() {
       showSidebar,
       cashierOnlyMode,
       setCashierOnlyMode,
+      hasMultiStoreGroup,
+      groupName,
+      groupMembers,
+      switchingStoreId,
+      switchStore,
     }),
-    [config, isAdmin, isStockist, showSidebar, cashierOnlyMode],
+    [
+      config,
+      isAdmin,
+      isStockist,
+      showSidebar,
+      cashierOnlyMode,
+      hasMultiStoreGroup,
+      groupName,
+      groupMembers,
+      switchingStoreId,
+      switchStore,
+    ],
   );
 
   return (
@@ -1183,6 +1331,138 @@ export function RetailLayout() {
                     />
                   )}
 
+                  {hasMultiStoreGroup && (
+                    <div
+                      className="retail-store-switcher-wrap"
+                      style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: "0.375rem" }}
+                    >
+                      {pathname.startsWith("/grupo-portal") ? (
+                        <Link
+                          to="/inicio"
+                          className="retail-new-access-btn"
+                          data-tooltip="Voltar para o painel da loja atual"
+                          style={{
+                            background: "var(--pdv-support)",
+                            color: "var(--pdv-primary)",
+                            border: "1px solid var(--pdv-border)",
+                          }}
+                        >
+                          <Store size={15} />
+                          <span>Painel da Loja</span>
+                        </Link>
+                      ) : (
+                        <Link
+                          to="/grupo-portal/visao-geral"
+                          className="retail-new-access-btn"
+                          data-tooltip="Abrir Painel Consolidado Rede Multi-Lojas"
+                          style={{
+                            background: "var(--pdv-support)",
+                            color: "var(--pdv-primary)",
+                            border: "1px solid var(--pdv-border)",
+                          }}
+                        >
+                          <Building2 size={15} />
+                          <span>Multi-Lojas</span>
+                        </Link>
+                      )}
+
+                      {groupMembers.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => setStoreSwitcherOpen((v) => !v)}
+                          aria-label="Alternar entre lojas da rede"
+                          aria-expanded={storeSwitcherOpen}
+                          data-tooltip="Trocar de loja da rede (1 clique)"
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "0.35rem",
+                            height: "36px",
+                            padding: "0 0.7rem",
+                            borderRadius: "999px",
+                            border: "1px solid var(--pdv-border)",
+                            background: "var(--pdv-white)",
+                            color: "var(--pdv-text)",
+                            fontSize: "0.75rem",
+                            fontWeight: 700,
+                            cursor: "pointer",
+                          }}
+                        >
+                          <ArrowLeftRight size={13} style={{ color: "var(--pdv-primary)" }} />
+                          <span>{groupMembers.length} lojas</span>
+                          <ChevronsUpDown size={13} style={{ color: "var(--pdv-text-secondary)" }} />
+                        </button>
+                      )}
+
+                      {storeSwitcherOpen && (
+                        <div
+                          className="retail-floating-menu"
+                          role="menu"
+                          style={{ minWidth: "250px", right: 0 }}
+                        >
+                          <div className="retail-floating-menu-head">
+                            <strong>{groupName || "Rede Multi-Lojas"}</strong>
+                            <small>Alternar loja sem sair da conta</small>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setStoreSwitcherOpen(false);
+                              navigate("/grupo-portal/visao-geral");
+                            }}
+                          >
+                            <Building2 size={15} />
+                            Visão Consolidada da Rede
+                          </button>
+                          {groupMembers.map((member) => {
+                            const isCurrent = member.tenantId === user?.tenant;
+                            const isSwitching = switchingStoreId === member.tenantId;
+                            return (
+                              <button
+                                key={member.tenantId}
+                                type="button"
+                                disabled={Boolean(switchingStoreId)}
+                                onClick={() => void switchStore(member.tenantId)}
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "space-between",
+                                  gap: "0.5rem",
+                                  fontWeight: isCurrent ? 700 : 500,
+                                  color: isCurrent
+                                    ? "var(--pdv-primary)"
+                                    : "var(--pdv-text)",
+                                  background: isCurrent
+                                    ? "var(--pdv-support)"
+                                    : undefined,
+                                }}
+                              >
+                                <span
+                                  style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: "0.5rem",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    whiteSpace: "nowrap",
+                                  }}
+                                >
+                                  <Store size={14} />
+                                  <span>{member.alias || member.name}</span>
+                                </span>
+                                {isSwitching ? (
+                                  <Loader2 size={14} className="animate-spin" />
+                                ) : isCurrent ? (
+                                  <Check size={14} />
+                                ) : null}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {!isStockist && (
                     <Link
                       to="/"
@@ -1213,9 +1493,31 @@ export function RetailLayout() {
                         <div className="retail-floating-menu-head">
                           <strong>{user?.name || "Administrador"}</strong>
                           <small>
-                            {isStockist ? "Estoquista" : "Administrador"}
+                            {isStockist
+                              ? "Estoquista"
+                              : hasMultiStoreGroup
+                                ? `Administrador · ${groupName || "Multi-Lojas"}`
+                                : "Administrador"}
                           </small>
                         </div>
+                        {hasMultiStoreGroup && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setProfileMenuOpen(false);
+                              navigate(
+                                pathname.startsWith("/grupo-portal")
+                                  ? "/inicio"
+                                  : "/grupo-portal/visao-geral",
+                              );
+                            }}
+                          >
+                            <Building2 size={15} />
+                            {pathname.startsWith("/grupo-portal")
+                              ? "Voltar ao Painel da Loja"
+                              : "Painel Rede Multi-Lojas"}
+                          </button>
+                        )}
                         {!isStockist && (
                           <button
                             type="button"
@@ -1240,6 +1542,56 @@ export function RetailLayout() {
                             <Monitor size={15} />
                             Modo Caixa (Sem Menu Lateral)
                           </button>
+                        )}
+                        {hasMultiStoreGroup && groupMembers.length > 1 && (
+                          <>
+                            <div
+                              style={{
+                                padding: "0.35rem 0.75rem 0.15rem",
+                                fontSize: "0.68rem",
+                                fontWeight: 700,
+                                textTransform: "uppercase",
+                                letterSpacing: "0.05em",
+                                color: "var(--pdv-text-secondary)",
+                                borderTop: "1px solid var(--pdv-border)",
+                                marginTop: "0.25rem",
+                              }}
+                            >
+                              Alternar Loja
+                            </div>
+                            {groupMembers.map((member) => {
+                              const isCurrent = member.tenantId === user?.tenant;
+                              return (
+                                <button
+                                  key={member.tenantId}
+                                  type="button"
+                                  disabled={Boolean(switchingStoreId)}
+                                  onClick={() => void switchStore(member.tenantId)}
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "space-between",
+                                    fontWeight: isCurrent ? 700 : 500,
+                                    color: isCurrent
+                                      ? "var(--pdv-primary)"
+                                      : undefined,
+                                  }}
+                                >
+                                  <span
+                                    style={{
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: "0.5rem",
+                                    }}
+                                  >
+                                    <Store size={14} />
+                                    {member.alias || member.name}
+                                  </span>
+                                  {isCurrent && <Check size={14} />}
+                                </button>
+                              );
+                            })}
+                          </>
                         )}
                         <button type="button" onClick={logout}>
                           <LogOut size={15} />

@@ -14,4 +14,5 @@ export class ProvisionTenantDto {
   emailContato?: string;
   syncLeadger?: boolean;
   syncWithLeadger?: boolean;
+  modulos?: Record<string, any>;
 }

@@ -873,8 +873,10 @@ export class StorefrontOrdersService {
       }),
     ]);
 
+    const formattedOrders = orders.map((o: any) => this.formatAdminOrderDto(o));
     return {
-      data: orders.map((o: any) => this.formatAdminOrderDto(o)),
+      data: formattedOrders,
+      items: formattedOrders,
       meta: {
         total,
         page,
@@ -923,6 +925,10 @@ export class StorefrontOrdersService {
           `Olá, ${order.customerName}! Sobre o seu pedido *${order.reference}* na nossa loja:`,
         )}`
       : null;
+    const addr =
+      order.deliveryAddressJson && typeof order.deliveryAddressJson === 'object'
+        ? order.deliveryAddressJson
+        : null;
 
     return {
       id: order.id,
@@ -932,9 +938,19 @@ export class StorefrontOrdersService {
       customerName: order.customerName,
       customerPhone: order.customerPhone,
       customerCpf: order.customerCpf,
+      customerDocument: order.customerCpf,
       customerWhatsappUrl,
+      whatsappUrl: customerWhatsappUrl,
       fulfillmentMode: order.fulfillmentMode,
-      deliveryAddress: order.deliveryAddressJson || null,
+      deliveryMode: order.fulfillmentMode,
+      deliveryAddress: addr,
+      addressLine: addr?.street || null,
+      addressNumber: addr?.number || null,
+      addressComplement: addr?.complement || null,
+      neighborhood: addr?.neighborhood || null,
+      city: addr?.city || null,
+      state: addr?.state || null,
+      zipCode: addr?.zipCode || null,
       notes: order.notes || null,
       subtotal: Number(order.subtotal ?? 0),
       discount: Number(order.discount ?? 0),
@@ -1285,7 +1301,8 @@ export class StorefrontOrdersService {
     orderId: string,
     body: {
       idempotencyKey?: string;
-      payments: {
+      paymentMethodName?: string;
+      payments?: {
         method: string;
         value: number;
         troco?: number;
@@ -1298,6 +1315,8 @@ export class StorefrontOrdersService {
       operatorId?: string;
       emitirNfce?: boolean;
       customerCpf?: string;
+      customerDocument?: string;
+      observation?: string;
       expectedVersion?: number;
     },
     actor: { userId?: string; name?: string },
@@ -1321,7 +1340,18 @@ export class StorefrontOrdersService {
       };
     }
 
-    if (!Array.isArray(body?.payments) || body.payments.length === 0) {
+    let resolvedPayments = Array.isArray(body?.payments) ? body.payments : [];
+    if (resolvedPayments.length === 0 && body?.paymentMethodName) {
+      resolvedPayments = [
+        {
+          method: String(body.paymentMethodName).trim(),
+          value: Number(order.total ?? 0),
+          label: String(body.paymentMethodName).trim(),
+        },
+      ];
+    }
+
+    if (resolvedPayments.length === 0) {
       throw new BadRequestException(
         'Informe a(s) forma(s) de pagamento para converter o pedido em venda.',
       );
@@ -1349,14 +1379,18 @@ export class StorefrontOrdersService {
       cashRegisterId: body.cashRegisterId || undefined,
       customerId: order.customerId || undefined,
       customerName: order.customerName,
-      customerCpf: body.customerCpf || order.customerCpf || undefined,
+      customerCpf:
+        body.customerCpf ||
+        body.customerDocument ||
+        order.customerCpf ||
+        undefined,
       discount:
         body.discount !== undefined
           ? Number(body.discount)
           : Number(order.discount ?? 0),
       emitirNfce: Boolean(body.emitirNfce),
       items: checkoutItems,
-      payments: body.payments,
+      payments: resolvedPayments,
     });
 
     const updatedOrder = await this.getAdminOrderById(orderId);

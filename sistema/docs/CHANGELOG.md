@@ -1,5 +1,15 @@
 # Histórico — PDV Lojista
 
+## 2026-11-08 — Correção da Simulação em Tempo Real (Live Preview), Seções da Vitrine e Endpoints de Configurações e Mídia da Loja Virtual
+
+- **Normalização de Tema, Seções da Vitrine e Preview Interativo (`frontend/src/retail/RetailStorefrontPage.tsx` e `frontend/src/storefront/PublicStorefrontApp.tsx`)**:
+  - `StorefrontHomeView` e `normalizeDraftTheme` agora garantem o fallback para as 7 seções padrão da vitrine (`header`, `hero`, `categories`, `featured`, `collection`, `fulfillment_info` e `footer`) mesmo quando `theme.sections` está vazio (`[]`), corrigindo a listagem vazia em **Estrutura da Página / Seções da Vitrine** e a tela em branco na **Simulação Interativa em Tempo Real**.
+  - Normalizados os formatos de dados de produtos (`inStock`, `priceSell`/`priceSale`, `availableStock`/`availableStockTotal`, `isVisible`/`visible`), categorias (`isVisible`/`visible`, `publicSlug`/`slug`, `productCount`/`groupsCount`) e modalidades de entrega/retirada entre o painel administrativo e o componente `StorefrontHomeView`.
+- **Correção dos Erros HTTP 400 em `/api/storefront/admin/settings` e `/api/storefront/admin/media/upload` (`backend/src/storefront/storefront-admin.service.ts`, `backend/src/storefront/storefront-admin.controller.ts`, `backend/src/storefront/storefront-orders.service.ts` e `frontend/src/retail/RetailStorefrontPage.tsx`)**:
+  - `GET /api/storefront/admin/overview` passa a retornar `config` (além de `settings`), `metrics` (além de `stats`) e `readinessChecklist`, preenchendo corretamente `storeName`, `slug` e `draftTheme` ao abrir o painel.
+  - `PUT /api/storefront/admin/settings` preserva o `slug` e o `storeName` atuais da loja caso venham vazios em atualizações parciais (como ao enviar logotipo ou foto de capa) e aceita `reservationTtlMinutes` e `deliveryNotes`.
+  - Removido o header manual `'Content-Type': 'multipart/form-data'` sem `boundary` nas chamadas de upload de mídia do painel e adicionado passe complementar de compressão WebP em `POST /api/storefront/admin/media/upload` para banners e fotos de capa amplas.
+
 ## 2026-11-08 — Hub de Fornecedores & Atacado SP (Mapa Interativo Brás, 25 de Março, Feirinha da Madrugada & Bom Retiro) e Curadoria no `/sys-init`
 
 - **Mapa Personalizado de São Paulo e Painel Lateral com Grade 3x2 (`frontend/src/components/suppliers/SpCustomMapCanvas.tsx`, `frontend/src/components/suppliers/SpWholesaleMapHub.tsx`, `frontend/src/app/dashboard/suppliers/page.tsx` e `frontend/src/lib/sp-wholesale-map.ts`)**:

@@ -183,17 +183,40 @@ export function StorefrontHomeView({
   const template = theme.template || 'editorial_roxo';
   const isDark = template === 'vitrine_escura';
   const isMinimal = template === 'minimal_branco';
-  const sections: any[] = Array.isArray(theme.sections)
-    ? theme.sections.filter((s: any) => s.enabled !== false)
-    : [
-        { id: 'sec-header', type: 'header', enabled: true },
-        { id: 'sec-hero', type: 'hero', enabled: true },
-        { id: 'sec-categories', type: 'categories', enabled: true },
-        { id: 'sec-featured', type: 'featured', enabled: true },
-        { id: 'sec-collection', type: 'collection', enabled: true },
-        { id: 'sec-fulfillment', type: 'fulfillment_info', enabled: true },
-        { id: 'sec-footer', type: 'footer', enabled: true },
-      ];
+  const defaultSections = [
+    { id: 'sec-header', type: 'header', enabled: true },
+    { id: 'sec-hero', type: 'hero', enabled: true },
+    { id: 'sec-categories', type: 'categories', enabled: true },
+    { id: 'sec-featured', type: 'featured', enabled: true },
+    { id: 'sec-collection', type: 'collection', enabled: true },
+    { id: 'sec-fulfillment', type: 'fulfillment_info', enabled: true },
+    { id: 'sec-footer', type: 'footer', enabled: true },
+  ];
+  const rawSections =
+    Array.isArray(theme.sections) && theme.sections.length > 0
+      ? theme.sections
+      : defaultSections;
+  const sections: any[] = rawSections.filter((s: any) => s.enabled !== false);
+
+  const pickupEnabled = Boolean(
+    storeData?.pickupEnabled ?? storeData?.fulfillment?.pickupEnabled ?? true,
+  );
+  const deliveryEnabled = Boolean(
+    storeData?.deliveryEnabled ?? storeData?.fulfillment?.deliveryEnabled ?? false,
+  );
+  const pickupInstructions =
+    storeData?.pickupInstructions ||
+    storeData?.fulfillment?.pickupInstructions ||
+    '';
+  const deliveryInstructions =
+    storeData?.deliveryInstructions ||
+    storeData?.fulfillment?.deliveryNotes ||
+    '';
+  const deliveryFeeNote =
+    storeData?.deliveryFeeNote ||
+    (Number(storeData?.fulfillment?.deliveryFeeDefault || 0) > 0
+      ? `Taxa padrão: ${formatBrl(storeData.fulfillment.deliveryFeeDefault)}`
+      : '');
 
   const categories = storeData?.categories || [];
   const featuredProducts = storeData?.featuredProducts || [];
@@ -429,7 +452,7 @@ export function StorefrontHomeView({
                     }`}
                   >
                     <div className="flex flex-wrap items-center gap-2">
-                      {storeData.pickupEnabled && (
+                      {pickupEnabled && (
                         <span
                           className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold ${
                             isMinimal
@@ -440,7 +463,7 @@ export function StorefrontHomeView({
                           <Store size={12} /> Retirada na loja
                         </span>
                       )}
-                      {storeData.deliveryEnabled && (
+                      {deliveryEnabled && (
                         <span
                           className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold ${
                             isMinimal
@@ -858,7 +881,7 @@ export function StorefrontHomeView({
         }
 
         if (section.type === 'fulfillment_info') {
-          if (!storeData.pickupEnabled && !storeData.deliveryEnabled) {
+          if (!pickupEnabled && !deliveryEnabled) {
             return null;
           }
           return (
@@ -867,7 +890,7 @@ export function StorefrontHomeView({
               className="max-w-6xl mx-auto w-full px-4 py-5"
             >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                {storeData.pickupEnabled && (
+                {pickupEnabled && (
                   <div
                     className={`border rounded-2xl p-4 sm:p-5 flex items-start gap-3.5 ${
                       isDark
@@ -887,13 +910,13 @@ export function StorefrontHomeView({
                           isDark ? 'text-line' : 'text-muted'
                         }`}
                       >
-                        {storeData.pickupInstructions ||
+                        {pickupInstructions ||
                           'Reserve suas peças online e retire diretamente no balcão da loja com agilidade.'}
                       </p>
                     </div>
                   </div>
                 )}
-                {storeData.deliveryEnabled && (
+                {deliveryEnabled && (
                   <div
                     className={`border rounded-2xl p-4 sm:p-5 flex items-start gap-3.5 ${
                       isDark
@@ -909,9 +932,9 @@ export function StorefrontHomeView({
                         <h4 className="font-bold text-xs sm:text-sm">
                           Entrega a Combinar
                         </h4>
-                        {storeData.deliveryFeeNote && (
+                        {deliveryFeeNote && (
                           <span className="px-2 py-0.5 rounded-md bg-support text-brand text-[10px] font-bold">
-                            {storeData.deliveryFeeNote}
+                            {deliveryFeeNote}
                           </span>
                         )}
                       </div>
@@ -920,7 +943,7 @@ export function StorefrontHomeView({
                           isDark ? 'text-line' : 'text-muted'
                         }`}
                       >
-                        {storeData.deliveryInstructions ||
+                        {deliveryInstructions ||
                           'Informe seu endereço ao finalizar o pedido e combine prazo e entrega pelo WhatsApp.'}
                       </p>
                     </div>
@@ -1021,7 +1044,14 @@ function ProductCard({
   const totalAvailable = Number(
     product.totalAvailableStock ?? product.availableStock ?? 0,
   );
-  const inStock = Boolean(product.inStock && totalAvailable > 0);
+  const inStock =
+    product.inStock !== undefined
+      ? Boolean(product.inStock && totalAvailable > 0)
+      : totalAvailable > 0;
+  const unitPrice = Number(
+    product.priceSell ?? product.price ?? product.priceSale ?? 0,
+  );
+  const categoryLabel = product.categoryName || product.category?.name || '';
   const singleVariant =
     Array.isArray(product.variants) && product.variants.length === 1
       ? product.variants[0]
@@ -1068,9 +1098,9 @@ function ProductCard({
 
       <div className="p-3.5 flex-1 flex flex-col justify-between gap-2.5">
         <div onClick={onSelect} className="cursor-pointer space-y-1">
-          {product.categoryName && (
+          {categoryLabel && (
             <p className="text-[10px] font-bold uppercase tracking-wider text-muted truncate">
-              {product.categoryName}
+              {categoryLabel}
             </p>
           )}
           <h4 className="font-bold text-xs sm:text-sm leading-snug line-clamp-2 group-hover:text-brand transition-colors">
@@ -1107,7 +1137,7 @@ function ProductCard({
         >
           <div>
             <p className="text-sm sm:text-base font-extrabold text-brand">
-              {formatBrl(product.priceSell)}
+              {formatBrl(unitPrice)}
             </p>
             <p className="text-[10px] text-muted font-medium">
               {!inStock

@@ -13,6 +13,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import sharp from 'sharp';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { productImageOptimizer } from '../images/product-image.optimizer';
 import { HeartPrismaService } from '../prisma/heart-prisma.service';
@@ -94,7 +95,42 @@ export class StorefrontAdminController {
     if (!file || !file.buffer) {
       throw new BadRequestException('Envie um arquivo de imagem válido.');
     }
-    const optimized = await productImageOptimizer.optimize(file.buffer);
+    let optimized: {
+      data: Buffer;
+      mimeType: string;
+      width: number;
+      height: number;
+    };
+    try {
+      optimized = await productImageOptimizer.optimize(file.buffer);
+    } catch (err: any) {
+      const msg = String(err?.message || '');
+      if (msg.includes('200 KB')) {
+        const fallback = await sharp(file.buffer, {
+          failOn: 'warning',
+          limitInputPixels: 50_000_000,
+          sequentialRead: true,
+        })
+          .autoOrient()
+          .resize({
+            width: 720,
+            height: 720,
+            fit: 'inside',
+            withoutEnlargement: true,
+          })
+          .webp({ quality: 42, effort: 3 })
+          .timeout({ seconds: 8 })
+          .toBuffer({ resolveWithObject: true });
+        optimized = {
+          data: fallback.data,
+          mimeType: 'image/webp',
+          width: fallback.info.width,
+          height: fallback.info.height,
+        };
+      } else {
+        throw err;
+      }
+    }
     const created = await this.heartPrisma.image.create({
       data: {
         data: Buffer.from(optimized.data),

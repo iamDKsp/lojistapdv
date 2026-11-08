@@ -139,6 +139,117 @@ const CANCEL_REASON_PRESETS = [
   'Pedido duplicado pelo cliente',
 ];
 
+const DEFAULT_STOREFRONT_SECTIONS = [
+  { id: 'header', type: 'header', enabled: true, title: 'Cabeçalho da Loja' },
+  { id: 'hero', type: 'hero', enabled: true, title: 'Banner Principal (Hero)' },
+  { id: 'categories', type: 'categories', enabled: true, title: 'Navegação por Categorias' },
+  { id: 'featured', type: 'featured', enabled: true, title: 'Destaques da Semana' },
+  { id: 'collection', type: 'collection', enabled: true, title: 'Catálogo Completo' },
+  { id: 'fulfillment_info', type: 'fulfillment_info', enabled: true, title: 'Retirada & Entrega' },
+  { id: 'footer', type: 'footer', enabled: true, title: 'Rodapé Institucional' },
+];
+
+function normalizeDraftTheme(raw: any) {
+  const src = raw && typeof raw === 'object' ? raw : {};
+  const rawSections = Array.isArray(src.sections) && src.sections.length > 0
+    ? src.sections
+    : DEFAULT_STOREFRONT_SECTIONS;
+  const seen = new Set<string>();
+  const mergedSections: any[] = [];
+  for (const s of rawSections) {
+    const id = String(s?.id || s?.type || '');
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    const fallbackDef = DEFAULT_STOREFRONT_SECTIONS.find((d) => d.id === id);
+    mergedSections.push({
+      id,
+      type: s?.type || id,
+      enabled: s?.enabled !== false,
+      title: s?.title || fallbackDef?.title || id,
+    });
+  }
+  for (const def of DEFAULT_STOREFRONT_SECTIONS) {
+    if (!seen.has(def.id)) {
+      mergedSections.push({ ...def });
+    }
+  }
+  return {
+    template: src.template || 'editorial_roxo',
+    primaryColor: src.primaryColor || '#7C3AED',
+    accentColor: src.accentColor || '#6D28D9',
+    surfaceColor: src.surfaceColor || '#F8F7FC',
+    textColor: src.textColor || '#272321',
+    announcementText: src.announcementText ?? '',
+    heroTitle: src.heroTitle ?? '',
+    heroSubtitle: src.heroSubtitle ?? '',
+    heroCtaLabel: src.heroCtaLabel || 'Ver coleção',
+    banners: Array.isArray(src.banners) ? src.banners : [],
+    sections: mergedSections,
+  };
+}
+
+function normalizeAdminProduct(p: any) {
+  const id = p.id || p.retailGroupId;
+  const isVisible = p.isVisible !== undefined ? Boolean(p.isVisible) : Boolean(p.visible);
+  const displayTitle = p.displayTitle ?? p.commercialTitle ?? '';
+  const customDescription = p.customDescription ?? p.commercialDescription ?? '';
+  const priceSale = Number(p.priceSale ?? p.priceSell ?? p.price ?? 0);
+  const availableStock = Number(p.availableStock ?? p.availableStockTotal ?? 0);
+  const reservedStock = Number(p.reservedStock ?? p.reservedStockTotal ?? 0);
+  return {
+    ...p,
+    id,
+    retailGroupId: p.retailGroupId || id,
+    isVisible,
+    visible: isVisible,
+    displayTitle,
+    commercialTitle: displayTitle,
+    customDescription,
+    commercialDescription: customDescription,
+    priceSale,
+    priceSell: priceSale,
+    availableStock,
+    availableStockTotal: availableStock,
+    reservedStock,
+    reservedStockTotal: reservedStock,
+  };
+}
+
+function normalizeAdminCategory(c: any) {
+  const id = c.id || c.categoryId;
+  const isVisible = c.isVisible !== undefined ? Boolean(c.isVisible) : c.visible !== false;
+  const publicSlug = c.publicSlug || c.slug || '';
+  const productCount = Number(c.productCount ?? c.groupsCount ?? 0);
+  return {
+    ...c,
+    id,
+    categoryId: id,
+    isVisible,
+    visible: isVisible,
+    publicSlug,
+    slug: publicSlug,
+    productCount,
+    groupsCount: productCount,
+  };
+}
+
+function normalizeAdminOrder(o: any) {
+  const deliveryAddr = o.deliveryAddress && typeof o.deliveryAddress === 'object' ? o.deliveryAddress : {};
+  return {
+    ...o,
+    whatsappUrl: o.whatsappUrl || o.customerWhatsappUrl || null,
+    deliveryMode: o.deliveryMode || o.fulfillmentMode || 'PICKUP',
+    customerDocument: o.customerDocument || o.customerCpf || null,
+    addressLine: o.addressLine || deliveryAddr.street || null,
+    addressNumber: o.addressNumber || deliveryAddr.number || null,
+    addressComplement: o.addressComplement || deliveryAddr.complement || null,
+    neighborhood: o.neighborhood || deliveryAddr.neighborhood || null,
+    city: o.city || deliveryAddr.city || null,
+    state: o.state || deliveryAddr.state || null,
+    zipCode: o.zipCode || deliveryAddr.zipCode || null,
+  };
+}
+
 function formatPhoneMask(raw: string): string {
   const digits = String(raw || '').replace(/\D/g, '').slice(0, 13);
   if (!digits) return '';
@@ -218,19 +329,7 @@ export function RetailStorefrontPage() {
   });
 
   // Appearance draft state
-  const [draftTheme, setDraftTheme] = useState<any>({
-    template: 'editorial_roxo',
-    primaryColor: '#7C3AED',
-    accentColor: '#6D28D9',
-    surfaceColor: '#F8F7FC',
-    textColor: '#272321',
-    announcementText: '',
-    heroTitle: '',
-    heroSubtitle: '',
-    heroCtaLabel: 'Ver coleção',
-    banners: [],
-    sections: [],
-  });
+  const [draftTheme, setDraftTheme] = useState<any>(() => normalizeDraftTheme(null));
   const [previewDevice, setPreviewDevice] = useState<'desktop' | 'mobile'>(
     'desktop',
   );
@@ -301,7 +400,7 @@ export function RetailStorefrontPage() {
 
   const applyOverviewData = useCallback((ovData: any) => {
     setOverview(ovData);
-    const cfg = ovData?.config;
+    const cfg = ovData?.config || ovData?.settings;
     if (cfg) {
       setSettingsForm({
         storeName: cfg.storeName || '',
@@ -317,12 +416,13 @@ export function RetailStorefrontPage() {
         deliveryEnabled: Boolean(cfg.deliveryEnabled),
         deliveryFeeDefault: String(cfg.deliveryFeeDefault ?? '0'),
         pickupInstructions: cfg.pickupInstructions || '',
-        deliveryNotes: cfg.deliveryNotes || '',
-        reservationTtlMinutes: String(cfg.reservationTtlMinutes ?? '30'),
+        deliveryNotes: cfg.deliveryNotes || cfg.deliveryInstructions || '',
+        reservationTtlMinutes: String(
+          cfg.reservationTtlMinutes ?? cfg.confirmReservationMinutes ?? '30',
+        ),
       });
-      if (cfg.draftTheme) {
-        setDraftTheme(cfg.draftTheme);
-      }
+      const rawTheme = cfg.draftTheme || cfg.draftThemeJson || cfg.publishedTheme;
+      setDraftTheme(normalizeDraftTheme(rawTheme));
     }
   }, []);
 
@@ -341,9 +441,12 @@ export function RetailStorefrontPage() {
       ]);
 
       applyOverviewData(ovRes.data);
-      setProducts(prodRes.data || []);
-      setCategories(catRes.data || []);
-      setOrders(ordRes.data?.items || []);
+      const rawProds = Array.isArray(prodRes.data) ? prodRes.data : [];
+      setProducts(rawProds.map(normalizeAdminProduct));
+      const rawCats = Array.isArray(catRes.data) ? catRes.data : [];
+      setCategories(rawCats.map(normalizeAdminCategory));
+      const rawOrders = ordRes.data?.items || ordRes.data?.data || [];
+      setOrders(Array.isArray(rawOrders) ? rawOrders.map(normalizeAdminOrder) : []);
 
       const pms = Array.isArray(pmRes.data)
         ? pmRes.data.filter((m: any) => m.isActive !== false)
@@ -375,7 +478,8 @@ export function RetailStorefrontPage() {
         }),
         api.get('/storefront/admin/overview'),
       ]);
-      const items = ordRes.data?.items || [];
+      const rawItems = ordRes.data?.items || ordRes.data?.data || [];
+      const items = Array.isArray(rawItems) ? rawItems.map(normalizeAdminOrder) : [];
       setOrders(items);
       setOverview(ovRes.data);
       if (selectedOrder) {
@@ -411,7 +515,8 @@ export function RetailStorefrontPage() {
         }),
         api.get('/storefront/admin/overview'),
       ]);
-      setProducts(prodRes.data || []);
+      const rawProds = Array.isArray(prodRes.data) ? prodRes.data : [];
+      setProducts(rawProds.map(normalizeAdminProduct));
       setOverview(ovRes.data);
     } catch (err) {
       toast.error(apiError(err, 'Erro ao atualizar lista de produtos.'));
@@ -421,9 +526,13 @@ export function RetailStorefrontPage() {
   }, []);
 
   const publicStoreUrl = useMemo(() => {
-    const slug = overview?.config?.slug || settingsForm.slug || 'minha-loja';
+    const slug =
+      overview?.config?.slug ||
+      overview?.settings?.slug ||
+      settingsForm.slug ||
+      'minha-loja';
     return `${window.location.origin}/loja/${slug}`;
-  }, [overview?.config?.slug, settingsForm.slug]);
+  }, [overview?.config?.slug, overview?.settings?.slug, settingsForm.slug]);
 
   const buildSettingsPayload = () => ({
     ...settingsForm,
@@ -531,9 +640,7 @@ export function RetailStorefrontPage() {
     fd.append('file', file);
     setSaving(true);
     try {
-      const res = await api.post('/storefront/admin/media/upload', fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const res = await api.post('/storefront/admin/media/upload', fd);
       const imageUrl = res.data?.imageUrl;
       if (imageUrl) {
         const updatedSettings = {
@@ -566,9 +673,7 @@ export function RetailStorefrontPage() {
     fd.append('file', file);
     setSaving(true);
     try {
-      const res = await api.post('/storefront/admin/media/upload', fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const res = await api.post('/storefront/admin/media/upload', fd);
       const imageUrl = res.data?.imageUrl;
       if (imageUrl) {
         const nextBanners = [...(draftTheme.banners || [])];
@@ -594,9 +699,7 @@ export function RetailStorefrontPage() {
     fd.append('file', file);
     setUploadingGalleryPhoto(true);
     try {
-      const res = await api.post('/storefront/admin/media/upload', fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const res = await api.post('/storefront/admin/media/upload', fd);
       const imageUrl = res.data?.imageUrl;
       if (imageUrl) {
         const currentGallery = Array.isArray(editingProduct.galleryUrls)
@@ -738,7 +841,8 @@ export function RetailStorefrontPage() {
         api.get('/storefront/admin/categories'),
         api.get('/storefront/admin/overview'),
       ]);
-      setCategories(catRes.data || []);
+      const rawCats = Array.isArray(catRes.data) ? catRes.data : [];
+      setCategories(rawCats.map(normalizeAdminCategory));
       setOverview(ovRes.data);
     } catch (err) {
       toast.error(apiError(err, 'Erro ao salvar categorias.'));
@@ -765,7 +869,8 @@ export function RetailStorefrontPage() {
         api.get('/storefront/admin/categories'),
         api.get('/storefront/admin/overview'),
       ]);
-      setCategories(catRes.data || []);
+      const rawCats = Array.isArray(catRes.data) ? catRes.data : [];
+      setCategories(rawCats.map(normalizeAdminCategory));
       setOverview(ovRes.data);
     } catch (err) {
       toast.error(apiError(err, 'Erro ao criar categoria.'));
@@ -789,7 +894,7 @@ export function RetailStorefrontPage() {
     try {
       const res = await api.post(`/storefront/admin/orders/${orderId}/confirm`);
       toast.success('Pedido confirmado e reserva garantida!');
-      setSelectedOrder(res.data);
+      setSelectedOrder(normalizeAdminOrder(res.data));
       await loadOrdersOnly();
     } catch (err) {
       toast.error(apiError(err, 'Erro ao confirmar pedido.'));
@@ -821,7 +926,7 @@ export function RetailStorefrontPage() {
       );
       setOrderActionModal(null);
       setOrderActionReason('');
-      setSelectedOrder(res.data);
+      setSelectedOrder(normalizeAdminOrder(res.data));
       await loadOrdersOnly();
     } catch (err) {
       toast.error(apiError(err, 'Erro ao processar cancelamento do pedido.'));
@@ -841,7 +946,7 @@ export function RetailStorefrontPage() {
         { fulfillmentStatus },
       );
       toast.success('Etapa de separação/entrega atualizada!');
-      setSelectedOrder(res.data);
+      setSelectedOrder(normalizeAdminOrder(res.data));
       await loadOrdersOnly();
     } catch (err) {
       toast.error(apiError(err, 'Erro ao atualizar etapa de entrega.'));
@@ -869,7 +974,9 @@ export function RetailStorefrontPage() {
         `Venda concluída no PDV! Reserva consumida e financeiro registrado.`,
       );
       setShowConvertDialog(false);
-      setSelectedOrder(res.data?.order || null);
+      setSelectedOrder(
+        res.data?.order ? normalizeAdminOrder(res.data.order) : null,
+      );
       await Promise.all([loadOrdersOnly(), refreshProductsAndOverview()]);
     } catch (err) {
       toast.error(apiError(err, 'Erro ao converter pedido em venda.'));
@@ -922,24 +1029,34 @@ export function RetailStorefrontPage() {
       .map((c) => ({
         id: c.id,
         name: c.name,
-        slug: c.publicSlug,
+        slug: c.publicSlug || c.slug || c.id,
         description: c.description,
         productCount: c.productCount,
       }));
 
-    const baseVisibleProducts = products
-      .filter((p) => p.isVisible)
-      .map((p) => ({
+    // Se ainda não houver produtos visíveis na vitrine, exibe os produtos do catálogo na simulação
+    const sourceProducts = products.some((p) => p.isVisible)
+      ? products.filter((p) => p.isVisible)
+      : products;
+
+    const baseVisibleProducts = sourceProducts.map((p) => {
+      const totalAvail = Number(p.availableStock ?? 0);
+      const unitPrice = Number(p.priceSale ?? p.priceSell ?? 0);
+      return {
         id: p.id,
         title: p.displayTitle || p.name,
         slug: p.publicSlug || p.id,
         description: p.customDescription || p.description,
         imageUrl: p.imageUrl,
         galleryUrls: Array.isArray(p.galleryUrls) ? p.galleryUrls : [],
-        price: p.priceSale,
+        price: unitPrice,
+        priceSell: unitPrice,
         badgeLabel: p.badgeLabel,
         featured: Boolean(p.featured),
-        totalAvailableStock: Number(p.availableStock ?? 0),
+        totalAvailableStock: totalAvail,
+        inStock: totalAvail > 0,
+        categoryId: p.categoryId || null,
+        categoryName: p.categoryName || '',
         category: p.categoryId
           ? {
               id: p.categoryId,
@@ -962,7 +1079,15 @@ export function RetailStorefrontPage() {
               .filter(Boolean),
           ),
         ),
-      }));
+      };
+    });
+
+    const allSizes = Array.from(
+      new Set(baseVisibleProducts.flatMap((p) => p.sizes as string[])),
+    );
+    const allColors = Array.from(
+      new Set(baseVisibleProducts.flatMap((p) => p.colors as string[])),
+    );
 
     // Aplica filtros interativos do preview
     const previewFiltered = baseVisibleProducts.filter((prod) => {
@@ -989,8 +1114,17 @@ export function RetailStorefrontPage() {
       return true;
     });
 
+    const sortedPreview = [...previewFiltered].sort((a, b) => {
+      if (previewSortBy === 'price_asc') return Number(a.price) - Number(b.price);
+      if (previewSortBy === 'price_desc') return Number(b.price) - Number(a.price);
+      if (previewSortBy === 'name_asc')
+        return String(a.title || '').localeCompare(String(b.title || ''));
+      return Number(Boolean(b.featured)) - Number(Boolean(a.featured));
+    });
+
     return {
-      publicId: overview?.config?.publicId || 'preview',
+      publicId:
+        overview?.config?.publicId || overview?.settings?.publicId || 'preview',
       slug: settingsForm.slug || 'minha-loja',
       storeName: settingsForm.storeName || 'Minha Loja',
       tagline: settingsForm.tagline,
@@ -1000,6 +1134,11 @@ export function RetailStorefrontPage() {
       whatsappPhone: settingsForm.whatsappPhone,
       address: settingsForm.address,
       businessHours: settingsForm.businessHours,
+      pickupEnabled: settingsForm.pickupEnabled,
+      deliveryEnabled: settingsForm.deliveryEnabled,
+      deliveryFeeDefault: Number(settingsForm.deliveryFeeDefault || 0),
+      pickupInstructions: settingsForm.pickupInstructions,
+      deliveryInstructions: settingsForm.deliveryNotes,
       fulfillment: {
         pickupEnabled: settingsForm.pickupEnabled,
         deliveryEnabled: settingsForm.deliveryEnabled,
@@ -1007,22 +1146,28 @@ export function RetailStorefrontPage() {
         pickupInstructions: settingsForm.pickupInstructions,
         deliveryNotes: settingsForm.deliveryNotes,
       },
-      theme: draftTheme,
+      theme: normalizeDraftTheme(draftTheme),
       categories: visibleCats,
+      facets: {
+        sizes: allSizes,
+        colors: allColors,
+      },
       featuredProducts: baseVisibleProducts
         .filter((p) => p.featured)
         .slice(0, 4),
-      previewProducts: previewFiltered,
+      previewProducts: sortedPreview,
     };
   }, [
     categories,
     products,
     overview?.config?.publicId,
+    overview?.settings?.publicId,
     settingsForm,
     draftTheme,
     previewCategoryId,
     previewSize,
     previewColor,
+    previewSortBy,
     previewInStockOnly,
     previewSearch,
   ]);
@@ -1035,8 +1180,30 @@ export function RetailStorefrontPage() {
     );
   }
 
-  const isPublished = overview?.config?.status === 'PUBLISHED';
-  const metrics = overview?.metrics || {};
+  const isPublished = Boolean(
+    overview?.config?.status === 'PUBLISHED' ||
+      overview?.config?.isPublished ||
+      overview?.settings?.isPublished,
+  );
+  const rawMetrics = overview?.metrics || overview?.stats || {};
+  const metrics: Record<string, any> = {
+    ...rawMetrics,
+    awaitingConfirmationCount:
+      rawMetrics.awaitingConfirmationCount ?? rawMetrics.awaitingOrdersCount ?? 0,
+    activeReservationsCount: rawMetrics.activeReservationsCount ?? 0,
+    visibleProductsCount:
+      rawMetrics.visibleProductsCount ?? rawMetrics.publishedProductsCount ?? 0,
+    publishedProductsCount:
+      rawMetrics.publishedProductsCount ?? rawMetrics.visibleProductsCount ?? 0,
+    totalProductsCount: rawMetrics.totalProductsCount ?? products.length,
+    visibleCategoriesCount:
+      rawMetrics.visibleCategoriesCount ??
+      categories.filter((c) => c.isVisible !== false).length,
+    completedOrdersCount: rawMetrics.completedOrdersCount ?? 0,
+    convertedOrdersCount:
+      rawMetrics.convertedOrdersCount ?? rawMetrics.completedOrdersCount ?? 0,
+    convertedRevenue: rawMetrics.convertedRevenue ?? 0,
+  };
   const checklist = overview?.readinessChecklist || [];
   const pendingChecklistCount = checklist.filter((c: any) => !c.done).length;
   const pendingOrders = orders.filter(

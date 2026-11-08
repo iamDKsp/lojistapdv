@@ -287,27 +287,84 @@ export class StorefrontAdminService {
         }),
       ]);
 
+      const visibleCategoriesCount =
+        typeof db.storefrontCategory?.count === 'function'
+          ? await db.storefrontCategory
+              .count({ where: { visible: true } })
+              .catch(() => 0)
+          : 0;
+      const convertedRevenueAgg =
+        typeof db.storefrontOrder?.aggregate === 'function'
+          ? await db.storefrontOrder
+              .aggregate({
+                where: { commercialStatus: 'COMPLETED' },
+                _sum: { total: true },
+              })
+              .catch(() => null)
+          : null;
+
+      const formattedSettings = this.formatSettingsResponse(
+        settings,
+        moduleEnabled,
+      );
+      const statsObj = {
+        totalRetailGroups,
+        totalProductsCount: totalRetailGroups,
+        publishedProductsCount,
+        visibleProductsCount: publishedProductsCount,
+        unpublishedProductsCount: Math.max(
+          0,
+          totalRetailGroups - publishedProductsCount,
+        ),
+        featuredProductsCount,
+        visibleCategoriesCount,
+        awaitingOrdersCount,
+        awaitingConfirmationCount: awaitingOrdersCount,
+        confirmedOrdersCount,
+        completedOrdersCount,
+        convertedOrdersCount: completedOrdersCount,
+        convertedRevenue: Number(convertedRevenueAgg?._sum?.total ?? 0),
+        conflictOrdersCount,
+        activeReservationsCount: Number(activeReservationsAgg?._count?.id ?? 0),
+        activeReservedUnits: Number(activeReservationsAgg?._sum?.quantity ?? 0),
+      };
+
+      const readinessChecklist = [
+        {
+          key: 'whatsapp',
+          label: 'WhatsApp comercial configurado',
+          done: Boolean(
+            settings.whatsappPhone &&
+              String(settings.whatsappPhone).replace(/\D/g, '').length >= 10,
+          ),
+        },
+        {
+          key: 'fulfillment',
+          label: 'Modalidade de entrega ou retirada ativa',
+          done: Boolean(settings.pickupEnabled || settings.deliveryEnabled),
+        },
+        {
+          key: 'products',
+          label: 'Pelo menos 1 produto visível na vitrine',
+          done: publishedProductsCount > 0,
+        },
+        {
+          key: 'branding',
+          label: 'Identidade visual configurada (nome e tema)',
+          done: Boolean(settings.storeName && settings.slug),
+        },
+      ];
+
       return {
         moduleEnabled,
         schemaCompatible: true,
         missingTables: [],
         publicPath: `/loja/${settings.slug}`,
-        settings: this.formatSettingsResponse(settings, moduleEnabled),
-        stats: {
-          totalRetailGroups,
-          publishedProductsCount,
-          unpublishedProductsCount: Math.max(
-            0,
-            totalRetailGroups - publishedProductsCount,
-          ),
-          featuredProductsCount,
-          awaitingOrdersCount,
-          confirmedOrdersCount,
-          completedOrdersCount,
-          conflictOrdersCount,
-          activeReservationsCount: Number(activeReservationsAgg?._count?.id ?? 0),
-          activeReservedUnits: Number(activeReservationsAgg?._sum?.quantity ?? 0),
-        },
+        settings: formattedSettings,
+        config: formattedSettings,
+        stats: statsObj,
+        metrics: statsObj,
+        readinessChecklist,
       };
     } catch (err) {
       if (isStorefrontSchemaMissingError(err)) {
@@ -334,6 +391,8 @@ export class StorefrontAdminService {
       settings.publishedThemeJson,
       settings.storeName,
     );
+    const isPublished = Boolean(settings.isPublished);
+    const confirmMins = Number(settings.confirmReservationMinutes ?? 15);
     return {
       publicId: settings.publicId,
       slug: settings.slug,
@@ -349,16 +408,18 @@ export class StorefrontAdminService {
       pickupInstructions: settings.pickupInstructions || '',
       deliveryEnabled: Boolean(settings.deliveryEnabled),
       deliveryInstructions: settings.deliveryInstructions || '',
+      deliveryNotes: settings.deliveryInstructions || '',
       deliveryFeeNote: settings.deliveryFeeNote || '',
-      confirmReservationMinutes: Number(
-        settings.confirmReservationMinutes ?? 15,
-      ),
+      deliveryFeeDefault: 0,
+      confirmReservationMinutes: confirmMins,
+      reservationTtlMinutes: confirmMins,
       confirmedHoldHours: Number(settings.confirmedHoldHours ?? 24),
       draftTheme,
       publishedTheme,
       publishedVersion: Number(settings.publishedVersion ?? 0),
-      isPublished: Boolean(settings.isPublished),
-      effectivelyOnline: Boolean(settings.isPublished && moduleEnabled),
+      isPublished,
+      status: isPublished ? 'PUBLISHED' : 'DRAFT',
+      effectivelyOnline: Boolean(isPublished && moduleEnabled),
       publishedAt: settings.publishedAt || null,
       publishedByName: settings.publishedByName || null,
       updatedAt: settings.updatedAt,
@@ -384,10 +445,10 @@ export class StorefrontAdminService {
       ctx.tenantId,
     );
 
-    const slug =
-      body.slug !== undefined
-        ? assertValidStorefrontSlug(body.slug)
-        : current.slug;
+    const rawSlug = body?.slug !== undefined ? String(body.slug).trim() : '';
+    const slug = rawSlug
+      ? assertValidStorefrontSlug(rawSlug)
+      : current.slug;
 
     if (slug !== current.slug && this.heartPrisma?.storefrontRegistry?.findUnique) {
       const existing = await this.heartPrisma.storefrontRegistry.findUnique({
@@ -400,27 +461,31 @@ export class StorefrontAdminService {
       }
     }
 
-    const storeName =
-      body.storeName !== undefined
-        ? sanitizePlainText(body.storeName, 140, 'Nome da loja')
-        : current.storeName;
+    const rawStoreName =
+      body?.storeName !== undefined ? String(body.storeName).trim() : '';
+    const storeName = rawStoreName
+      ? sanitizePlainText(rawStoreName, 140, 'Nome da loja')
+      : current.storeName;
     if (!storeName || storeName.length < 2) {
       throw new BadRequestException('Informe o nome público da loja.');
     }
 
-    const whatsappPhone =
-      body.whatsappPhone !== undefined
-        ? body.whatsappPhone
-          ? normalizeWhatsappPhone(body.whatsappPhone)
-          : null
-        : current.whatsappPhone;
+    let whatsappPhone = current.whatsappPhone;
+    if (body?.whatsappPhone !== undefined) {
+      const trimmedPhone = String(body.whatsappPhone || '').trim();
+      if (!trimmedPhone) {
+        whatsappPhone = null;
+      } else {
+        whatsappPhone = normalizeWhatsappPhone(trimmedPhone);
+      }
+    }
 
     const pickupEnabled =
-      body.pickupEnabled !== undefined
+      body?.pickupEnabled !== undefined
         ? Boolean(body.pickupEnabled)
         : Boolean(current.pickupEnabled);
     const deliveryEnabled =
-      body.deliveryEnabled !== undefined
+      body?.deliveryEnabled !== undefined
         ? Boolean(body.deliveryEnabled)
         : Boolean(current.deliveryEnabled);
 
@@ -430,22 +495,29 @@ export class StorefrontAdminService {
       );
     }
 
-    const confirmReservationMinutes =
-      body.confirmReservationMinutes !== undefined
-        ? Number(body.confirmReservationMinutes)
-        : Number(current.confirmReservationMinutes ?? 15);
-    if (
-      !Number.isInteger(confirmReservationMinutes) ||
-      confirmReservationMinutes < 5 ||
-      confirmReservationMinutes > 120
-    ) {
-      throw new BadRequestException(
-        'O prazo inicial de reserva deve ser entre 5 e 120 minutos.',
-      );
+    let confirmReservationMinutes = Number(
+      current.confirmReservationMinutes ?? 15,
+    );
+    if (body?.confirmReservationMinutes !== undefined) {
+      confirmReservationMinutes = Number(body.confirmReservationMinutes);
+      if (
+        !Number.isInteger(confirmReservationMinutes) ||
+        confirmReservationMinutes < 5 ||
+        confirmReservationMinutes > 120
+      ) {
+        throw new BadRequestException(
+          'O prazo inicial de reserva deve ser entre 5 e 120 minutos.',
+        );
+      }
+    } else if (body?.reservationTtlMinutes !== undefined) {
+      const ttl = Number(body.reservationTtlMinutes);
+      if (Number.isFinite(ttl) && ttl >= 5) {
+        confirmReservationMinutes = Math.min(120, Math.max(5, Math.round(ttl)));
+      }
     }
 
     const confirmedHoldHours =
-      body.confirmedHoldHours !== undefined
+      body?.confirmedHoldHours !== undefined
         ? Number(body.confirmedHoldHours)
         : Number(current.confirmedHoldHours ?? 24);
     if (
@@ -458,30 +530,35 @@ export class StorefrontAdminService {
       );
     }
 
+    const rawDeliveryInstructions =
+      body?.deliveryInstructions !== undefined
+        ? body.deliveryInstructions
+        : body?.deliveryNotes;
+
     const updated = await db.storefrontSettings.update({
       where: { id: 'singleton' },
       data: {
         slug,
         storeName,
         tagline:
-          body.tagline !== undefined
+          body?.tagline !== undefined
             ? sanitizePlainText(body.tagline, 240, 'Subtítulo') || null
             : current.tagline,
         description:
-          body.description !== undefined
+          body?.description !== undefined
             ? sanitizePlainText(body.description, 2000, 'Apresentação') || null
             : current.description,
         logoUrl:
-          body.logoUrl !== undefined
+          body?.logoUrl !== undefined
             ? sanitizeSafeImageUrl(body.logoUrl)
             : current.logoUrl,
         coverUrl:
-          body.coverUrl !== undefined
+          body?.coverUrl !== undefined
             ? sanitizeSafeImageUrl(body.coverUrl)
             : current.coverUrl,
         whatsappPhone,
         whatsappMessageIntro:
-          body.whatsappMessageIntro !== undefined
+          body?.whatsappMessageIntro !== undefined
             ? sanitizePlainText(
                 body.whatsappMessageIntro,
                 300,
@@ -490,7 +567,7 @@ export class StorefrontAdminService {
             : current.whatsappMessageIntro,
         pickupEnabled,
         pickupInstructions:
-          body.pickupInstructions !== undefined
+          body?.pickupInstructions !== undefined
             ? sanitizePlainText(
                 body.pickupInstructions,
                 600,
@@ -499,15 +576,15 @@ export class StorefrontAdminService {
             : current.pickupInstructions,
         deliveryEnabled,
         deliveryInstructions:
-          body.deliveryInstructions !== undefined
+          rawDeliveryInstructions !== undefined
             ? sanitizePlainText(
-                body.deliveryInstructions,
+                rawDeliveryInstructions,
                 600,
                 'Instruções de entrega',
               ) || null
             : current.deliveryInstructions,
         deliveryFeeNote:
-          body.deliveryFeeNote !== undefined
+          body?.deliveryFeeNote !== undefined
             ? sanitizePlainText(body.deliveryFeeNote, 240, 'Nota de entrega') ||
               null
             : current.deliveryFeeNote,
@@ -529,34 +606,38 @@ export class StorefrontAdminService {
     );
 
     const storeName =
-      body.storeName !== undefined
+      body?.storeName !== undefined
         ? sanitizePlainText(body.storeName, 140, 'Nome da loja') ||
           current.storeName
         : current.storeName;
 
-    const draftTheme = validateAndSanitizeTheme(
-      body.theme ?? body.draftTheme ?? current.draftThemeJson,
-      storeName,
-    );
+    const rawThemeCandidate =
+      body?.theme ??
+      body?.draftTheme ??
+      (body && (body.template || body.sections || body.primaryColor)
+        ? body
+        : current.draftThemeJson);
+
+    const draftTheme = validateAndSanitizeTheme(rawThemeCandidate, storeName);
 
     const updated = await db.storefrontSettings.update({
       where: { id: 'singleton' },
       data: {
         storeName,
         tagline:
-          body.tagline !== undefined
+          body?.tagline !== undefined
             ? sanitizePlainText(body.tagline, 240, 'Subtítulo') || null
             : current.tagline,
         description:
-          body.description !== undefined
+          body?.description !== undefined
             ? sanitizePlainText(body.description, 2000, 'Apresentação') || null
             : current.description,
         logoUrl:
-          body.logoUrl !== undefined
+          body?.logoUrl !== undefined
             ? sanitizeSafeImageUrl(body.logoUrl)
             : current.logoUrl,
         coverUrl:
-          body.coverUrl !== undefined
+          body?.coverUrl !== undefined
             ? sanitizeSafeImageUrl(body.coverUrl)
             : current.coverUrl,
         draftThemeJson: draftTheme as any,
@@ -720,19 +801,27 @@ export class StorefrontAdminService {
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     });
 
-    return rows.map((sc: any) => ({
-      id: sc.id,
-      categoryId: sc.categoryId,
-      name: sc.category?.name || '',
-      displayName: sc.displayName || sc.category?.name || '',
-      slug: sc.slug,
-      description: sc.description || '',
-      icon: sc.category?.icon || null,
-      visible: Boolean(sc.visible),
-      featured: Boolean(sc.featured),
-      sortOrder: Number(sc.sortOrder ?? 0),
-      groupsCount: Number(sc.category?._count?.retailGroups ?? 0),
-    }));
+    return rows.map((sc: any) => {
+      const count = Number(sc.category?._count?.retailGroups ?? 0);
+      const vis = Boolean(sc.visible);
+      return {
+        id: sc.categoryId || sc.id,
+        storefrontCategoryId: sc.id,
+        categoryId: sc.categoryId,
+        name: sc.category?.name || '',
+        displayName: sc.displayName || sc.category?.name || '',
+        slug: sc.slug,
+        publicSlug: sc.slug,
+        description: sc.description || '',
+        icon: sc.category?.icon || null,
+        visible: vis,
+        isVisible: vis,
+        featured: Boolean(sc.featured),
+        sortOrder: Number(sc.sortOrder ?? 0),
+        groupsCount: count,
+        productCount: count,
+      };
+    });
   }
 
   async updateCategories(items: any[]) {
@@ -744,7 +833,7 @@ export class StorefrontAdminService {
     await db.$transaction(async (tx: any) => {
       for (let idx = 0; idx < items.length; idx++) {
         const item = items[idx];
-        const categoryId = String(item?.categoryId || '');
+        const categoryId = String(item?.categoryId || item?.id || '');
         if (!categoryId) continue;
 
         const displayName =
@@ -759,14 +848,24 @@ export class StorefrontAdminService {
                 'Descrição da categoria',
               ) || null
             : undefined;
+        const rawVisible =
+          item.visible !== undefined ? item.visible : item.isVisible;
+        const rawSlug = item.slug ?? item.publicSlug;
+        const normalizedSlug =
+          rawSlug !== undefined && String(rawSlug).trim()
+            ? normalizeStorefrontSlug(rawSlug)
+            : undefined;
 
         await tx.storefrontCategory.updateMany({
-          where: { categoryId },
+          where: {
+            OR: [{ categoryId }, { id: categoryId }],
+          },
           data: {
             ...(displayName !== undefined ? { displayName } : {}),
             ...(description !== undefined ? { description } : {}),
-            ...(item.visible !== undefined
-              ? { visible: Boolean(item.visible) }
+            ...(normalizedSlug ? { slug: normalizedSlug } : {}),
+            ...(rawVisible !== undefined
+              ? { visible: Boolean(rawVisible) }
               : {}),
             ...(item.featured !== undefined
               ? { featured: Boolean(item.featured) }
@@ -783,7 +882,13 @@ export class StorefrontAdminService {
     return this.getCategories();
   }
 
-  async createCategory(body: { name: string; description?: string; visible?: boolean; featured?: boolean }) {
+  async createCategory(body: {
+    name: string;
+    description?: string;
+    visible?: boolean;
+    isVisible?: boolean;
+    featured?: boolean;
+  }) {
     const { db } = await this.assertModuleAndSchemaReady(true);
     const name = sanitizePlainText(body?.name, 80, 'Nome da categoria');
     if (!name || name.length < 2) {
@@ -803,7 +908,13 @@ export class StorefrontAdminService {
 
     await this.ensureCategoriesSynced(db);
 
-    if (body.description || body.visible !== undefined || body.featured !== undefined) {
+    const rawVisible =
+      body.visible !== undefined ? body.visible : body.isVisible;
+    if (
+      body.description ||
+      rawVisible !== undefined ||
+      body.featured !== undefined
+    ) {
       const createdCat = await db.category.findUnique({ where: { name } });
       if (createdCat) {
         await db.storefrontCategory.updateMany({
@@ -812,7 +923,7 @@ export class StorefrontAdminService {
             description: body.description
               ? sanitizePlainText(body.description, 300)
               : null,
-            visible: body.visible !== false,
+            visible: rawVisible !== false,
             featured: Boolean(body.featured),
           },
         });
@@ -952,25 +1063,37 @@ export class StorefrontAdminService {
         0,
       );
 
+      const priceVal = Number(rg.priceSell ?? 0);
+      const isVis = Boolean(sp?.visible);
+      const titleVal = sp?.commercialTitle || rg.name;
+      const descVal = sp?.commercialDescription || '';
+
       return {
+        id: rg.id,
         retailGroupId: rg.id,
         storefrontProductId: sp?.id || null,
         name: rg.name,
-        commercialTitle: sp?.commercialTitle || rg.name,
-        commercialDescription: sp?.commercialDescription || '',
+        commercialTitle: titleVal,
+        displayTitle: titleVal,
+        commercialDescription: descVal,
+        customDescription: descVal,
         badgeLabel: sp?.badgeLabel || '',
         publicSlug: sp?.publicSlug || buildProductPublicSlug(rg.name, rg.id),
         categoryId: rg.categoryId,
         categoryName: rg.category?.name || '',
-        priceSell: Number(rg.priceSell ?? 0),
+        priceSell: priceVal,
+        priceSale: priceVal,
         imageUrl: rg.imageUrl || null,
         galleryUrls: Array.isArray(sp?.galleryUrlsJson) ? sp.galleryUrlsJson : [],
-        visible: Boolean(sp?.visible),
+        visible: isVis,
+        isVisible: isVis,
         featured: Boolean(sp?.featured),
         sortOrder: Number(sp?.sortOrder ?? 0),
         physicalStockTotal,
         reservedStockTotal,
+        reservedStock: reservedStockTotal,
         availableStockTotal,
+        availableStock: availableStockTotal,
         missingPhoto: !rg.imageUrl,
         outOfStock: availableStockTotal <= 0,
         variants,
@@ -1025,29 +1148,43 @@ export class StorefrontAdminService {
           .filter(Boolean)
       : undefined;
 
+    const rawVisible =
+      body.visible !== undefined ? body.visible : body.isVisible;
+    const rawCommercialTitle =
+      body.commercialTitle !== undefined
+        ? body.commercialTitle
+        : body.displayTitle;
+    const rawCommercialDesc =
+      body.commercialDescription !== undefined
+        ? body.commercialDescription
+        : body.customDescription;
+
     await db.storefrontProduct.upsert({
       where: { retailGroupId },
       update: {
         publicSlug,
-        ...(body.visible !== undefined ? { visible: Boolean(body.visible) } : {}),
+        ...(rawVisible !== undefined ? { visible: Boolean(rawVisible) } : {}),
         ...(body.featured !== undefined
           ? { featured: Boolean(body.featured) }
           : {}),
         ...(body.sortOrder !== undefined
           ? { sortOrder: Number(body.sortOrder) }
           : {}),
-        ...(body.commercialTitle !== undefined
+        ...(rawCommercialTitle !== undefined
           ? {
               commercialTitle:
-                sanitizePlainText(body.commercialTitle, 160, 'Título comercial') ||
-                rg.name,
+                sanitizePlainText(
+                  rawCommercialTitle,
+                  160,
+                  'Título comercial',
+                ) || rg.name,
             }
           : {}),
-        ...(body.commercialDescription !== undefined
+        ...(rawCommercialDesc !== undefined
           ? {
               commercialDescription:
                 sanitizePlainText(
-                  body.commercialDescription,
+                  rawCommercialDesc,
                   2000,
                   'Descrição comercial',
                 ) || null,
@@ -1064,13 +1201,13 @@ export class StorefrontAdminService {
       create: {
         retailGroupId,
         publicSlug,
-        visible: Boolean(body.visible),
+        visible: Boolean(rawVisible),
         featured: Boolean(body.featured),
         sortOrder: Number(body.sortOrder ?? 10),
         commercialTitle:
-          sanitizePlainText(body.commercialTitle || rg.name, 160) || rg.name,
-        commercialDescription: body.commercialDescription
-          ? sanitizePlainText(body.commercialDescription, 2000)
+          sanitizePlainText(rawCommercialTitle || rg.name, 160) || rg.name,
+        commercialDescription: rawCommercialDesc
+          ? sanitizePlainText(rawCommercialDesc, 2000)
           : null,
         badgeLabel: body.badgeLabel
           ? sanitizePlainText(body.badgeLabel, 60)
@@ -1085,7 +1222,7 @@ export class StorefrontAdminService {
 
   async batchUpdateProducts(body: {
     retailGroupIds: string[];
-    action: 'publish' | 'unpublish' | 'feature' | 'unfeature';
+    action: 'publish' | 'unpublish' | 'show' | 'hide' | 'feature' | 'unfeature';
   }) {
     const { db } = await this.assertModuleAndSchemaReady(true);
     const ids = Array.from(
@@ -1098,9 +1235,11 @@ export class StorefrontAdminService {
     await this.ensureProductsSynced(db);
 
     const data: Record<string, any> = {};
-    if (body.action === 'publish') data.visible = true;
-    else if (body.action === 'unpublish') data.visible = false;
-    else if (body.action === 'feature') {
+    if (body.action === 'publish' || body.action === 'show') {
+      data.visible = true;
+    } else if (body.action === 'unpublish' || body.action === 'hide') {
+      data.visible = false;
+    } else if (body.action === 'feature') {
       data.visible = true;
       data.featured = true;
     } else if (body.action === 'unfeature') {

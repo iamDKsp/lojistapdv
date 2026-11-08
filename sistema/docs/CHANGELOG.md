@@ -1,5 +1,14 @@
 # Histórico — PDV Lojista
 
+## 2026-11-08 — Hub de Fornecedores & Atacado SP (Mapa Interativo Brás, 25 de Março, Feirinha da Madrugada & Bom Retiro) e Curadoria no `/sys-init`
+
+- **Mapa Personalizado de São Paulo e Painel Lateral com Grade 3x2 (`frontend/src/components/suppliers/SpCustomMapCanvas.tsx`, `frontend/src/components/suppliers/SpWholesaleMapHub.tsx`, `frontend/src/app/dashboard/suppliers/page.tsx` e `frontend/src/lib/sp-wholesale-map.ts`)**:
+  - Mapa vetorial interativo dos polos atacadistas de São Paulo (*Brás*, *Feirinha da Madrugada*, *25 de Março* e *Bom Retiro*) com marcadores exibindo preview de foto da peça principal, nome da loja e menor preço de atacado.
+  - Filtros por tipo de peça (*Camisetas*, *Jeans & Calças*, *Bermudas*, *Bonés*, *Relógios*, *Óculos & Acessórios*) e por polo comercial.
+  - Painel lateral direito ao clicar no marcador exibindo endereço completo, botão de WhatsApp, **6 itens em 2 fileiras de 3 (grade 3x2)** com foto e valor de atacado, e botão **Ver Fornecedor** abrindo a loja expandida com cálculo de margem sugerida e solicitação de pedido com entrega garantida (`ATK-SP-...`).
+- **Curadoria Administrativa no `/sys-init` e Persistência Central no Heart (`frontend/src/components/sys-init/WholesaleHubAdminPanel.tsx`, `frontend/src/app/sys-init/page.tsx`, `backend/prisma/heart.schema.prisma`, `backend/src/prisma/heart-prisma.service.ts`, `backend/src/suppliers/sp-wholesale.seed.ts`, `backend/src/suppliers/suppliers.service.ts` e `backend/src/suppliers/suppliers.controller.ts`)**:
+  - Nova aba **`Atacado SP (Brás & 25 de Março)`** em `/sys-init` permitindo cadastrar, posicionar no mapa com 1 clique e gerenciar os fornecedores homologados de São Paulo e suas peças da grade 3x2.
+
 ## 2026-11-08 — Ícone Discreto de Retorno ao `/sys-init` na Barra Lateral e Supressão do Gerenciador de Senhas do Navegador
 
 - **Retorno ao `/sys-init` Integrado à Barra Lateral (`frontend/src/App.tsx`, `frontend/src/retail/RetailLayout.tsx` e `frontend/src/retail/retail.css`)**:

@@ -10,7 +10,7 @@ import {
   Settings, ToggleLeft, ToggleRight, AlertTriangle, Upload, X, Terminal,
   ChevronDown, ChevronRight, Trash2, DollarSign, Users, Plus, Phone, FileText,
   Clock, CreditCard, History, Info, Copy, Check, Edit2, LockKeyhole, Sparkles, UserPlus,
-  Activity, CalendarDays, LayoutGrid, LogIn, RefreshCw, Ban, MessageCircle, Send, Server
+  Activity, CalendarDays, LayoutGrid, LogIn, RefreshCw, Ban, MessageCircle, Send, Server, MapPin
 } from "lucide-react";
 import { exportTelemetry, clearTelemetry } from "@/lib/telemetry";
 import { db } from "@/lib/db";
@@ -20,6 +20,7 @@ import { TenantBillingCalendar } from "@/components/TenantBillingCalendar";
 import { TenantInvoicesManager } from "@/components/sys-init/TenantInvoicesManager";
 import { LeadgerIntegrationPanel } from "@/components/sys-init/LeadgerIntegrationPanel";
 import { LeadsPanel } from "@/components/sys-init/LeadsPanel";
+import { WholesaleHubAdminPanel } from "@/components/sys-init/WholesaleHubAdminPanel";
 import { TenantXrayPanel } from "@/components/sys-init/TenantXrayPanel";
 import { SysInitLogin, SYS_INIT_PROFILES, type SysInitProfile } from "@/components/sys-init/SysInitLogin";
 import {
@@ -104,7 +105,7 @@ export default function SysInitPage() {
   const navigate = useNavigate();
   const [step, setStep] = useState<Step>("pin");
 
-  const [activeTab, setActiveTab] = useState<"tenants" | "leads" | "groups" | "sql" | "leadger">("tenants");
+  const [activeTab, setActiveTab] = useState<"tenants" | "leads" | "groups" | "atacado_sp" | "sql" | "leadger">("tenants");
   const [leadsCount, setLeadsCount] = useState<number>(0);
 
   // ── SQL EDITOR STATE ──────────────────────────────────────────────────
@@ -1215,6 +1216,9 @@ export default function SysInitPage() {
               <button onClick={() => setActiveTab('groups')} className={`py-2.5 px-4 font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'groups' ? 'border-brand text-brand' : 'border-transparent text-muted hover:text-ink'}`}>
                 <Users size={15} /> Grupos
               </button>
+              <button onClick={() => setActiveTab('atacado_sp')} className={`py-2.5 px-4 font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'atacado_sp' ? 'border-brand text-brand' : 'border-transparent text-muted hover:text-ink'}`}>
+                <MapPin size={15} /> Atacado SP (Brás & 25 de Março)
+              </button>
               <button onClick={() => setActiveTab('leadger')} className={`py-2.5 px-4 font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'leadger' ? 'border-brand text-brand' : 'border-transparent text-muted hover:text-ink'}`}>
                 <Send size={15} /> Leadger (Financeiro)
               </button>
@@ -2013,6 +2017,11 @@ export default function SysInitPage() {
               <LeadsPanel
                 pin={pinDigits.join('')}
                 onCountChange={setLeadsCount}
+              />
+            ) : activeTab === 'atacado_sp' ? (
+              /* ── ATACADO SP HUB ADMIN TAB ── */
+              <WholesaleHubAdminPanel
+                setupPin={pinDigits.join('')}
               />
             ) : (
               /* ── LEADGER INTEGRATION TAB ── */

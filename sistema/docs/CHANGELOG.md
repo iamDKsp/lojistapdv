@@ -1,5 +1,12 @@
 # Histórico — PDV Lojista
 
+## 2026-11-08 — Ícone Discreto de Retorno ao `/sys-init` na Barra Lateral e Supressão do Gerenciador de Senhas do Navegador
+
+- **Retorno ao `/sys-init` Integrado à Barra Lateral (`frontend/src/App.tsx`, `frontend/src/retail/RetailLayout.tsx` e `frontend/src/retail/retail.css`)**:
+  - Removido o botão flutuante em formato de pílula (`SysInitReturnPill`) do canto inferior esquerdo da tela e integrado um ícone discreto (`<ShieldCheck />`) diretamente em `.retail-rail-bottom` na barra lateral esquerda (`aside.retail-rail`), posicionado logo acima do ícone de sair (`<LogOut />`).
+- **Supressão do Alerta "Salvar Senha?" do Navegador (`frontend/src/app/globals.css`, `frontend/src/components/OperatorLoginModal.tsx`, `frontend/src/retail/RetailLoginPage.tsx`, `frontend/src/retail/RetailMobileLogin.tsx`, `frontend/src/components/sys-init/SysInitLogin.tsx`, `frontend/src/retail/RetailCheckoutModal.tsx`, `frontend/src/components/CloseRegisterModal.tsx`, `frontend/src/app/dashboard/users/page.tsx`, `frontend/src/app/dashboard/configuracoes/empresa/page.tsx` e `frontend/src/app/sys-init/page.tsx`)**:
+  - Substituídos os inputs `type="password"` por `type="text"` com mascaramento visual nativo via CSS (`.pdv-secret-input` com `-webkit-text-security: disc; text-security: disc`) e atributos de bloqueio de autofill (`autoComplete="off"`, `data-lpignore="true"`, `data-1p-ignore="true"`, `data-bwignore="true"`, `data-form-type="other"`), impedindo que o navegador exiba o pop-up de salvar senha a cada autenticação de operador, login ou digitação de PIN.
+
 ## 2026-11-08 — Unificação do Módulo Rede Multi-Lojas (`Multi-Empresa`) ao Sistema da Loja, Login Único e Troca de Unidade em 1 Clique
 
 - **Login Único e Resolução Automática de Grupo por Loja (`backend/src/auth/auth.service.ts`, `backend/src/groups/groups.service.ts`, `backend/src/groups/groups.controller.ts`, `backend/src/groups/groups.module.ts` e `backend/src/tenants/tenants.service.ts`)**:

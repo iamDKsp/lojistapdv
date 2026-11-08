@@ -1,6 +1,6 @@
 # Histórico — PDV Lojista
 
-## 2026-11-08 — Expansão do Carrossel Mobile de Login com Divulgação dos Módulos de Loja Virtual e Entrega em Casa
+## 2026-11-08 — Expansão do Carrossel Mobile de Login com Divulgação dos Módulos de Loja Virtual, Entrega em Casa, Clientes/Crediário e Inteligência Comercial
 
 - **Preservação Integral da Abertura Mobile Existente (`frontend/src/retail/RetailMobileLogin.tsx` e `frontend/src/retail/retail.css`)**:
   - Mantidos integralmente e sem alterações os 3 slides originais de introdução (`BentoMosaicIllustration`, `GradeTeamIllustration` e `StorefrontPosIllustration`), o formulário `Entrar.` (`MobileLoginHeroIllustration`), a transição de portal e a tela `Acesso Liberado!` (`MobileSuccessHeroIllustration`).
@@ -8,6 +8,10 @@
   - Criada ilustração editorial exclusiva na paleta oficial roxo, branco e neutros (`#7C3AED`, `#6D28D9`, `#F3E8FF`, `#F8F7FC`, `#FFFFFF`, `#272321`, `#665F70` e `#E5E1ED`) apresentando a criação do catálogo online (`/loja/sua-loja`) com vitrine mobile, chave seletora animada de publicação, grade `P | M | G` sincronizada em tempo real, sacola flutuante com reserva automática (`+1`) e card animado de pedido enviado ao WhatsApp.
 - **Slide 5 — Módulo Entrega em Casa (`HomeDeliveryMotoboyIllustration` em `frontend/src/retail/RetailMobileLogin.tsx` e `frontend/src/retail/retail.css`)**:
   - Integrada na sequência a animação 2D com câmera de zoom e parallax infinito do motoboy percorrendo as 5 etapas da entrega (`1. Aceito` → `2. Indo à loja` → `3. Coleta na loja PDV Lojista` → `4. Em rota` → `5. Entregue na porta do cliente ✓`), incluindo seletor interativo de etapas e avanço automático contínuo.
+- **Slide 6 — Módulo Clientes, Crediário e Cobrança (`CustomersCreditModuleIllustration` em `frontend/src/retail/RetailMobileLogin.tsx` e `frontend/src/retail/retail.css`)**:
+  - Criada ilustração editorial com a ficha central do cliente (`CREDIÁRIO OK`), barra animada de limite disponível (`R$ 1.200`), carnê de parcelas (`1/3`, `2/3` quitadas e `3/3` com animação de baixa no caixa), cartão exclusivo de crediário da loja e card flutuante de lembrete/cobrança em 1 clique.
+- **Slide 7 — Módulo Inteligência Comercial & Ranking de Vendedores (`CommercialIntelligenceModuleIllustration` em `frontend/src/retail/RetailMobileLogin.tsx` e `frontend/src/retail/retail.css`)**:
+  - Criada ilustração editorial destacando o Pódio Gamificado Top 3 (`#2` à esquerda, `#1` ao centro com coroa/troféu animado e `META 118%`, e `#3` à direita), card flutuante de Calendário com o `CAMPEÃO DO DIA (#1)`, gráfico ascendente de `COMISSÃO & METAS` e faixa de `AUDITORIA DE DESCONTOS & TROCAS`.
 
 ## 2026-11-08 — Correção da Simulação em Tempo Real (Live Preview), Seções da Vitrine e Endpoints de Configurações e Mídia da Loja Virtual
 

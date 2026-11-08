@@ -3077,6 +3077,898 @@ const HomeDeliveryMotoboyIllustration = memo(
 );
 
 /**
+ * Slide 6 — Módulo Clientes, Crediário e Cobrança (Ilustração editorial exclusiva
+ * seguindo a mesma direção de arte arquitetônica dos slides anteriores: ficha de
+ * crediário do cliente, barra de limite disponível animada, carnê de parcelas 1/3, 2/3 e 3/3
+ * com baixa automática, cartão de crédito da loja e disparo de lembrete de cobrança).
+ */
+const CustomersCreditModuleIllustration = memo(
+  function CustomersCreditModuleIllustration() {
+    return (
+      <div className="retail-mlogin-illustration-wrap" aria-hidden="true">
+        <svg
+          viewBox="0 0 280 246"
+          fill="none"
+          className="retail-mlogin-svg is-customers-credit"
+        >
+          {/* Aura circular suave de fundo + partículas editoriais */}
+          <circle cx="140" cy="120" r="84" fill="#F8F7FC" />
+          <circle cx="34" cy="34" r="4.5" fill="#F3E8FF" />
+          <circle cx="248" cy="128" r="5" stroke="#E5E1ED" strokeWidth="1.4" />
+          <path
+            d="M44 18 V26 M40 22 H48 M242 28 V36 M238 32 H246"
+            stroke="#7C3AED"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+          />
+
+          {/* Pedestal e rampa arquitetônica listrada à direita */}
+          <rect
+            x="182"
+            y="160"
+            width="64"
+            height="60"
+            rx="4"
+            fill="#6D28D9"
+            stroke="#272321"
+            strokeWidth="1.4"
+          />
+          <polygon
+            points="142,220 246,160 246,220"
+            fill="#7C3AED"
+            stroke="#272321"
+            strokeWidth="1.4"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M162 220 L246 172 M184 220 L246 184 M206 220 L246 196 M228 220 L246 209"
+            stroke="#FFFFFF"
+            strokeWidth="1.3"
+          />
+
+          {/* FICHA CENTRAL DO CLIENTE & CARNÊ DE CREDIÁRIO */}
+          <g className="retail-mlogin-float-slow">
+            {/* Sombra sólida deslocada */}
+            <rect
+              x="64"
+              y="22"
+              width="156"
+              height="186"
+              rx="12"
+              fill="#272321"
+            />
+            {/* Corpo da Ficha do Cliente */}
+            <rect
+              x="58"
+              y="16"
+              width="156"
+              height="186"
+              rx="12"
+              fill="#FFFFFF"
+              stroke="#272321"
+              strokeWidth="1.5"
+            />
+
+            {/* Cabeçalho Roxo da Ficha com Avatar Editorial do Cliente */}
+            <path
+              d="M58 28 C58 21.4, 63.4 16, 70 16 H202 C208.6 16, 214 21.4, 214 28 V58 H58 Z"
+              fill="#7C3AED"
+              stroke="#272321"
+              strokeWidth="1.4"
+            />
+            <circle
+              cx="80"
+              cy="37"
+              r="13"
+              fill="#F3E8FF"
+              stroke="#272321"
+              strokeWidth="1.3"
+            />
+            {/* Busto estilizado do cliente */}
+            <circle
+              cx="80"
+              cy="33"
+              r="4.2"
+              fill="#FFFFFF"
+              stroke="#272321"
+              strokeWidth="1.2"
+            />
+            <path
+              d="M71 45 C72 40, 88 40, 89 45"
+              fill="#6D28D9"
+              stroke="#272321"
+              strokeWidth="1.2"
+              strokeLinecap="round"
+            />
+            {/* Nome do cliente e selo Crediário Ativo */}
+            <rect
+              x="99"
+              y="27"
+              width="66"
+              height="7"
+              rx="3.5"
+              fill="#FFFFFF"
+            />
+            <rect
+              x="99"
+              y="38"
+              width="48"
+              height="11"
+              rx="4"
+              fill="#6D28D9"
+              stroke="#FFFFFF"
+              strokeWidth="1"
+            />
+            <text
+              x="123"
+              y="45.8"
+              textAnchor="middle"
+              fontSize="6.5"
+              fontWeight="800"
+              fill="#FFFFFF"
+              letterSpacing="0.3"
+            >
+              CREDIÁRIO OK
+            </text>
+
+            {/* Bloco de Limite de Crédito com Barra de Progresso Animada */}
+            <rect
+              x="68"
+              y="66"
+              width="136"
+              height="36"
+              rx="7"
+              fill="#F8F7FC"
+              stroke="#272321"
+              strokeWidth="1.2"
+            />
+            <text
+              x="76"
+              y="78"
+              fontSize="7.2"
+              fontWeight="800"
+              fill="#665F70"
+              letterSpacing="0.3"
+            >
+              LIMITE DISPONÍVEL
+            </text>
+            <text
+              x="196"
+              y="78"
+              textAnchor="end"
+              fontSize="8"
+              fontWeight="800"
+              fill="#7C3AED"
+            >
+              R$ 1.200
+            </text>
+            {/* Trilho da barra de limite */}
+            <rect
+              x="76"
+              y="84"
+              width="120"
+              height="9"
+              rx="4.5"
+              fill="#F3E8FF"
+              stroke="#272321"
+              strokeWidth="1.1"
+            />
+            {/* Preenchimento animado do limite liberado */}
+            <rect
+              x="77.5"
+              y="85.5"
+              width="94"
+              height="6"
+              rx="3"
+              fill="#7C3AED"
+              className="retail-mlogin-credit-bar"
+            />
+
+            {/* Carnê / Controle de Parcelas (1/3, 2/3, 3/3) */}
+            {/* Parcela 1/3 — Quitada */}
+            <g transform="translate(68, 110)">
+              <rect
+                x="0"
+                y="0"
+                width="136"
+                height="22"
+                rx="6"
+                fill="#F3E8FF"
+                stroke="#272321"
+                strokeWidth="1.2"
+              />
+              <circle cx="13" cy="11" r="6.5" fill="#7C3AED" />
+              <path
+                d="M10 11 L12.2 13.2 L16.2 8.8"
+                stroke="#FFFFFF"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <text x="25" y="14" fontSize="8" fontWeight="800" fill="#272321">
+                1/3 • PARCELA
+              </text>
+              <rect
+                x="94"
+                y="5"
+                width="35"
+                height="12"
+                rx="4"
+                fill="#FFFFFF"
+                stroke="#272321"
+                strokeWidth="1"
+              />
+              <text
+                x="111.5"
+                y="13.2"
+                textAnchor="middle"
+                fontSize="6.8"
+                fontWeight="800"
+                fill="#7C3AED"
+              >
+                PAGO ✓
+              </text>
+            </g>
+
+            {/* Parcela 2/3 — Quitada */}
+            <g transform="translate(68, 137)">
+              <rect
+                x="0"
+                y="0"
+                width="136"
+                height="22"
+                rx="6"
+                fill="#F3E8FF"
+                stroke="#272321"
+                strokeWidth="1.2"
+              />
+              <circle cx="13" cy="11" r="6.5" fill="#7C3AED" />
+              <path
+                d="M10 11 L12.2 13.2 L16.2 8.8"
+                stroke="#FFFFFF"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <text x="25" y="14" fontSize="8" fontWeight="800" fill="#272321">
+                2/3 • PARCELA
+              </text>
+              <rect
+                x="94"
+                y="5"
+                width="35"
+                height="12"
+                rx="4"
+                fill="#FFFFFF"
+                stroke="#272321"
+                strokeWidth="1"
+              />
+              <text
+                x="111.5"
+                y="13.2"
+                textAnchor="middle"
+                fontSize="6.8"
+                fontWeight="800"
+                fill="#7C3AED"
+              >
+                PAGO ✓
+              </text>
+            </g>
+
+            {/* Parcela 3/3 — Baixa Animada no Caixa */}
+            <g
+              transform="translate(68, 164)"
+              className="retail-mlogin-credit-installment"
+            >
+              <rect
+                x="0"
+                y="0"
+                width="136"
+                height="24"
+                rx="6"
+                fill="#272321"
+              />
+              <circle
+                cx="13"
+                cy="12"
+                r="6.5"
+                fill="#7C3AED"
+                className="retail-mlogin-vstore-pulse"
+              />
+              <path
+                d="M10 12 L12.2 14.2 L16.2 9.8"
+                stroke="#FFFFFF"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <text x="25" y="15" fontSize="8" fontWeight="800" fill="#FFFFFF">
+                3/3 • RECEBER
+              </text>
+              <rect
+                x="88"
+                y="5"
+                width="41"
+                height="14"
+                rx="4"
+                fill="#7C3AED"
+              />
+              <text
+                x="108.5"
+                y="14.2"
+                textAnchor="middle"
+                fontSize="6.8"
+                fontWeight="800"
+                fill="#FFFFFF"
+              >
+                BAIXAR
+              </text>
+            </g>
+          </g>
+
+          {/* CARD FLUTUANTE SUPERIOR DIREITO — Régua de Cobrança / Lembrete Amigável */}
+          <g className="retail-mlogin-credit-reminder">
+            <path
+              d="M168 14 H262 C266.4 14, 270 17.6, 270 22 V62 C270 66.4, 266.4 70, 262 70 H196 L182 80 V70 H168 C163.6 70, 160 66.4, 160 62 V22 C160 17.6, 163.6 14, 168 14 Z"
+              fill="#272321"
+              stroke="#272321"
+              strokeWidth="1.4"
+              strokeLinejoin="round"
+            />
+            <circle cx="180" cy="42" r="12" fill="#7C3AED" />
+            {/* Ícone de sino / lembrete de cobrança */}
+            <path
+              d="M180 34 C176.5 34, 175 36.8, 175 40 V44 L173.5 46 H186.5 L185 44 V40 C185 36.8, 183.5 34, 180 34 Z"
+              fill="#FFFFFF"
+            />
+            <circle cx="180" cy="48.2" r="1.8" fill="#F3E8FF" />
+            <rect
+              x="198"
+              y="26"
+              width="62"
+              height="11"
+              rx="3.5"
+              fill="#7C3AED"
+            />
+            <text
+              x="229"
+              y="33.8"
+              textAnchor="middle"
+              fontSize="6.5"
+              fontWeight="800"
+              fill="#FFFFFF"
+              letterSpacing="0.3"
+            >
+              COBRANÇA 1-CLICK
+            </text>
+            <rect x="198" y="42" width="58" height="5.5" rx="2.7" fill="#FFFFFF" />
+            <rect x="198" y="51" width="42" height="5" rx="2.5" fill="#F3E8FF" />
+          </g>
+
+          {/* CARD FLUTUANTE INFERIOR ESQUERDO — Cartão de Crediário Exclusivo da Loja */}
+          <g className="retail-mlogin-float-fast">
+            <g transform="rotate(-6 56 174)">
+              <rect
+                x="8"
+                y="142"
+                width="96"
+                height="62"
+                rx="9"
+                fill="#7C3AED"
+                stroke="#272321"
+                strokeWidth="1.4"
+              />
+              {/* Faixa geométrica escura do cartão */}
+              <path
+                d="M8 156 H104 V170 H8 Z"
+                fill="#6D28D9"
+              />
+              {/* Chip branco do cartão */}
+              <rect
+                x="18"
+                y="176"
+                width="16"
+                height="12"
+                rx="3"
+                fill="#FFFFFF"
+                stroke="#272321"
+                strokeWidth="1.1"
+              />
+              {/* Símbolo L oficial no canto do cartão */}
+              <path d="M84 176 H88 V185 H95 V189 H84 Z" fill="#FFFFFF" />
+              <rect
+                x="40"
+                y="179"
+                width="36"
+                height="5"
+                rx="2.5"
+                fill="#F3E8FF"
+              />
+              <rect
+                x="40"
+                y="187"
+                width="24"
+                height="4.5"
+                rx="2.2"
+                fill="#FFFFFF"
+              />
+            </g>
+          </g>
+
+          {/* Linha de base arquitetônica */}
+          <line
+            x1="16"
+            y1="220"
+            x2="264"
+            y2="220"
+            stroke="#272321"
+            strokeWidth="1.5"
+          />
+        </svg>
+      </div>
+    );
+  },
+);
+
+/**
+ * Slide 7 — Módulo Inteligência Comercial & Ranking de Vendedores (Ilustração editorial
+ * exclusiva com o Pódio Gamificado Top 3 — #2, #1 Campeão com Coroa Animada e #3 —,
+ * card de Calendário com Campeão do Dia, gráfico de Meta/Comissão e Auditoria de Descontos & Trocas).
+ */
+const CommercialIntelligenceModuleIllustration = memo(
+  function CommercialIntelligenceModuleIllustration() {
+    return (
+      <div className="retail-mlogin-illustration-wrap" aria-hidden="true">
+        <svg
+          viewBox="0 0 280 246"
+          fill="none"
+          className="retail-mlogin-svg is-commercial-intel"
+        >
+          {/* Aura circular suave de fundo + estrelas de celebração da paleta */}
+          <circle cx="140" cy="122" r="86" fill="#F8F7FC" />
+          <polygon
+            points="140,10 143,17 151,18 145,23 147,30 140,26 133,30 135,23 129,18 137,17"
+            fill="#F3E8FF"
+            stroke="#272321"
+            strokeWidth="1.2"
+            strokeLinejoin="round"
+            className="retail-mlogin-intel-crown"
+          />
+          <circle cx="32" cy="112" r="4" fill="#F3E8FF" />
+          <circle cx="250" cy="108" r="4.5" stroke="#E5E1ED" strokeWidth="1.4" />
+
+          {/* ================= PÓDIO GAMIFICADO TOP 3 (#2 ESQUERDA, #1 CENTRO, #3 DIREITA) ================= */}
+
+          {/* COLUNA #2 (Esquerda) */}
+          <g>
+            {/* Avatar do Vendedor #2 */}
+            <g className="retail-mlogin-float-slow">
+              <circle
+                cx="67"
+                cy="108"
+                r="16"
+                fill="#F3E8FF"
+                stroke="#272321"
+                strokeWidth="1.4"
+              />
+              <circle
+                cx="67"
+                cy="104"
+                r="5"
+                fill="#FFFFFF"
+                stroke="#272321"
+                strokeWidth="1.2"
+              />
+              <path
+                d="M56 118 C58 111, 76 111, 78 118"
+                fill="#6D28D9"
+                stroke="#272321"
+                strokeWidth="1.2"
+                strokeLinecap="round"
+              />
+            </g>
+            {/* Pedestal #2 */}
+            <rect
+              x="38"
+              y="130"
+              width="58"
+              height="90"
+              rx="6"
+              fill="#F3E8FF"
+              stroke="#272321"
+              strokeWidth="1.4"
+            />
+            <circle
+              cx="67"
+              cy="150"
+              r="11"
+              fill="#FFFFFF"
+              stroke="#272321"
+              strokeWidth="1.3"
+            />
+            <text
+              x="67"
+              y="153.8"
+              textAnchor="middle"
+              fontSize="10"
+              fontWeight="800"
+              fill="#272321"
+            >
+              #2
+            </text>
+            <rect x="48" y="168" width="38" height="5" rx="2.5" fill="#7C3AED" />
+            <rect x="52" y="177" width="30" height="4.5" rx="2.2" fill="#665F70" />
+          </g>
+
+          {/* COLUNA #3 (Direita) */}
+          <g>
+            {/* Avatar do Vendedor #3 */}
+            <g className="retail-mlogin-float-slow">
+              <circle
+                cx="213"
+                cy="120"
+                r="15"
+                fill="#F3E8FF"
+                stroke="#272321"
+                strokeWidth="1.4"
+              />
+              <circle
+                cx="213"
+                cy="116"
+                r="4.8"
+                fill="#FFFFFF"
+                stroke="#272321"
+                strokeWidth="1.2"
+              />
+              <path
+                d="M203 129 C205 123, 221 123, 223 129"
+                fill="#272321"
+                stroke="#272321"
+                strokeWidth="1.2"
+                strokeLinecap="round"
+              />
+            </g>
+            {/* Pedestal #3 */}
+            <rect
+              x="184"
+              y="142"
+              width="58"
+              height="78"
+              rx="6"
+              fill="#6D28D9"
+              stroke="#272321"
+              strokeWidth="1.4"
+            />
+            <circle
+              cx="213"
+              cy="161"
+              r="10.5"
+              fill="#FFFFFF"
+              stroke="#272321"
+              strokeWidth="1.3"
+            />
+            <text
+              x="213"
+              y="164.8"
+              textAnchor="middle"
+              fontSize="9.5"
+              fontWeight="800"
+              fill="#272321"
+            >
+              #3
+            </text>
+            <rect x="194" y="178" width="38" height="5" rx="2.5" fill="#F3E8FF" />
+            <rect x="198" y="187" width="30" height="4.5" rx="2.2" fill="#FFFFFF" />
+          </g>
+
+          {/* COLUNA #1 CENTRAL — CAMPEÃO DO RANKING */}
+          <g>
+            {/* Coroa / Escudo Animado Acima do Campeão #1 */}
+            <g className="retail-mlogin-intel-crown">
+              <path
+                d="M124 52 L131 40 L140 48 L149 40 L156 52 Z"
+                fill="#7C3AED"
+                stroke="#272321"
+                strokeWidth="1.4"
+                strokeLinejoin="round"
+              />
+              <circle cx="131" cy="38" r="2.2" fill="#272321" />
+              <circle cx="140" cy="35" r="2.6" fill="#7C3AED" />
+              <circle cx="149" cy="38" r="2.2" fill="#272321" />
+            </g>
+
+            {/* Avatar Hero do Vendedor #1 */}
+            <g className="retail-mlogin-intel-champion">
+              <circle
+                cx="140"
+                cy="74"
+                r="20"
+                fill="#7C3AED"
+                stroke="#272321"
+                strokeWidth="1.5"
+              />
+              <circle
+                cx="140"
+                cy="69"
+                r="6"
+                fill="#FFFFFF"
+                stroke="#272321"
+                strokeWidth="1.3"
+              />
+              <path
+                d="M126 87 C128 78, 152 78, 154 87"
+                fill="#FFFFFF"
+                stroke="#272321"
+                strokeWidth="1.3"
+                strokeLinecap="round"
+              />
+            </g>
+
+            {/* Sombra deslocada do Pedestal #1 */}
+            <rect
+              x="108"
+              y="104"
+              width="72"
+              height="116"
+              rx="8"
+              fill="#272321"
+            />
+            {/* Pedestal Principal #1 em Roxo Vibrante */}
+            <rect
+              x="104"
+              y="100"
+              width="72"
+              height="120"
+              rx="8"
+              fill="#7C3AED"
+              stroke="#272321"
+              strokeWidth="1.5"
+            />
+            {/* Listras arquitetônicas na base do pedestal #1 */}
+            <path
+              d="M104 196 L128 172 M112 204 L144 172 M126 206 L160 172 M142 206 L176 172"
+              stroke="#6D28D9"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+            />
+            {/* Medalhão #1 */}
+            <circle
+              cx="140"
+              cy="126"
+              r="15"
+              fill="#FFFFFF"
+              stroke="#272321"
+              strokeWidth="1.4"
+            />
+            <text
+              x="140"
+              y="130.5"
+              textAnchor="middle"
+              fontSize="12.5"
+              fontWeight="800"
+              fill="#272321"
+            >
+              #1
+            </text>
+            {/* Selo META 118% */}
+            <rect
+              x="114"
+              y="148"
+              width="52"
+              height="14"
+              rx="4"
+              fill="#272321"
+            />
+            <text
+              x="140"
+              y="157.5"
+              textAnchor="middle"
+              fontSize="7.2"
+              fontWeight="800"
+              fill="#FFFFFF"
+              letterSpacing="0.3"
+            >
+              META 118%
+            </text>
+            <rect x="118" y="168" width="44" height="5.5" rx="2.7" fill="#FFFFFF" />
+          </g>
+
+          {/* CARD FLUTUANTE SUPERIOR ESQUERDO — Calendário Diário & Campeão do Dia */}
+          <g className="retail-mlogin-vstore-builder">
+            <rect
+              x="10"
+              y="20"
+              width="88"
+              height="64"
+              rx="8"
+              fill="#FFFFFF"
+              stroke="#272321"
+              strokeWidth="1.4"
+            />
+            <path
+              d="M10 28 C10 23.6, 13.6 20, 18 20 H90 C94.4 20, 98 23.6, 98 28 V36 H10 Z"
+              fill="#272321"
+            />
+            <text
+              x="54"
+              y="30.8"
+              textAnchor="middle"
+              fontSize="6.5"
+              fontWeight="800"
+              fill="#FFFFFF"
+              letterSpacing="0.4"
+            >
+              CAMPEÃO DO DIA
+            </text>
+            {/* Grade de dias do calendário */}
+            <rect
+              x="18"
+              y="42"
+              width="20"
+              height="15"
+              rx="3"
+              fill="#F3E8FF"
+              stroke="#272321"
+              strokeWidth="1.1"
+            />
+            <rect
+              x="44"
+              y="42"
+              width="20"
+              height="15"
+              rx="3"
+              fill="#7C3AED"
+              stroke="#272321"
+              strokeWidth="1.1"
+              className="retail-mlogin-vstore-size"
+            />
+            <text
+              x="54"
+              y="52"
+              textAnchor="middle"
+              fontSize="7.5"
+              fontWeight="800"
+              fill="#FFFFFF"
+            >
+              #1
+            </text>
+            <rect
+              x="70"
+              y="42"
+              width="20"
+              height="15"
+              rx="3"
+              fill="#F8F7FC"
+              stroke="#272321"
+              strokeWidth="1.1"
+            />
+            <rect
+              x="18"
+              y="62"
+              width="72"
+              height="14"
+              rx="4"
+              fill="#F3E8FF"
+            />
+            <line
+              x1="24"
+              y1="69"
+              x2="76"
+              y2="69"
+              stroke="#7C3AED"
+              strokeWidth="2.4"
+              strokeLinecap="round"
+            />
+          </g>
+
+          {/* CARD FLUTUANTE SUPERIOR DIREITO — Comissão + Auditoria de Descontos & Trocas */}
+          <g className="retail-mlogin-float-fast">
+            <rect
+              x="180"
+              y="18"
+              width="90"
+              height="68"
+              rx="8"
+              fill="#272321"
+              stroke="#272321"
+              strokeWidth="1.4"
+            />
+            <rect
+              x="188"
+              y="26"
+              width="74"
+              height="12"
+              rx="3.5"
+              fill="#7C3AED"
+            />
+            <text
+              x="225"
+              y="34.5"
+              textAnchor="middle"
+              fontSize="6.5"
+              fontWeight="800"
+              fill="#FFFFFF"
+              letterSpacing="0.3"
+            >
+              COMISSÃO & METAS
+            </text>
+            {/* Barras ascendentes de desempenho */}
+            <rect x="192" y="60" width="10" height="16" rx="2" fill="#F3E8FF" />
+            <rect x="208" y="52" width="10" height="24" rx="2" fill="#6D28D9" />
+            <rect x="224" y="44" width="10" height="32" rx="2" fill="#7C3AED" />
+            <rect
+              x="240"
+              y="40"
+              width="10"
+              height="36"
+              rx="2"
+              fill="#FFFFFF"
+              className="retail-mlogin-vstore-size"
+            />
+            {/* Linha de tendência ascendente */}
+            <path
+              d="M194 56 L212 48 L228 42 L246 36"
+              stroke="#F3E8FF"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+            />
+          </g>
+
+          {/* FAIXA FLUTUANTE INFERIOR — Auditoria de Descontos vs. Trocas */}
+          <g className="retail-mlogin-intel-audit">
+            <rect
+              x="34"
+              y="194"
+              width="212"
+              height="26"
+              rx="8"
+              fill="#FFFFFF"
+              stroke="#272321"
+              strokeWidth="1.4"
+            />
+            <circle cx="50" cy="207" r="8" fill="#7C3AED" />
+            <path
+              d="M47 207 L49.2 209.2 L53.5 204.8"
+              stroke="#FFFFFF"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <text
+              x="64"
+              y="209.8"
+              fontSize="7.8"
+              fontWeight="800"
+              fill="#272321"
+              letterSpacing="0.2"
+            >
+              AUDITORIA DE DESCONTOS & TROCAS
+            </text>
+            <circle
+              cx="234"
+              cy="207"
+              r="4"
+              fill="#7C3AED"
+              className="retail-mlogin-vstore-pulse"
+            />
+          </g>
+
+          {/* Linha de base arquitetônica */}
+          <line
+            x1="16"
+            y1="220"
+            x2="264"
+            y2="220"
+            stroke="#272321"
+            strokeWidth="1.5"
+          />
+        </svg>
+      </div>
+    );
+  },
+);
+
+/**
  * Ilustração Hero da Tela "Entrar." (Replicando fielmente a cena do celular direito
  * em 00:04.2–00:09.4: personagem subindo a rampa listrada roxa, segurando o envelope
  * de credencial da loja e erguendo o quadro roxo de confirmação ao lado do título).
@@ -3500,6 +4392,20 @@ const ONBOARDING_SLIDES = [
     description:
       "Acione motoboy direto da venda online: acompanhe a coleta do pacote na loja e a entrega na porta do cliente ao vivo.",
     Illustration: HomeDeliveryMotoboyIllustration,
+  },
+  {
+    id: "customers-credit",
+    title: "Clientes, Crediário\ne Cobrança Fácil.",
+    description:
+      "Controle limite de crediário por cliente, parcelas em aberto no carnê, histórico de compras e envie lembretes de cobrança.",
+    Illustration: CustomersCreditModuleIllustration,
+  },
+  {
+    id: "commercial-intel",
+    title: "Ranking, Pódio e\nMetas da Equipe.",
+    description:
+      "Acompanhe o pódio gamificado de vendedores, o campeão de cada dia no calendário, comissões e auditoria de descontos e trocas.",
+    Illustration: CommercialIntelligenceModuleIllustration,
   },
 ] as const;
 

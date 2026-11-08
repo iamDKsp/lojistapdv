@@ -603,108 +603,6 @@ export function RetailIntelligencePage() {
 
   return (
     <>
-      <div className="retail-page-header">
-        <div>
-          <div className="retail-row" style={{ gap: 8, marginBottom: 4 }}>
-            <span className="retail-intel-pill-badge">
-              <Trophy size={13} />
-              MÓDULO EXCLUSIVO · INTELIGÊNCIA COMERCIAL
-            </span>
-          </div>
-          <h1>Inteligência Comercial &amp; Ranking de Vendedores</h1>
-          <p>
-            Pódio de performance da equipe, índice de descontos, taxa de trocas
-            por vendedor, recordes diários e calendário interativo de vendas.
-          </p>
-        </div>
-        <div className="retail-row">
-          <button
-            type="button"
-            className={`retail-button ${activeSubTab === "ranking" ? "retail-button-primary" : ""}`}
-            onClick={() => navigate(ROUTES.inteligenciaComercial.ranking)}
-          >
-            <Trophy size={16} />
-            Ranking e Pódio
-          </button>
-          <button
-            type="button"
-            className={`retail-button ${activeSubTab === "calendario" ? "retail-button-primary" : ""}`}
-            onClick={() => navigate(ROUTES.inteligenciaComercial.calendario)}
-          >
-            <CalendarIcon size={16} />
-            Calendário de Vendas
-          </button>
-          <button
-            type="button"
-            className={`retail-button ${activeSubTab === "metas" ? "retail-button-primary" : ""}`}
-            onClick={() => navigate(ROUTES.inteligenciaComercial.metas)}
-          >
-            <Target size={16} />
-            Descontos, Trocas &amp; Metas
-          </button>
-        </div>
-      </div>
-
-      {/* Barra de Período e Atalhos Rápidos */}
-      <div className="retail-toolbar">
-        <div className="retail-field">
-          <span>De</span>
-          <RetailDatePicker
-            aria-label="De"
-            value={start}
-            rangeStart={start}
-            rangeEnd={end}
-            allowClear={false}
-            onValueChange={setStart}
-          />
-        </div>
-        <div className="retail-field">
-          <span>Até</span>
-          <RetailDatePicker
-            aria-label="Até"
-            value={end}
-            rangeStart={start}
-            rangeEnd={end}
-            allowClear={false}
-            onValueChange={setEnd}
-          />
-        </div>
-        <button
-          type="button"
-          className="retail-button"
-          onClick={() => {
-            const today = todaySaoPaulo();
-            setStart(today.slice(0, 8) + "01");
-            setEnd(today);
-          }}
-        >
-          Este mês
-        </button>
-        <button
-          type="button"
-          className="retail-button"
-          onClick={() => {
-            const today = todaySaoPaulo();
-            const d7 = new Date(
-              new Date(`${today}T12:00:00Z`).getTime() - 6 * 86400000,
-            )
-              .toISOString()
-              .slice(0, 10);
-            setStart(d7);
-            setEnd(today);
-          }}
-        >
-          Últimos 7 dias
-        </button>
-        <button
-          type="button"
-          className="retail-button retail-button-primary"
-          onClick={() => void load()}
-        >
-          Atualizar inteligência
-        </button>
-      </div>
-
       {error && (
         <p role="alert" className="retail-message">
           {error}
@@ -721,69 +619,9 @@ export function RetailIntelligencePage() {
         </div>
       ) : (
         data && (
-          <div className="retail-stack" style={{ gap: 20 }}>
-            {/* Faixa Superior de KPIs Executivos da Equipe */}
-            <div className="retail-kpis">
-              <article className="retail-kpi">
-                <span className="retail-muted">
-                  Faturamento Líquido da Equipe
-                </span>
-                <strong className="retail-number">
-                  {money(data.summary.netRevenue)}
-                </strong>
-                <small className="retail-muted">
-                  Bruto {money(data.summary.grossRevenue)} ·{" "}
-                  {data.summary.totalSales} vendas ({data.summary.totalPieces}{" "}
-                  peças)
-                </small>
-              </article>
-
-              <article className="retail-kpi">
-                <span className="retail-muted">
-                  Líder do Ranking (#1 no Período)
-                </span>
-                <strong className="retail-number">
-                  {data.summary.topSeller?.name || "Sem vendas"}
-                </strong>
-                <small className="retail-muted">
-                  {data.summary.topSeller
-                    ? `${money(data.summary.topSeller.netRevenue)} líquidos · ${data.summary.topSeller.dailyWinsCount} ${data.summary.topSeller.dailyWinsCount === 1 ? "dia em 1º" : "dias em 1º"}`
-                    : "Aguardando atendimentos"}
-                </small>
-              </article>
-
-              <article className="retail-kpi">
-                <span className="retail-muted">
-                  Índice de Descontos Concedidos
-                </span>
-                <strong className="retail-number">
-                  {Number(data.summary.discountRatePct || 0).toFixed(1)}% (
-                  {money(data.summary.totalDiscounts)})
-                </strong>
-                <small className="retail-muted">
-                  Aplicado em {data.summary.discountedSalesCount} de{" "}
-                  {data.summary.totalSales} atendimentos
-                </small>
-              </article>
-
-              <article className="retail-kpi">
-                <span className="retail-muted">
-                  Taxa de Trocas &amp; Recorde Diário
-                </span>
-                <strong className="retail-number">
-                  {Number(data.summary.returnRatePct || 0).toFixed(1)}% trocas (
-                  {money(data.summary.returnsTotal)})
-                </strong>
-                <small className="retail-muted">
-                  {data.summary.bestDay
-                    ? `Melhor dia: ${formatShortBrDate(data.summary.bestDay.date)} (${money(data.summary.bestDay.revenue)})`
-                    : `${data.summary.returnsCount} trocas registradas`}
-                </small>
-              </article>
-            </div>
-
+          <div className="retail-stack" style={{ gap: 18 }}>
             {/* =================================================================
-                ABA 1: RANKING E PÓDIO (DESIGN INSPIRADO NA REFERÊNCIA ENVIADA)
+                ABA 1: RANKING E PÓDIO (NO TOPO, VISÃO COMPLETA AO ABRIR O MÓDULO)
                ================================================================= */}
             {activeSubTab === "ranking" && (
               <div className="retail-intel-ranking-layout">
@@ -794,15 +632,7 @@ export function RetailIntelligencePage() {
                 >
                   <div className="retail-intel-stage-top">
                     <div className="retail-intel-stage-header">
-                      <span className="retail-intel-stage-tag">
-                        <Crown size={14} />
-                        LEADERBOARD COMERCIAL
-                      </span>
                       <h2>Ranking de Vendedores</h2>
-                      <p>
-                        Toque em qualquer vendedor no pódio ou na lista para
-                        abrir o Raio-X 360º individual
-                      </p>
                     </div>
 
                     {/* Seletor Central "Challenges v" da referência */}
@@ -858,7 +688,7 @@ export function RetailIntelligencePage() {
                             <SellerAvatar
                               name={podiumTop2.name}
                               imageUrl={podiumTop2.imageUrl}
-                              size={80}
+                              size={72}
                               rank={2}
                             />
                             <strong className="retail-intel-podium-name">
@@ -897,7 +727,7 @@ export function RetailIntelligencePage() {
                             <SellerAvatar
                               name={podiumTop1.name}
                               imageUrl={podiumTop1.imageUrl}
-                              size={104}
+                              size={92}
                               rank={1}
                             />
                             <strong className="retail-intel-podium-name">
@@ -937,7 +767,7 @@ export function RetailIntelligencePage() {
                             <SellerAvatar
                               name={podiumTop3.name}
                               imageUrl={podiumTop3.imageUrl}
-                              size={80}
+                              size={72}
                               rank={3}
                             />
                             <strong className="retail-intel-podium-name">
@@ -2053,6 +1883,127 @@ export function RetailIntelligencePage() {
                 </form>
               </div>
             )}
+
+            {/* =================================================================
+                FAIXA INFERIOR: KPIS EXECUTIVOS DA EQUIPE + FILTRO DE PERÍODO
+               ================================================================= */}
+            <div className="retail-kpis">
+              <article className="retail-kpi">
+                <span className="retail-muted">
+                  Faturamento Líquido da Equipe
+                </span>
+                <strong className="retail-number">
+                  {money(data.summary.netRevenue)}
+                </strong>
+                <small className="retail-muted">
+                  Bruto {money(data.summary.grossRevenue)} ·{" "}
+                  {data.summary.totalSales} vendas ({data.summary.totalPieces}{" "}
+                  peças)
+                </small>
+              </article>
+
+              <article className="retail-kpi">
+                <span className="retail-muted">
+                  Líder do Ranking (#1 no Período)
+                </span>
+                <strong className="retail-number">
+                  {data.summary.topSeller?.name || "Sem vendas"}
+                </strong>
+                <small className="retail-muted">
+                  {data.summary.topSeller
+                    ? `${money(data.summary.topSeller.netRevenue)} líquidos · ${data.summary.topSeller.dailyWinsCount} ${data.summary.topSeller.dailyWinsCount === 1 ? "dia em 1º" : "dias em 1º"}`
+                    : "Aguardando atendimentos"}
+                </small>
+              </article>
+
+              <article className="retail-kpi">
+                <span className="retail-muted">
+                  Índice de Descontos Concedidos
+                </span>
+                <strong className="retail-number">
+                  {Number(data.summary.discountRatePct || 0).toFixed(1)}% (
+                  {money(data.summary.totalDiscounts)})
+                </strong>
+                <small className="retail-muted">
+                  Aplicado em {data.summary.discountedSalesCount} de{" "}
+                  {data.summary.totalSales} atendimentos
+                </small>
+              </article>
+
+              <article className="retail-kpi">
+                <span className="retail-muted">
+                  Taxa de Trocas &amp; Recorde Diário
+                </span>
+                <strong className="retail-number">
+                  {Number(data.summary.returnRatePct || 0).toFixed(1)}% trocas (
+                  {money(data.summary.returnsTotal)})
+                </strong>
+                <small className="retail-muted">
+                  {data.summary.bestDay
+                    ? `Melhor dia: ${formatShortBrDate(data.summary.bestDay.date)} (${money(data.summary.bestDay.revenue)})`
+                    : `${data.summary.returnsCount} trocas registradas`}
+                </small>
+              </article>
+            </div>
+
+            <div className="retail-toolbar" style={{ marginBottom: 0 }}>
+              <div className="retail-field">
+                <span>De</span>
+                <RetailDatePicker
+                  aria-label="De"
+                  value={start}
+                  rangeStart={start}
+                  rangeEnd={end}
+                  allowClear={false}
+                  onValueChange={setStart}
+                />
+              </div>
+              <div className="retail-field">
+                <span>Até</span>
+                <RetailDatePicker
+                  aria-label="Até"
+                  value={end}
+                  rangeStart={start}
+                  rangeEnd={end}
+                  allowClear={false}
+                  onValueChange={setEnd}
+                />
+              </div>
+              <button
+                type="button"
+                className="retail-button"
+                onClick={() => {
+                  const today = todaySaoPaulo();
+                  setStart(today.slice(0, 8) + "01");
+                  setEnd(today);
+                }}
+              >
+                Este mês
+              </button>
+              <button
+                type="button"
+                className="retail-button"
+                onClick={() => {
+                  const today = todaySaoPaulo();
+                  const d7 = new Date(
+                    new Date(`${today}T12:00:00Z`).getTime() - 6 * 86400000,
+                  )
+                    .toISOString()
+                    .slice(0, 10);
+                  setStart(d7);
+                  setEnd(today);
+                }}
+              >
+                Últimos 7 dias
+              </button>
+              <button
+                type="button"
+                className="retail-button retail-button-primary"
+                onClick={() => void load()}
+              >
+                Atualizar inteligência
+              </button>
+            </div>
           </div>
         )
       )}

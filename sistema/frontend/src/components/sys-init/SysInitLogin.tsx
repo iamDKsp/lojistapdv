@@ -909,7 +909,7 @@ export function SysInitLogin({
           </div>
 
           {/* Form */}
-          <form onSubmit={handleFormSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }} noValidate>
+          <form onSubmit={handleFormSubmit} autoComplete="off" style={{ display: "flex", flexDirection: "column", gap: 14 }} noValidate>
             <div>
               <label
                 htmlFor="sysinit-password"
@@ -952,12 +952,17 @@ export function SysInitLogin({
                 <input
                   ref={inputRef}
                   id="sysinit-password"
-                  type={showPwd ? "text" : "password"}
+                  type="text"
                   value={password}
                   onChange={e => onPasswordChange(e.target.value)}
                   placeholder="••••••••••"
                   aria-label="Senha do Sys-Init"
-                  autoComplete="current-password"
+                  autoComplete="off"
+                  data-lpignore="true"
+                  data-1p-ignore="true"
+                  data-bwignore="true"
+                  data-form-type="other"
+                  className={showPwd ? undefined : "pdv-secret-input"}
                   style={{
                     flex: 1,
                     background: "transparent",

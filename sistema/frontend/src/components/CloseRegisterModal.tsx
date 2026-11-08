@@ -1169,18 +1169,24 @@ export function CloseRegisterModal({
               </button>
             </div>
 
-            <form onSubmit={handleVerifyCashierPin} className="p-6 space-y-4">
+            <form onSubmit={handleVerifyCashierPin} autoComplete="off" className="p-6 space-y-4">
               <div>
                 <label className="text-xs font-bold text-muted uppercase tracking-wider block mb-2 text-center">
                   Digite o PIN do Caixa ou do Gerente
                 </label>
                 <input
-                  type="password"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  data-lpignore="true"
+                  data-1p-ignore="true"
+                  data-bwignore="true"
+                  data-form-type="other"
                   autoFocus
                   value={cashierPinInput}
                   onChange={e => setCashierPinInput(e.target.value.replace(/\D/g, '').slice(0, 8))}
                   placeholder="••••"
-                  className="w-full bg-page border-2 border-line focus:border-brand rounded-2xl px-4 py-3.5 text-center text-3xl tracking-[0.5em] font-mono font-bold text-ink outline-none transition-all"
+                  className="pdv-secret-input w-full bg-page border-2 border-line focus:border-brand rounded-2xl px-4 py-3.5 text-center text-3xl tracking-[0.5em] font-mono font-bold text-ink outline-none transition-all"
                   maxLength={8}
                 />
               </div>

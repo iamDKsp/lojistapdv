@@ -86,6 +86,12 @@ textarea:disabled {
   cursor: not-allowed;
 }
 
+/* Mascaramento de senhas e PINs sem acionar o gerenciador de senhas do navegador */
+.pdv-secret-input {
+  -webkit-text-security: disc;
+  text-security: disc;
+}
+
 /* ============================================================================
    SVG Compact Loader (simbolo-animado.svg)
    ============================================================================ */

@@ -205,7 +205,7 @@ export function OperatorLoginModal({
             ))}
           </div>
         ) : (
-          <form onSubmit={handleLogin} className="space-y-5">
+          <form onSubmit={handleLogin} autoComplete="off" className="space-y-5">
             <button
               type="button"
               onClick={() => {
@@ -247,8 +247,13 @@ export function OperatorLoginModal({
               </label>
               <input
                 id="operator-pin-input"
-                type="password"
+                type="text"
                 inputMode="numeric"
+                autoComplete="off"
+                data-lpignore="true"
+                data-1p-ignore="true"
+                data-bwignore="true"
+                data-form-type="other"
                 autoFocus
                 disabled={loadingLogin}
                 value={pin}
@@ -257,7 +262,7 @@ export function OperatorLoginModal({
                   if (errorMessage) setErrorMessage(null);
                 }}
                 maxLength={6}
-                className={`w-full bg-page border-2 ${
+                className={`pdv-secret-input w-full bg-page border-2 ${
                   errorMessage
                     ? "border-brand bg-support focus:border-brand"
                     : "border-line focus:border-brand"

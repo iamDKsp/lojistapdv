@@ -261,11 +261,17 @@ export default function UsersPage() {
                 <label className="text-sm font-medium text-muted block mb-2">Novo PIN do Caixa (mín. 4 dígitos)</label>
                 <div className="relative">
                   <input
-                    type={showCashierPin ? 'text' : 'password'}
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    data-lpignore="true"
+                    data-1p-ignore="true"
+                    data-bwignore="true"
+                    data-form-type="other"
                     value={cashierPin}
                     onChange={e => setCashierPin(e.target.value.replace(/\D/g, '').slice(0, 8))}
                     placeholder="••••"
-                    className="w-full bg-page border border-line rounded-xl px-4 py-3 text-ink text-center text-2xl font-mono tracking-[0.5em] focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+                    className={`${showCashierPin ? '' : 'pdv-secret-input'} w-full bg-page border border-line rounded-xl px-4 py-3 text-ink text-center text-2xl font-mono tracking-[0.5em] focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand`}
                     maxLength={8}
                     autoFocus
                   />
@@ -277,11 +283,17 @@ export default function UsersPage() {
               <div>
                 <label className="text-sm font-medium text-muted block mb-2">Confirmar PIN do Caixa</label>
                 <input
-                  type={showCashierPin ? 'text' : 'password'}
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  data-lpignore="true"
+                  data-1p-ignore="true"
+                  data-bwignore="true"
+                  data-form-type="other"
                   value={confirmCashierPin}
                   onChange={e => setConfirmCashierPin(e.target.value.replace(/\D/g, '').slice(0, 8))}
                   placeholder="••••"
-                  className="w-full bg-page border border-line rounded-xl px-4 py-3 text-ink text-center text-2xl font-mono tracking-[0.5em] focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+                  className={`${showCashierPin ? '' : 'pdv-secret-input'} w-full bg-page border border-line rounded-xl px-4 py-3 text-ink text-center text-2xl font-mono tracking-[0.5em] focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand`}
                   maxLength={8}
                   onKeyDown={e => e.key === 'Enter' && handleSaveCashierPin()}
                 />
@@ -329,11 +341,17 @@ export default function UsersPage() {
                 <label className="text-sm font-medium text-muted block mb-2">Novo PIN (mín. 4 dígitos)</label>
                 <div className="relative">
                   <input
-                    type={showPin ? 'text' : 'password'}
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    data-lpignore="true"
+                    data-1p-ignore="true"
+                    data-bwignore="true"
+                    data-form-type="other"
                     value={discountPin}
                     onChange={e => setDiscountPin(e.target.value.replace(/\D/g, '').slice(0, 8))}
                     placeholder="••••"
-                    className="w-full bg-page border border-line rounded-xl px-4 py-3 text-ink text-center text-2xl font-mono tracking-[0.5em] focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+                    className={`${showPin ? '' : 'pdv-secret-input'} w-full bg-page border border-line rounded-xl px-4 py-3 text-ink text-center text-2xl font-mono tracking-[0.5em] focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand`}
                     maxLength={8}
                     autoFocus
                   />
@@ -345,11 +363,17 @@ export default function UsersPage() {
               <div>
                 <label className="text-sm font-medium text-muted block mb-2">Confirmar PIN</label>
                 <input
-                  type={showPin ? 'text' : 'password'}
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  data-lpignore="true"
+                  data-1p-ignore="true"
+                  data-bwignore="true"
+                  data-form-type="other"
                   value={confirmPin}
                   onChange={e => setConfirmPin(e.target.value.replace(/\D/g, '').slice(0, 8))}
                   placeholder="••••"
-                  className="w-full bg-page border border-line rounded-xl px-4 py-3 text-ink text-center text-2xl font-mono tracking-[0.5em] focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+                  className={`${showPin ? '' : 'pdv-secret-input'} w-full bg-page border border-line rounded-xl px-4 py-3 text-ink text-center text-2xl font-mono tracking-[0.5em] focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand`}
                   maxLength={8}
                   onKeyDown={e => e.key === 'Enter' && handleSaveDiscountPin()}
                 />

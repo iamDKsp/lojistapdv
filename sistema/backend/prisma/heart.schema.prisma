@@ -452,3 +452,58 @@ model StorefrontRegistry {
   @@index([slug, enabled, published])
   @@map("storefront_registry")
 }
+
+// ------------------------------------------------------------
+//  WholesaleSupplier — Hub de Fornecedores & Atacado SP (Brás / 25 de Março / Bom Retiro)
+// ------------------------------------------------------------
+model WholesaleSupplier {
+  id                 String   @id @default(uuid())
+  name               String
+  region             String   @default("BRAS") // BRAS | VINTE_CINCO_MARCO | BOM_RETIRO | FEIRINHA_MADRUGADA
+  address            String
+  galleryName        String?  @map("gallery_name")
+  lat                Float    @default(-23.5365)
+  lng                Float    @default(-46.6182)
+  whatsapp           String
+  coverImageUrl      String?  @map("cover_image_url") @db.Text
+  logoUrl            String?  @map("logo_url") @db.Text
+  categories         Json     @default("[]") // ex: ["Camisetas", "Jeans"]
+  minOrderValue      Decimal  @default(300.00) @db.Decimal(10, 2) @map("min_order_value")
+  minOrderPieces     Int      @default(6) @map("min_order_pieces")
+  verified           Boolean  @default(true)
+  guaranteedDelivery Boolean  @default(true) @map("guaranteed_delivery")
+  shippingMethods    String?  @default("Ônibus de Excursão, Correios, Transportadora e Motoboy SP") @map("shipping_methods")
+  description        String?  @db.Text
+  openingHours       String?  @default("Seg a Sáb · 05h às 16h") @map("opening_hours")
+  active             Boolean  @default(true)
+  featuredOrder      Int      @default(0) @map("featured_order")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  items              WholesaleSupplierItem[]
+
+  @@index([region, active])
+  @@map("wholesale_suppliers")
+}
+
+model WholesaleSupplierItem {
+  id                   String            @id @default(uuid())
+  supplierId           String            @map("supplier_id")
+  supplier             WholesaleSupplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  name                 String
+  category             String            @default("Camisetas")
+  imageUrl             String?           @map("image_url") @db.Text
+  wholesalePrice       Decimal           @default(0.00) @db.Decimal(10, 2) @map("wholesale_price")
+  suggestedRetailPrice Decimal           @default(0.00) @db.Decimal(10, 2) @map("suggested_retail_price")
+  sizesLabel           String?           @default("P · M · G · GG") @map("sizes_label")
+  colorsLabel          String?           @default("Sortidas") @map("colors_label")
+  minPackQty           Int               @default(1) @map("min_pack_qty")
+  isPreviewSix         Boolean           @default(true) @map("is_preview_six")
+  sortOrder            Int               @default(0) @map("sort_order")
+  active               Boolean           @default(true)
+  createdAt            DateTime          @default(now()) @map("created_at")
+  updatedAt            DateTime          @updatedAt @map("updated_at")
+
+  @@index([supplierId, active])
+  @@map("wholesale_supplier_items")
+}

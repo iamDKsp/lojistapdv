@@ -1409,7 +1409,11 @@ export function RetailMobileLogin({
 
             <MobileLoginHeroIllustration />
 
-            <form className="retail-mlogin-form" onSubmit={handleMobileSubmit}>
+            <form
+              className="retail-mlogin-form"
+              onSubmit={handleMobileSubmit}
+              autoComplete="off"
+            >
               <label
                 className={`retail-mlogin-field ${demoPulse ? "is-autofilled" : ""}`}
               >
@@ -1417,7 +1421,11 @@ export function RetailMobileLogin({
                 <div className="retail-mlogin-input-box">
                   <input
                     type="email"
-                    autoComplete="username"
+                    autoComplete="off"
+                    data-lpignore="true"
+                    data-1p-ignore="true"
+                    data-bwignore="true"
+                    data-form-type="other"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -1436,13 +1444,18 @@ export function RetailMobileLogin({
                 <span className="retail-mlogin-label">Senha</span>
                 <div className="retail-mlogin-input-box">
                   <input
-                    type={showPassword ? "text" : "password"}
-                    autoComplete="current-password"
+                    type="text"
+                    autoComplete="off"
+                    data-lpignore="true"
+                    data-1p-ignore="true"
+                    data-bwignore="true"
+                    data-form-type="other"
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     disabled={busy || stage !== "login"}
                     placeholder="••••••••••••"
+                    className={showPassword ? undefined : "pdv-secret-input"}
                   />
                   <button
                     type="button"

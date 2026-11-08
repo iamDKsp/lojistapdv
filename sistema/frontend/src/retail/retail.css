@@ -164,6 +164,7 @@ textarea:focus-visible {
   display: flex;
   flex-direction: column;
   align-items: center;
+  gap: 6px;
   width: 100%;
 }
 .retail-rail-logout {
@@ -5832,16 +5833,23 @@ textarea:focus-visible {
   text-transform: uppercase;
 }
 
+.retail-header-inline-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .retail-intel-ranking-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.38fr) minmax(320px, 0.85fr);
-  gap: 20px;
+  gap: 18px;
   align-items: start;
 }
 
 /* Palco escuro de alto contraste inspirado na referência UI Design Ranking */
 .retail-intel-stage-card {
-  border-radius: 26px;
+  border-radius: 24px;
   background: var(--pdv-text);
   color: var(--pdv-white);
   border: 1px solid color-mix(in srgb, var(--pdv-primary) 35%, var(--pdv-text));
@@ -5853,7 +5861,7 @@ textarea:focus-visible {
 
 .retail-intel-stage-top {
   position: relative;
-  padding: 28px 24px 30px;
+  padding: 18px 20px 20px;
   background:
     radial-gradient(
       circle at 50% 24%,
@@ -5865,8 +5873,8 @@ textarea:focus-visible {
 }
 
 .retail-intel-stage-header h2 {
-  margin: 6px 0 4px;
-  font-size: 1.45rem;
+  margin: 0;
+  font-size: 1.25rem;
   font-weight: 800;
   color: var(--pdv-white);
   letter-spacing: -0.02em;
@@ -5897,7 +5905,7 @@ textarea:focus-visible {
   position: relative;
   display: inline-flex;
   justify-content: center;
-  margin: 18px auto 22px;
+  margin: 10px auto 14px;
   z-index: 15;
 }
 

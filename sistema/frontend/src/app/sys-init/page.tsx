@@ -1514,12 +1514,17 @@ export default function SysInitPage() {
                       <p className="text-muted text-sm mb-2">Acesso direto aos bancos de dados do sistema.</p>
                       <p className="text-muted text-xs mb-8">Digite o PIN exclusivo do SQL Editor para continuar.</p>
                       <input
-                        type="password"
+                        type="text"
+                        autoComplete="off"
+                        data-lpignore="true"
+                        data-1p-ignore="true"
+                        data-bwignore="true"
+                        data-form-type="other"
                         value={sqlPinInput}
                         onChange={e => { setSqlPinInput(e.target.value); setSqlPinError(''); }}
                         onKeyDown={e => e.key === 'Enter' && handleSqlUnlock()}
                         placeholder="••••••••"
-                        className="w-full p-4 bg-page border border-line rounded-2xl text-ink text-center font-mono text-2xl tracking-[0.5em] focus:border-brand outline-none mb-3 placeholder:tracking-normal placeholder:text-2xl"
+                        className="pdv-secret-input w-full p-4 bg-page border border-line rounded-2xl text-ink text-center font-mono text-2xl tracking-[0.5em] focus:border-brand outline-none mb-3 placeholder:tracking-normal placeholder:text-2xl"
                         autoFocus
                         maxLength={12}
                       />
@@ -2218,8 +2223,8 @@ export default function SysInitPage() {
                   <div><label className="text-xs text-muted uppercase font-bold">E-mail de Login</label><input type="email" required value={adminEmail} onChange={e => setAdminEmail(e.target.value)} placeholder="admin@loja.com" className="w-full p-2.5 bg-page border border-line rounded-xl mt-1 text-ink focus:border-brand outline-none" /></div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div><label className="text-xs text-muted uppercase font-bold">Senha Inicial</label><input type="password" required value={adminPassword} onChange={e => setAdminPassword(e.target.value)} className="w-full p-2.5 bg-page border border-line rounded-xl mt-1 text-ink focus:border-brand outline-none" /></div>
-                  <div><label className="text-xs text-muted uppercase font-bold">Confirmar Senha</label><input type="password" required value={adminPasswordConfirm} onChange={e => setAdminPasswordConfirm(e.target.value)} className="w-full p-2.5 bg-page border border-line rounded-xl mt-1 text-ink focus:border-brand outline-none" /></div>
+                  <div><label className="text-xs text-muted uppercase font-bold">Senha Inicial</label><input type="text" autoComplete="off" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other" required value={adminPassword} onChange={e => setAdminPassword(e.target.value)} className="pdv-secret-input w-full p-2.5 bg-page border border-line rounded-xl mt-1 text-ink focus:border-brand outline-none" /></div>
+                  <div><label className="text-xs text-muted uppercase font-bold">Confirmar Senha</label><input type="text" autoComplete="off" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other" required value={adminPasswordConfirm} onChange={e => setAdminPasswordConfirm(e.target.value)} className="pdv-secret-input w-full p-2.5 bg-page border border-line rounded-xl mt-1 text-ink focus:border-brand outline-none" /></div>
                 </div>
                 {/* — PLANO E MÓDULOS NA CRIAÇÃO — */}
                 {(() => {
@@ -2853,7 +2858,7 @@ export default function SysInitPage() {
                           </div>
                           <div>
                             <label className="text-xs text-muted uppercase tracking-wider mb-1 block">Senha de Login</label>
-                            <input type="password" placeholder="Mínimo 6 caracteres" value={newUserForm.password} onChange={e => setNewUserForm({...newUserForm, password: e.target.value})} className="w-full p-2.5 bg-page border border-line rounded-xl text-ink text-sm focus:border-brand outline-none" />
+                            <input type="text" autoComplete="off" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other" placeholder="Mínimo 6 caracteres" value={newUserForm.password} onChange={e => setNewUserForm({...newUserForm, password: e.target.value})} className="pdv-secret-input w-full p-2.5 bg-page border border-line rounded-xl text-ink text-sm focus:border-brand outline-none" />
                           </div>
                           <div>
                             <label className="text-xs text-muted uppercase tracking-wider mb-1 block">PIN do Caixa (Opcional)</label>
@@ -3234,11 +3239,11 @@ export default function SysInitPage() {
                       ))
                     )}
                   </div>
-                  <form onSubmit={handleAddGroupUser} className="bg-page/50 p-4 border border-line rounded-xl space-y-3 mt-4">
+                  <form onSubmit={handleAddGroupUser} autoComplete="off" className="bg-page/50 p-4 border border-line rounded-xl space-y-3 mt-4">
                     <h4 className="text-sm font-bold text-muted">Novo Usuário do Grupo</h4>
                     <input required type="text" value={newUserName} onChange={e => setNewUserName(e.target.value)} placeholder="Nome" className="w-full p-2.5 bg-page border border-line rounded-lg text-ink text-sm focus:border-brand outline-none" />
-                    <input required type="email" value={newUserEmail} onChange={e => setNewUserEmail(e.target.value)} placeholder="Email" className="w-full p-2.5 bg-page border border-line rounded-lg text-ink text-sm focus:border-brand outline-none" />
-                    <input required type="password" value={newUserPassword} onChange={e => setNewUserPassword(e.target.value)} placeholder="Senha" className="w-full p-2.5 bg-page border border-line rounded-lg text-ink text-sm focus:border-brand outline-none" />
+                    <input required type="email" autoComplete="off" value={newUserEmail} onChange={e => setNewUserEmail(e.target.value)} placeholder="Email" className="w-full p-2.5 bg-page border border-line rounded-lg text-ink text-sm focus:border-brand outline-none" />
+                    <input required type="text" autoComplete="off" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other" value={newUserPassword} onChange={e => setNewUserPassword(e.target.value)} placeholder="Senha" className="pdv-secret-input w-full p-2.5 bg-page border border-line rounded-lg text-ink text-sm focus:border-brand outline-none" />
                     <button type="submit" disabled={addingUser} className="w-full bg-brand hover:bg-brand disabled:opacity-50 text-on-brand text-sm font-bold py-2.5 rounded-lg transition hover:text-on-brand">
                       {addingUser ? <Loader2 className="animate-spin mx-auto" size={18} /> : "Criar Usuário"}
                     </button>

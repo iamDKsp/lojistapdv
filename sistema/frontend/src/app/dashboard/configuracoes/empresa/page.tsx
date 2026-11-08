@@ -413,8 +413,13 @@ export default function EmpresaConfigPage() {
               <div>
                 <label className={labelCls}>Senha do Certificado</label>
                 <input
-                  type="password"
-                  className={inputCls}
+                  type="text"
+                  autoComplete="off"
+                  data-lpignore="true"
+                  data-1p-ignore="true"
+                  data-bwignore="true"
+                  data-form-type="other"
+                  className={`${inputCls} pdv-secret-input`}
                   value={certSenha}
                   onChange={e => setCertSenha(e.target.value)}
                   placeholder="Senha definida ao gerar o .pfx"

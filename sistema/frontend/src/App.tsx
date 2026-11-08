@@ -6,9 +6,7 @@ import {
   Route,
   Routes,
   useLocation,
-  useNavigate,
 } from "react-router-dom";
-import { ShieldCheck } from "lucide-react";
 import { Toaster } from "sonner";
 import { useAuthStore } from "@/store/auth";
 import { ShiftProvider } from "@/contexts/ShiftContext";
@@ -85,37 +83,6 @@ const FiscalManagementPage = lazy(
 const GroupPortalPage = lazy(() => import("@/pages/GroupPortalPage"));
 const SysInitPage = lazy(() => import("@/app/sys-init/page"));
 
-function SysInitReturnPill() {
-  const navigate = useNavigate();
-  const user = useAuthStore((s) => s.user);
-  const [hasSysInitSession, setHasSysInitSession] = useState(false);
-
-  useEffect(() => {
-    try {
-      const pin = sessionStorage.getItem("lojista-sysinit-pin");
-      setHasSysInitSession(Boolean(pin));
-    } catch {
-      setHasSysInitSession(false);
-    }
-  }, [user?.id]);
-
-  if (!hasSysInitSession) return null;
-
-  return (
-    <div className="fixed bottom-4 left-4 z-50 print:hidden">
-      <button
-        type="button"
-        onClick={() => navigate("/sys-init")}
-        title="Retornar ao Painel Central /sys-init"
-        className="flex items-center gap-2 rounded-full border border-brand bg-support px-3.5 py-2 text-xs font-bold text-brand shadow-lg transition hover:bg-brand hover:text-on-brand"
-      >
-        <ShieldCheck size={15} />
-        <span>Voltar ao /sys-init</span>
-      </button>
-    </div>
-  );
-}
-
 function Protected() {
   const { token, user, logout } = useAuthStore();
   const isDemoSession = Boolean(
@@ -169,7 +136,6 @@ function Protected() {
       <NetworkStatusBanner />
       <OverduePaymentBanner />
       <Outlet />
-      <SysInitReturnPill />
       <TermsAcceptanceModal />
     </ShiftProvider>
   );

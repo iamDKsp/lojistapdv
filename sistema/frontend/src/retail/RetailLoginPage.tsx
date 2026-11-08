@@ -559,7 +559,7 @@ export function RetailLoginPage() {
             </p>
           </div>
 
-          <form onSubmit={submit}>
+          <form onSubmit={submit} autoComplete="off">
             <label
               className={`retail-login-field retail-login-stagger ${demoPulse ? "is-autofilled" : ""}`}
               style={{ "--stagger": 2 } as React.CSSProperties}
@@ -568,7 +568,11 @@ export function RetailLoginPage() {
               <div className="retail-login-input-wrap">
                 <input
                   type="email"
-                  autoComplete="username"
+                  autoComplete="off"
+                  data-lpignore="true"
+                  data-1p-ignore="true"
+                  data-bwignore="true"
+                  data-form-type="other"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -585,14 +589,18 @@ export function RetailLoginPage() {
               <span className="retail-login-field-label">Senha</span>
               <div className="retail-login-input-wrap">
                 <input
-                  type={showPassword ? "text" : "password"}
-                  autoComplete="current-password"
+                  type="text"
+                  autoComplete="off"
+                  data-lpignore="true"
+                  data-1p-ignore="true"
+                  data-bwignore="true"
+                  data-form-type="other"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={busy}
                   placeholder="••••••••"
-                  className="has-Toggle"
+                  className={`has-Toggle ${showPassword ? "" : "pdv-secret-input"}`}
                 />
                 <button
                   type="button"

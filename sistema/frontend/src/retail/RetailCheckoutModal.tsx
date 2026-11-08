@@ -666,8 +666,14 @@ export function RetailCheckoutModal({
               <label className="retail-field">
                 PIN gerencial
                 <input
-                  type="password"
+                  type="text"
                   inputMode="numeric"
+                  autoComplete="off"
+                  data-lpignore="true"
+                  data-1p-ignore="true"
+                  data-bwignore="true"
+                  data-form-type="other"
+                  className="pdv-secret-input"
                   value={pin}
                   disabled={busy}
                   onChange={(e) => setPin(e.target.value)}

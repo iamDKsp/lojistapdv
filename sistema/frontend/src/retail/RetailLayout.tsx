@@ -280,10 +280,20 @@ export function RetailLayout() {
   const [switchingStoreId, setSwitchingStoreId] = useState<string | null>(null);
   const [cashierOnlyMode, setCashierOnlyMode] = useState(false);
   const [mobileNavHidden, setMobileNavHidden] = useState(false);
+  const [hasSysInitSession, setHasSysInitSession] = useState(false);
   const canvasRef = useRef<HTMLElement | null>(null);
   const scrollPosMapRef = useRef<WeakMap<EventTarget, number>>(new WeakMap());
   const touchStartYRef = useRef<number | null>(null);
   const touchStartXRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    try {
+      const pin = sessionStorage.getItem("lojista-sysinit-pin");
+      setHasSysInitSession(Boolean(pin));
+    } catch {
+      setHasSysInitSession(false);
+    }
+  }, [user?.id, user?.tenant]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -1243,6 +1253,18 @@ export function RetailLayout() {
             </nav>
 
             <div className="retail-rail-bottom">
+              {hasSysInitSession && (
+                <button
+                  type="button"
+                  className="retail-rail-item"
+                  onClick={() => navigate("/sys-init")}
+                  aria-label="Voltar ao /sys-init"
+                  data-tooltip="Voltar ao /sys-init"
+                >
+                  <ShieldCheck size={19} strokeWidth={1.9} />
+                  <span className="retail-rail-label">Voltar ao /sys-init</span>
+                </button>
+              )}
               <button
                 type="button"
                 className="retail-rail-item retail-rail-logout"
@@ -1299,6 +1321,42 @@ export function RetailLayout() {
                     </span>
                   </div>
                 </div>
+
+                {pathname.startsWith("/inteligencia-comercial") &&
+                  subNavTabs.length > 0 && (
+                    <nav
+                      className="retail-header-inline-tabs"
+                      aria-label="Seções de Inteligência Comercial"
+                    >
+                      {subNavTabs.map((tab, tabIdx) => {
+                        const isExactRoot =
+                          tab.path === "/inteligencia-comercial";
+                        const isTabActive = isExactRoot
+                          ? pathname === tab.path
+                          : pathname.startsWith(tab.path);
+                        return (
+                          <NavLink
+                            key={tab.path}
+                            to={tab.path}
+                            end={isExactRoot}
+                            onClick={() => {
+                              pendingNavIntentRef.current = "tab";
+                            }}
+                            style={
+                              { "--tab-idx": tabIdx } as React.CSSProperties
+                            }
+                            className={`retail-cat-pill retail-subnav-pill ${isTabActive ? "is-active" : ""}`}
+                          >
+                            <span
+                              className="retail-subnav-dot"
+                              aria-hidden="true"
+                            />
+                            <span>{tab.label}</span>
+                          </NavLink>
+                        );
+                      })}
+                    </nav>
+                  )}
 
                 <div className="retail-header-actions">
                   {!isStockist && (
@@ -1603,45 +1661,47 @@ export function RetailLayout() {
                 </div>
               </header>
 
-              {subNavTabs.length > 0 && (
-                <nav
-                  className="retail-subnav-bar"
-                  aria-label="Seções do módulo"
-                >
-                  {subNavTabs.map((tab, tabIdx) => {
-                    const isExactRoot =
-                      tab.path === "/inicio" ||
-                      tab.path === "/estoque" ||
-                      tab.path === "/clientes" ||
-                      tab.path === "/crediario" ||
-                      tab.path === "/vitrine" ||
-                      tab.path === "/loja-virtual";
-                    const isTabActive = isExactRoot
-                      ? pathname === tab.path
-                      : pathname.startsWith(tab.path);
-                    return (
-                      <NavLink
-                        key={tab.path}
-                        to={tab.path}
-                        end={isExactRoot}
-                        onClick={() => {
-                          pendingNavIntentRef.current = "tab";
-                        }}
-                        style={
-                          { "--tab-idx": tabIdx } as React.CSSProperties
-                        }
-                        className={`retail-cat-pill retail-subnav-pill ${isTabActive ? "is-active" : ""}`}
-                      >
-                        <span
-                          className="retail-subnav-dot"
-                          aria-hidden="true"
-                        />
-                        <span>{tab.label}</span>
-                      </NavLink>
-                    );
-                  })}
-                </nav>
-              )}
+              {subNavTabs.length > 0 &&
+                !pathname.startsWith("/inteligencia-comercial") && (
+                  <nav
+                    className="retail-subnav-bar"
+                    aria-label="Seções do módulo"
+                  >
+                    {subNavTabs.map((tab, tabIdx) => {
+                      const isExactRoot =
+                        tab.path === "/inicio" ||
+                        tab.path === "/estoque" ||
+                        tab.path === "/clientes" ||
+                        tab.path === "/crediario" ||
+                        tab.path === "/vitrine" ||
+                        tab.path === "/loja-virtual" ||
+                        tab.path === "/inteligencia-comercial";
+                      const isTabActive = isExactRoot
+                        ? pathname === tab.path
+                        : pathname.startsWith(tab.path);
+                      return (
+                        <NavLink
+                          key={tab.path}
+                          to={tab.path}
+                          end={isExactRoot}
+                          onClick={() => {
+                            pendingNavIntentRef.current = "tab";
+                          }}
+                          style={
+                            { "--tab-idx": tabIdx } as React.CSSProperties
+                          }
+                          className={`retail-cat-pill retail-subnav-pill ${isTabActive ? "is-active" : ""}`}
+                        >
+                          <span
+                            className="retail-subnav-dot"
+                            aria-hidden="true"
+                          />
+                          <span>{tab.label}</span>
+                        </NavLink>
+                      );
+                    })}
+                  </nav>
+                )}
 
               <div
                 key={pathname}

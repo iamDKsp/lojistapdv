@@ -20,8 +20,34 @@ export interface StoredStorefrontCart {
   items: StorefrontCartItem[];
 }
 
+export interface SavedCustomerProfile {
+  customerName: string;
+  customerPhone: string;
+  customerDocument: string;
+  deliveryMode: 'PICKUP' | 'DELIVERY';
+  zipCode: string;
+  addressLine: string;
+  addressNumber: string;
+  addressComplement: string;
+  neighborhood: string;
+  city: string;
+  state: string;
+  paymentMethodPreference: string;
+}
+
+export interface RecentStorefrontOrder {
+  reference: string;
+  accessToken: string;
+  createdAt: string;
+  total: number;
+  status: string;
+  itemsCount: number;
+}
+
 const CART_KEY_PREFIX = 'pdv-lojista-storefront-cart:';
 const ORDER_TOKEN_KEY_PREFIX = 'pdv-lojista-storefront-order-token:';
+const CUSTOMER_PROFILE_KEY_PREFIX = 'pdv-lojista-storefront-customer:';
+const RECENT_ORDERS_KEY_PREFIX = 'pdv-lojista-storefront-orders:';
 
 function getCartStorageKey(storePublicId: string): string {
   return `${CART_KEY_PREFIX}${String(storePublicId || '').trim()}`;
@@ -204,5 +230,80 @@ export function getSavedOrderAccessToken(
     return window.localStorage.getItem(key);
   } catch {
     return null;
+  }
+}
+
+export function loadStorefrontCustomerProfile(
+  storePublicId: string,
+): Partial<SavedCustomerProfile> | null {
+  if (!storePublicId || typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(
+      `${CUSTOMER_PROFILE_KEY_PREFIX}${storePublicId}`,
+    );
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveStorefrontCustomerProfile(
+  storePublicId: string,
+  profile: Partial<SavedCustomerProfile>,
+): void {
+  if (!storePublicId || typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(
+      `${CUSTOMER_PROFILE_KEY_PREFIX}${storePublicId}`,
+      JSON.stringify(profile),
+    );
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+export function loadRecentStorefrontOrders(
+  storePublicId: string,
+): RecentStorefrontOrder[] {
+  if (!storePublicId || typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(
+      `${RECENT_ORDERS_KEY_PREFIX}${storePublicId}`,
+    );
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (o) => o && typeof o.reference === 'string' && o.reference.length > 0,
+    );
+  } catch {
+    return [];
+  }
+}
+
+export function saveRecentStorefrontOrder(
+  storePublicId: string,
+  order: RecentStorefrontOrder,
+): void {
+  if (!storePublicId || !order?.reference || typeof window === 'undefined') return;
+  try {
+    const existing = loadRecentStorefrontOrders(storePublicId).filter(
+      (o) => o.reference.toUpperCase() !== order.reference.toUpperCase(),
+    );
+    const next = [
+      {
+        ...order,
+        reference: order.reference.toUpperCase(),
+      },
+      ...existing,
+    ].slice(0, 8);
+    window.localStorage.setItem(
+      `${RECENT_ORDERS_KEY_PREFIX}${storePublicId}`,
+      JSON.stringify(next),
+    );
+  } catch {
+    // Ignore storage errors
   }
 }

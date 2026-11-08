@@ -43,10 +43,13 @@ export const money = (value: number | string) =>
 
 export const formatBRL = money;
 
-export function apiError(error: any) {
+export function apiError(
+  error: any,
+  fallback = "Não foi possível concluir a operação.",
+) {
   const message =
     error?.response?.data?.message ||
     error?.message ||
-    "Não foi possível concluir a operação.";
+    fallback;
   return Array.isArray(message) ? message.join(" ") : String(message);
 }

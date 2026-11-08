@@ -239,3 +239,31 @@ stateDiagram-v2
 2. **Frete a Combinar**: A modalidade de entrega coleta endereço completo e exibe observações/regras configuradas pelo lojista, sem cálculo automático de transportadora/Correios.
 3. **Teste de Integração SQL Opcional**: Os testes em `backend/test/heart-migrations.test.cjs` e o teste de `SELECT ... FOR UPDATE` em banco real de `backend/test/storefront-concurrency.test.cjs` são executados mediante definição da variável `HEART_MIGRATION_TEST_URL` apontando para uma instância PostgreSQL local descartável, preservando a regra de nunca tocar em bancos configurados no `.env`.
 
+---
+
+## 8. Evolução de Usabilidade, Fluxo Operacional e Identidade Visual (2026-11)
+
+### 8.1. Correções Funcionais e de Sincronização
+- **Alinhamento de Status de Atendimento (`PREPARING`)**: Corrigida a divergência entre o seletor administrativo de logística e a validação `VALID_FULFILLMENT_STATUSES` do backend (`PREPARING` para separação/preparação).
+- **Simulação Interativa Fiel (`livePreviewStoreData`)**: O preview em tempo real na aba **Aparência & Preview** passou a normalizar `title`, `slug`, `totalAvailableStock`, `sizes`, `colors`, `badgeLabel` e `galleryUrls`, além de permitir testar busca, filtro por categoria, tamanhos e ordenação diretamente dentro do simulador Desktop/Mobile.
+- **Publicação Atômica (`POST /storefront/admin/appearance/publish`)**: Ao clicar em **Publicar Loja**, o painel persiste automaticamente alterações pendentes tanto de `settingsForm` (identidade, WhatsApp, entrega e TTL de reserva) quanto de `draftTheme` antes de promover a versão publicada, evitando falhas de publicação por configurações recém-preenchidas.
+- **Curadoria Completa de Produtos e Banners**:
+  - Modal de personalização da peça com edição de selo promocional (`badgeLabel` com presets rápidos), título comercial, descrição, slug e upload de galeria adicional (`galleryUrls`, até 6 fotos extras).
+  - Editor completo de banners promocionais na aba de aparência com upload de imagem, botão de ação (CTA) e vínculo de destino (`all`, `featured`, `category`, `product`).
+  - Ação rápida de 1 clique **"Publicar todos com estoque"** para ativar imediatamente os grupos disponíveis na vitrine.
+- **Operação de Pedidos e Conversão em Venda**:
+  - Busca e filtragem de pedidos com debounce independente (`loadOrdersOnly`), sem recarregar todo o módulo.
+  - Diálogo estruturado (`RetailDialog`) para **Converter em Venda no PDV** carregando as formas de pagamento ativas da loja (`/payment-methods`), CPF/CNPJ opcional e observação da venda.
+  - Diálogo estruturado para **Recusar / Cancelar Pedido** com motivos rápidos pré-definidos e devolução imediata da reserva de estoque.
+
+### 8.2. Refatoração Visual da Vitrine Pública e do Painel Administrativo
+- **Painel Administrativo Integrado ao Sistema de Gestão**:
+  - Substituição de cartões genéricos por componentes nativos do PDV Lojista (`.retail-page-header`, `.retail-summary-grid`, `.retail-panel`, `.retail-table-wrap`, `.retail-table`, `.retail-field`, `.retail-form-grid`, `.retail-upload`, `RetailDialog`, `RetailSelect`, `RetailSwitch`, `PdvLojistaLoader`, `CategoryIconIllustration` e `CategoryIconBadge`).
+  - Aba **Visão Geral** transformada em painel operacional com fila imediata de pedidos pendentes e checklist acionável de prontidão.
+- **Vitrine Pública Editorial (`/loja/:slug`)**:
+  - Cards de produto na proporção vertical de moda/varejo (`4:5`), com segunda foto ao passar o mouse, selos discretos, seleção rápida de tamanhos disponíveis no próprio card e ilustração vetorial da categoria (`CategoryIconIllustration`) quando a peça não possui foto.
+  - Cabeçalho com busca integrada, sacola atualizada em tempo real e modal **"Meus Pedidos"** (`loadRecentStorefrontOrders`) para que o cliente acompanhe pedidos recentes ou consulte pelo código `PED-...`.
+  - Checkout com máscara de WhatsApp, CPF/CNPJ e **campo de CEP (`zipCode`) com preenchimento automático via ViaCEP**, além de persistência local do perfil do comprador (`loadStorefrontCustomerProfile` / `saveStorefrontCustomerProfile`) isolada por `storePublicId`.
+  - Página de acompanhamento do pedido (`/loja/:slug/pedido/:referencia`) com linha do tempo visual de 4 etapas e contador regressivo da reserva de estoque.
+
+

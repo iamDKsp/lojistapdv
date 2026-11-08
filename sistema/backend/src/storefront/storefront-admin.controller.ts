@@ -60,8 +60,14 @@ export class StorefrontAdminController {
   }
 
   @Post('appearance/publish')
-  async publishStorefront(@Req() req: any) {
+  async publishStorefront(@Req() req: any, @Body() body?: any) {
     assertStorefrontAdminRole(req);
+    if (body?.settings && typeof body.settings === 'object') {
+      await this.adminService.updateSettings(body.settings);
+    }
+    if (body?.draftTheme && typeof body.draftTheme === 'object') {
+      await this.adminService.saveAppearanceDraft(body.draftTheme);
+    }
     return this.adminService.publishStorefront({
       userId: req.user?.userId || req.user?.id,
       name: req.user?.name || req.user?.email,

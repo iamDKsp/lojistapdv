@@ -3969,6 +3969,795 @@ const CommercialIntelligenceModuleIllustration = memo(
 );
 
 /**
+ * Slide 8 — Módulo Fornecedores de São Paulo & Atacado SP (Ilustração editorial
+ * exclusiva com o Mapa Interativo dos polos atacadistas de SP — Brás, 25 de Março,
+ * Feirinha da Madrugada e Bom Retiro —, pinos de fornecedores com pulso de radar,
+ * vitrine flutuante com a Grade 3x2 de peças de atacado e pedido direto com entrega).
+ */
+const SuppliersSpModuleIllustration = memo(
+  function SuppliersSpModuleIllustration() {
+    return (
+      <div className="retail-mlogin-illustration-wrap" aria-hidden="true">
+        <svg
+          viewBox="0 0 280 246"
+          fill="none"
+          className="retail-mlogin-svg is-suppliers-sp"
+        >
+          {/* Aura circular suave de fundo + partículas editoriais */}
+          <circle cx="140" cy="120" r="85" fill="#F8F7FC" />
+          <circle cx="32" cy="30" r="4" fill="#F3E8FF" />
+          <circle cx="248" cy="126" r="5" stroke="#E5E1ED" strokeWidth="1.4" />
+          <path
+            d="M42 16 V24 M38 20 H46 M244 20 V28 M240 24 H248"
+            stroke="#7C3AED"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+          />
+
+          {/* Pedestal e rampa arquitetônica listrada à direita */}
+          <rect
+            x="184"
+            y="160"
+            width="62"
+            height="60"
+            rx="4"
+            fill="#6D28D9"
+            stroke="#272321"
+            strokeWidth="1.4"
+          />
+          <polygon
+            points="144,220 246,160 246,220"
+            fill="#7C3AED"
+            stroke="#272321"
+            strokeWidth="1.4"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M164 220 L246 172 M186 220 L246 184 M208 220 L246 196 M230 220 L246 209"
+            stroke="#FFFFFF"
+            strokeWidth="1.3"
+          />
+
+          {/* PRANCHETA CENTRAL — MAPA INTERATIVO DOS POLOS DE SÃO PAULO */}
+          <g className="retail-mlogin-float-slow">
+            {/* Sombra sólida deslocada */}
+            <rect
+              x="28"
+              y="26"
+              width="164"
+              height="168"
+              rx="12"
+              fill="#272321"
+            />
+            {/* Moldura do Mapa Atacadista SP */}
+            <rect
+              x="22"
+              y="20"
+              width="164"
+              height="168"
+              rx="12"
+              fill="#FFFFFF"
+              stroke="#272321"
+              strokeWidth="1.5"
+            />
+
+            {/* Cabeçalho do Mapa com Pílulas dos Polos (Brás / 25 de Março) */}
+            <path
+              d="M22 32 C22 25.4, 27.4 20, 34 20 H174 C180.6 20, 186 25.4, 186 32 V52 H22 Z"
+              fill="#272321"
+            />
+            <rect
+              x="30"
+              y="28"
+              width="44"
+              height="15"
+              rx="4"
+              fill="#7C3AED"
+            />
+            <text
+              x="52"
+              y="38"
+              textAnchor="middle"
+              fontSize="7"
+              fontWeight="800"
+              fill="#FFFFFF"
+              letterSpacing="0.3"
+            >
+              BRÁS • SP
+            </text>
+            <rect
+              x="79"
+              y="28"
+              width="58"
+              height="15"
+              rx="4"
+              fill="#F3E8FF"
+            />
+            <text
+              x="108"
+              y="38"
+              textAnchor="middle"
+              fontSize="6.8"
+              fontWeight="800"
+              fill="#272321"
+            >
+              25 DE MARÇO
+            </text>
+            <rect
+              x="142"
+              y="28"
+              width="36"
+              height="15"
+              rx="4"
+              fill="#6D28D9"
+            />
+            <text
+              x="160"
+              y="38"
+              textAnchor="middle"
+              fontSize="6.5"
+              fontWeight="800"
+              fill="#FFFFFF"
+            >
+              RETIRO
+            </text>
+
+            {/* Malha Urbana Vetorial de São Paulo (Quadras, Avenidas e Rota) */}
+            <rect
+              x="30"
+              y="60"
+              width="148"
+              height="118"
+              rx="8"
+              fill="#F8F7FC"
+              stroke="#272321"
+              strokeWidth="1.2"
+            />
+            {/* Quadras estilizadas dos polos */}
+            <rect x="36" y="66" width="42" height="30" rx="4" fill="#F3E8FF" />
+            <rect x="86" y="66" width="46" height="26" rx="4" fill="#E5E1ED" />
+            <rect x="138" y="66" width="34" height="34" rx="4" fill="#F3E8FF" />
+            <rect x="36" y="104" width="36" height="34" rx="4" fill="#E5E1ED" />
+            <rect x="80" y="100" width="52" height="36" rx="4" fill="#F3E8FF" />
+            <rect x="36" y="144" width="60" height="28" rx="4" fill="#F3E8FF" />
+            <rect x="104" y="144" width="68" height="28" rx="4" fill="#E5E1ED" />
+
+            {/* Rota tracejada conectando os fornecedores homologados */}
+            <path
+              d="M58 88 Q84 74 106 114 T150 92"
+              stroke="#7C3AED"
+              strokeWidth="2.2"
+              strokeDasharray="4 3"
+              strokeLinecap="round"
+              fill="none"
+            />
+
+            {/* Pino Secundário — Polo 25 de Março */}
+            <g transform="translate(58, 86)">
+              <circle
+                r="7.5"
+                fill="#6D28D9"
+                stroke="#FFFFFF"
+                strokeWidth="1.5"
+              />
+              <circle r="2.8" fill="#FFFFFF" />
+            </g>
+
+            {/* Pino Secundário — Feirinha da Madrugada */}
+            <g transform="translate(150, 90)">
+              <circle
+                r="7.5"
+                fill="#272321"
+                stroke="#FFFFFF"
+                strokeWidth="1.5"
+              />
+              <circle r="2.8" fill="#F3E8FF" />
+            </g>
+
+            {/* PINO PRINCIPAL ANIMADO — FORNECEDOR BRÁS (Com Ondas e Preço Atacado) */}
+            <g
+              transform="translate(106, 114)"
+              className="retail-mlogin-sp-pin"
+            >
+              <circle
+                r="16"
+                fill="#7C3AED"
+                opacity="0.22"
+                className="retail-mlogin-vstore-pulse"
+              />
+              <path
+                d="M0 10 C-8 2, -13 -4, -13 -11 A13 13 0 1 1 13 -11 C13 -4, 8 2, 0 10 Z"
+                fill="#7C3AED"
+                stroke="#272321"
+                strokeWidth="1.4"
+              />
+              <circle cx="0" cy="-11" r="6" fill="#FFFFFF" />
+              {/* Etiqueta de menor preço no pino */}
+              <rect
+                x="-28"
+                y="12"
+                width="56"
+                height="14"
+                rx="4"
+                fill="#272321"
+              />
+              <text
+                x="0"
+                y="21.5"
+                textAnchor="middle"
+                fontSize="7.2"
+                fontWeight="800"
+                fill="#FFFFFF"
+              >
+                ATACADO R$ 19
+              </text>
+            </g>
+          </g>
+
+          {/* CARD FLUTUANTE SUPERIOR DIREITO — Grade 3x2 de Peças do Fornecedor */}
+          <g className="retail-mlogin-vstore-builder">
+            <rect
+              x="166"
+              y="32"
+              width="104"
+              height="94"
+              rx="9"
+              fill="#FFFFFF"
+              stroke="#272321"
+              strokeWidth="1.4"
+            />
+            <rect
+              x="174"
+              y="40"
+              width="88"
+              height="13"
+              rx="4"
+              fill="#7C3AED"
+            />
+            <text
+              x="218"
+              y="49"
+              textAnchor="middle"
+              fontSize="6.8"
+              fontWeight="800"
+              fill="#FFFFFF"
+              letterSpacing="0.3"
+            >
+              VITRINE 3x2 • ATACADO
+            </text>
+
+            {/* Fileira 1 da Grade 3x2 (3 mini cards de peças) */}
+            <rect
+              x="174"
+              y="58"
+              width="26"
+              height="26"
+              rx="4"
+              fill="#F3E8FF"
+              stroke="#272321"
+              strokeWidth="1.1"
+            />
+            <path d="M182 65 H192 L190 77 H184 Z" fill="#7C3AED" />
+
+            <rect
+              x="205"
+              y="58"
+              width="26"
+              height="26"
+              rx="4"
+              fill="#7C3AED"
+              stroke="#272321"
+              strokeWidth="1.1"
+              className="retail-mlogin-vstore-size"
+            />
+            <path d="M213 65 H223 L221 77 H215 Z" fill="#FFFFFF" />
+
+            <rect
+              x="236"
+              y="58"
+              width="26"
+              height="26"
+              rx="4"
+              fill="#F3E8FF"
+              stroke="#272321"
+              strokeWidth="1.1"
+            />
+            <path d="M244 65 H254 L252 77 H246 Z" fill="#6D28D9" />
+
+            {/* Fileira 2 da Grade 3x2 (3 mini cards de peças) */}
+            <rect
+              x="174"
+              y="89"
+              width="26"
+              height="26"
+              rx="4"
+              fill="#F8F7FC"
+              stroke="#272321"
+              strokeWidth="1.1"
+            />
+            <circle cx="187" cy="102" r="6" fill="#6D28D9" />
+
+            <rect
+              x="205"
+              y="89"
+              width="26"
+              height="26"
+              rx="4"
+              fill="#F3E8FF"
+              stroke="#272321"
+              strokeWidth="1.1"
+            />
+            <circle cx="218" cy="102" r="6" fill="#7C3AED" />
+
+            <rect
+              x="236"
+              y="89"
+              width="26"
+              height="26"
+              rx="4"
+              fill="#272321"
+              stroke="#272321"
+              strokeWidth="1.1"
+            />
+            <text
+              x="249"
+              y="104.5"
+              textAnchor="middle"
+              fontSize="7"
+              fontWeight="800"
+              fill="#FFFFFF"
+            >
+              +2x
+            </text>
+          </g>
+
+          {/* CARD FLUTUANTE INFERIOR — Pedido Direto no Fornecedor Homologado */}
+          <g className="retail-mlogin-vstore-order">
+            <rect
+              x="14"
+              y="168"
+              width="148"
+              height="44"
+              rx="8"
+              fill="#272321"
+              stroke="#272321"
+              strokeWidth="1.4"
+            />
+            <rect
+              x="24"
+              y="178"
+              width="24"
+              height="24"
+              rx="5"
+              fill="#7C3AED"
+              stroke="#FFFFFF"
+              strokeWidth="1.2"
+            />
+            {/* Fita da caixa de fardo atacadista */}
+            <rect x="33.5" y="178" width="5" height="24" fill="#F3E8FF" />
+            <text
+              x="56"
+              y="187"
+              fontSize="7.5"
+              fontWeight="800"
+              fill="#FFFFFF"
+              letterSpacing="0.2"
+            >
+              PEDIDO DIRETO • SP
+            </text>
+            <text
+              x="56"
+              y="198.5"
+              fontSize="7"
+              fontWeight="700"
+              fill="#F3E8FF"
+            >
+              Margem +140% • Entrega Garantida
+            </text>
+          </g>
+
+          {/* Linha de base arquitetônica */}
+          <line
+            x1="16"
+            y1="220"
+            x2="264"
+            y2="220"
+            stroke="#272321"
+            strokeWidth="1.5"
+          />
+        </svg>
+      </div>
+    );
+  },
+);
+
+/**
+ * Slide 9 — Módulo Multi-Empresas / Rede Multi-Lojas do Mesmo Dono (Ilustração
+ * editorial exclusiva apresentando o Painel Central do Proprietário conectado a
+ * 3 unidades — Matriz, Filial 02 e Filial 03 — com troca de loja em 1 clique sem
+ * relogar, visão consolidada da rede e transferência animada de estoque entre filiais).
+ */
+const MultiStoreNetworkModuleIllustration = memo(
+  function MultiStoreNetworkModuleIllustration() {
+    return (
+      <div className="retail-mlogin-illustration-wrap" aria-hidden="true">
+        <svg
+          viewBox="0 0 280 246"
+          fill="none"
+          className="retail-mlogin-svg is-multi-store"
+        >
+          {/* Aura circular suave de fundo */}
+          <circle cx="140" cy="122" r="86" fill="#F8F7FC" />
+          <circle cx="30" cy="40" r="4" fill="#F3E8FF" />
+          <circle cx="250" cy="44" r="4.5" stroke="#E5E1ED" strokeWidth="1.4" />
+
+          {/* ARCOS DE CONEXÃO DA REDE MULTI-LOJAS (Hub do Dono -> 3 Lojas) */}
+          <path
+            d="M140 72 L56 124 M140 72 V116 M140 72 L224 124"
+            stroke="#7C3AED"
+            strokeWidth="2"
+            strokeDasharray="4 3"
+            strokeLinecap="round"
+          />
+          {/* Arco horizontal de transferência direta entre filiais */}
+          <path
+            d="M66 154 Q140 126 214 154"
+            stroke="#6D28D9"
+            strokeWidth="1.8"
+            strokeDasharray="3 3"
+            fill="none"
+          />
+
+          {/* HUB SUPERIOR CENTRAL — PAINEL CONSOLIDADO DO DONO (LOGIN ÚNICO) */}
+          <g className="retail-mlogin-float-slow">
+            <rect
+              x="66"
+              y="18"
+              width="156"
+              height="58"
+              rx="10"
+              fill="#272321"
+            />
+            <rect
+              x="62"
+              y="14"
+              width="156"
+              height="58"
+              rx="10"
+              fill="#FFFFFF"
+              stroke="#272321"
+              strokeWidth="1.5"
+            />
+            {/* Símbolo Oficial L + Rede do Proprietário */}
+            <rect
+              x="72"
+              y="24"
+              width="34"
+              height="38"
+              rx="7"
+              fill="#7C3AED"
+              stroke="#272321"
+              strokeWidth="1.2"
+            />
+            <path d="M83 33 H88 V47 H97 V52 H83 Z" fill="#FFFFFF" />
+
+            <text
+              x="114"
+              y="32"
+              fontSize="7.5"
+              fontWeight="800"
+              fill="#272321"
+              letterSpacing="0.3"
+            >
+              PAINEL DO PROPRIETÁRIO
+            </text>
+            {/* Seletor 1-Clique de Unidades */}
+            <rect
+              x="114"
+              y="38"
+              width="94"
+              height="14"
+              rx="4"
+              fill="#F3E8FF"
+              stroke="#272321"
+              strokeWidth="1.1"
+            />
+            <text
+              x="161"
+              y="47.5"
+              textAnchor="middle"
+              fontSize="6.8"
+              fontWeight="800"
+              fill="#7C3AED"
+            >
+              TROCA EM 1 CLIQUE ⇄
+            </text>
+            <rect
+              x="114"
+              y="56"
+              width="68"
+              height="5"
+              rx="2.5"
+              fill="#6D28D9"
+            />
+          </g>
+
+          {/* ================= AS 3 LOJAS DO MESMO DONO NA BASE ================= */}
+
+          {/* UNIDADE 1 (Esquerda) — FILIAL 02 */}
+          <g>
+            <rect
+              x="18"
+              y="132"
+              width="72"
+              height="88"
+              rx="7"
+              fill="#FFFFFF"
+              stroke="#272321"
+              strokeWidth="1.4"
+            />
+            {/* Toldo Roxo da Filial 02 */}
+            <path
+              d="M14 132 L20 116 H88 L94 132 Z"
+              fill="#6D28D9"
+              stroke="#272321"
+              strokeWidth="1.3"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M14 132 C14 140, 34 140, 34 132 C34 140, 54 140, 54 132 C54 140, 74 140, 74 132 C74 140, 94 140, 94 132 Z"
+              fill="#7C3AED"
+              stroke="#272321"
+              strokeWidth="1.2"
+            />
+            <rect
+              x="26"
+              y="146"
+              width="56"
+              height="13"
+              rx="3.5"
+              fill="#F3E8FF"
+            />
+            <text
+              x="54"
+              y="155"
+              textAnchor="middle"
+              fontSize="7"
+              fontWeight="800"
+              fill="#272321"
+            >
+              FILIAL 02
+            </text>
+            {/* Vitrine e porta da Filial 02 */}
+            <rect
+              x="26"
+              y="164"
+              width="32"
+              height="34"
+              rx="4"
+              fill="#F8F7FC"
+              stroke="#272321"
+              strokeWidth="1.2"
+            />
+            <rect
+              x="62"
+              y="164"
+              width="20"
+              height="56"
+              rx="3"
+              fill="#272321"
+            />
+          </g>
+
+          {/* UNIDADE 3 (Direita) — FILIAL 03 */}
+          <g>
+            <rect
+              x="190"
+              y="132"
+              width="72"
+              height="88"
+              rx="7"
+              fill="#FFFFFF"
+              stroke="#272321"
+              strokeWidth="1.4"
+            />
+            {/* Toldo Roxo da Filial 03 */}
+            <path
+              d="M186 132 L192 116 H260 L266 132 Z"
+              fill="#6D28D9"
+              stroke="#272321"
+              strokeWidth="1.3"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M186 132 C186 140, 206 140, 206 132 C206 140, 226 140, 226 132 C226 140, 246 140, 246 132 C246 140, 266 140, 266 132 Z"
+              fill="#7C3AED"
+              stroke="#272321"
+              strokeWidth="1.2"
+            />
+            <rect
+              x="198"
+              y="146"
+              width="56"
+              height="13"
+              rx="3.5"
+              fill="#F3E8FF"
+            />
+            <text
+              x="226"
+              y="155"
+              textAnchor="middle"
+              fontSize="7"
+              fontWeight="800"
+              fill="#272321"
+            >
+              FILIAL 03
+            </text>
+            {/* Vitrine e porta da Filial 03 */}
+            <rect
+              x="198"
+              y="164"
+              width="32"
+              height="34"
+              rx="4"
+              fill="#F8F7FC"
+              stroke="#272321"
+              strokeWidth="1.2"
+            />
+            <rect
+              x="234"
+              y="164"
+              width="20"
+              height="56"
+              rx="3"
+              fill="#272321"
+            />
+          </g>
+
+          {/* UNIDADE CENTRAL EM DESTAQUE — LOJA MATRIZ (#1) */}
+          <g>
+            {/* Sombra deslocada da Matriz */}
+            <rect
+              x="104"
+              y="112"
+              width="80"
+              height="108"
+              rx="8"
+              fill="#272321"
+            />
+            <rect
+              x="100"
+              y="108"
+              width="80"
+              height="112"
+              rx="8"
+              fill="#FFFFFF"
+              stroke="#272321"
+              strokeWidth="1.5"
+            />
+            {/* Toldo Roxo Principal da Matriz */}
+            <path
+              d="M94 110 L102 92 H178 L186 110 Z"
+              fill="#7C3AED"
+              stroke="#272321"
+              strokeWidth="1.4"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M94 110 C94 119, 117 119, 117 110 C117 119, 140 119, 140 110 C140 119, 163 119, 163 110 C163 119, 186 119, 186 110 Z"
+              fill="#6D28D9"
+              stroke="#272321"
+              strokeWidth="1.3"
+            />
+            <rect
+              x="110"
+              y="124"
+              width="60"
+              height="14"
+              rx="4"
+              fill="#7C3AED"
+            />
+            <text
+              x="140"
+              y="133.5"
+              textAnchor="middle"
+              fontSize="7.2"
+              fontWeight="800"
+              fill="#FFFFFF"
+              letterSpacing="0.3"
+            >
+              LOJA MATRIZ
+            </text>
+            {/* Vitrine da Matriz com peça exposta */}
+            <rect
+              x="110"
+              y="144"
+              width="36"
+              height="44"
+              rx="4"
+              fill="#F3E8FF"
+              stroke="#272321"
+              strokeWidth="1.2"
+            />
+            <path
+              d="M121 154 L125 150 H131 L135 154 L132 160 V176 H124 V160 Z"
+              fill="#7C3AED"
+            />
+            <rect
+              x="150"
+              y="144"
+              width="22"
+              height="76"
+              rx="3"
+              fill="#272321"
+            />
+            <rect x="154" y="150" width="14" height="28" rx="2" fill="#7C3AED" />
+          </g>
+
+          {/* PACOTE ANIMADO DE TRANSFERÊNCIA DE MERCADORIA ENTRE LOJAS */}
+          <g className="retail-mlogin-multi-transfer">
+            <rect
+              x="92"
+              y="188"
+              width="96"
+              height="26"
+              rx="7"
+              fill="#272321"
+              stroke="#FFFFFF"
+              strokeWidth="1.3"
+            />
+            <rect
+              x="98"
+              y="193"
+              width="16"
+              height="16"
+              rx="4"
+              fill="#7C3AED"
+            />
+            <path
+              d="M102 201 H110 M107 198 L110 201 L107 204"
+              stroke="#FFFFFF"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <text
+              x="120"
+              y="200"
+              fontSize="6.5"
+              fontWeight="800"
+              fill="#FFFFFF"
+              letterSpacing="0.2"
+            >
+              ESTOQUE INTEGRADO
+            </text>
+            <text
+              x="120"
+              y="208.5"
+              fontSize="6.2"
+              fontWeight="700"
+              fill="#F3E8FF"
+            >
+              Transferência entre Lojas
+            </text>
+          </g>
+
+          {/* Linha de base arquitetônica */}
+          <line
+            x1="12"
+            y1="220"
+            x2="268"
+            y2="220"
+            stroke="#272321"
+            strokeWidth="1.5"
+          />
+        </svg>
+      </div>
+    );
+  },
+);
+
+/**
  * Ilustração Hero da Tela "Entrar." (Replicando fielmente a cena do celular direito
  * em 00:04.2–00:09.4: personagem subindo a rampa listrada roxa, segurando o envelope
  * de credencial da loja e erguendo o quadro roxo de confirmação ao lado do título).
@@ -4406,6 +5195,20 @@ const ONBOARDING_SLIDES = [
     description:
       "Acompanhe o pódio gamificado de vendedores, o campeão de cada dia no calendário, comissões e auditoria de descontos e trocas.",
     Illustration: CommercialIntelligenceModuleIllustration,
+  },
+  {
+    id: "suppliers-sp",
+    title: "Fornecedores e\nAtacado de SP.",
+    description:
+      "Explore o mapa do Brás, 25 de Março e Bom Retiro, compare peças na vitrine 3x2 com margem sugerida e faça pedidos direto.",
+    Illustration: SuppliersSpModuleIllustration,
+  },
+  {
+    id: "multi-store",
+    title: "Várias Lojas em\num Único Login.",
+    description:
+      "Gerencie todas as suas unidades no mesmo painel, alterne de loja em 1 clique, consolide resultados e transfira estoque entre filiais.",
+    Illustration: MultiStoreNetworkModuleIllustration,
   },
 ] as const;
 

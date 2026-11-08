@@ -3428,6 +3428,39 @@ textarea:focus-visible {
   animation: retailMloginIntelAuditSlide 3.6s ease-in-out infinite;
 }
 
+/* Animações dos Slides 8 e 9 — Fornecedores SP e Rede Multi-Lojas */
+@keyframes retailMloginSpPinBounce {
+  0%,
+  100% {
+    transform: translate(106px, 114px) scale(1);
+  }
+  50% {
+    transform: translate(106px, 109px) scale(1.04);
+  }
+}
+
+@keyframes retailMloginMultiTransferSlide {
+  0%,
+  20% {
+    transform: translateX(-18px) translateY(0);
+  }
+  50%,
+  70% {
+    transform: translateX(18px) translateY(-3px);
+  }
+  100% {
+    transform: translateX(-18px) translateY(0);
+  }
+}
+
+.retail-mlogin-sp-pin {
+  animation: retailMloginSpPinBounce 2.8s ease-in-out infinite;
+}
+
+.retail-mlogin-multi-transfer {
+  animation: retailMloginMultiTransferSlide 3.8s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+}
+
 .retail-mlogin-copy {
   padding: 0 2px;
 }

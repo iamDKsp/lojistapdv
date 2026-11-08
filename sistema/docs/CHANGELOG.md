@@ -12,6 +12,10 @@
   - Criada ilustração editorial com a ficha central do cliente (`CREDIÁRIO OK`), barra animada de limite disponível (`R$ 1.200`), carnê de parcelas (`1/3`, `2/3` quitadas e `3/3` com animação de baixa no caixa), cartão exclusivo de crediário da loja e card flutuante de lembrete/cobrança em 1 clique.
 - **Slide 7 — Módulo Inteligência Comercial & Ranking de Vendedores (`CommercialIntelligenceModuleIllustration` em `frontend/src/retail/RetailMobileLogin.tsx` e `frontend/src/retail/retail.css`)**:
   - Criada ilustração editorial destacando o Pódio Gamificado Top 3 (`#2` à esquerda, `#1` ao centro com coroa/troféu animado e `META 118%`, e `#3` à direita), card flutuante de Calendário com o `CAMPEÃO DO DIA (#1)`, gráfico ascendente de `COMISSÃO & METAS` e faixa de `AUDITORIA DE DESCONTOS & TROCAS`.
+- **Slide 8 — Módulo Fornecedores de São Paulo & Atacado SP (`SuppliersSpModuleIllustration` em `frontend/src/retail/RetailMobileLogin.tsx` e `frontend/src/retail/retail.css`)**:
+  - Criada ilustração editorial com o mapa interativo dos polos atacadistas de São Paulo (*Brás*, *25 de Março*, *Feirinha* e *Bom Retiro*), pino central animado (`ATACADO R$ 19`), vitrine lateral flutuante com a **Grade 3x2 de peças** e card de pedido direto com margem sugerida (`+140%`).
+- **Slide 9 — Módulo Multi-Empresas / Rede Multi-Lojas do Mesmo Dono (`MultiStoreNetworkModuleIllustration` em `frontend/src/retail/RetailMobileLogin.tsx` e `frontend/src/retail/retail.css`)**:
+  - Criada ilustração editorial exibindo o **Painel do Proprietário (`TROCA EM 1 CLIQUE ⇄`)** conectado simultaneamente às fachadas de `LOJA MATRIZ`, `FILIAL 02` e `FILIAL 03`, com pacote animado de transferência e integração de estoque entre unidades.
 
 ## 2026-11-08 — Correção da Simulação em Tempo Real (Live Preview), Seções da Vitrine e Endpoints de Configurações e Mídia da Loja Virtual
 

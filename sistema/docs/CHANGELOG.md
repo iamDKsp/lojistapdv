@@ -1,5 +1,14 @@
 # Histórico — PDV Lojista
 
+## 2026-11-08 — Expansão do Carrossel Mobile de Login com Divulgação dos Módulos de Loja Virtual e Entrega em Casa
+
+- **Preservação Integral da Abertura Mobile Existente (`frontend/src/retail/RetailMobileLogin.tsx` e `frontend/src/retail/retail.css`)**:
+  - Mantidos integralmente e sem alterações os 3 slides originais de introdução (`BentoMosaicIllustration`, `GradeTeamIllustration` e `StorefrontPosIllustration`), o formulário `Entrar.` (`MobileLoginHeroIllustration`), a transição de portal e a tela `Acesso Liberado!` (`MobileSuccessHeroIllustration`).
+- **Slide 4 — Módulo Loja Virtual (`VirtualStoreModuleIllustration` em `frontend/src/retail/RetailMobileLogin.tsx` e `frontend/src/retail/retail.css`)**:
+  - Criada ilustração editorial exclusiva na paleta oficial roxo, branco e neutros (`#7C3AED`, `#6D28D9`, `#F3E8FF`, `#F8F7FC`, `#FFFFFF`, `#272321`, `#665F70` e `#E5E1ED`) apresentando a criação do catálogo online (`/loja/sua-loja`) com vitrine mobile, chave seletora animada de publicação, grade `P | M | G` sincronizada em tempo real, sacola flutuante com reserva automática (`+1`) e card animado de pedido enviado ao WhatsApp.
+- **Slide 5 — Módulo Entrega em Casa (`HomeDeliveryMotoboyIllustration` em `frontend/src/retail/RetailMobileLogin.tsx` e `frontend/src/retail/retail.css`)**:
+  - Integrada na sequência a animação 2D com câmera de zoom e parallax infinito do motoboy percorrendo as 5 etapas da entrega (`1. Aceito` → `2. Indo à loja` → `3. Coleta na loja PDV Lojista` → `4. Em rota` → `5. Entregue na porta do cliente ✓`), incluindo seletor interativo de etapas e avanço automático contínuo.
+
 ## 2026-11-08 — Correção da Simulação em Tempo Real (Live Preview), Seções da Vitrine e Endpoints de Configurações e Mídia da Loja Virtual
 
 - **Normalização de Tema, Seções da Vitrine e Preview Interativo (`frontend/src/retail/RetailStorefrontPage.tsx` e `frontend/src/storefront/PublicStorefrontApp.tsx`)**:

@@ -714,6 +714,2369 @@ const StorefrontPosIllustration = memo(function StorefrontPosIllustration() {
 });
 
 /**
+ * Slide 4 — Módulo Loja Virtual (Ilustração editorial exclusiva seguindo a mesma
+ * direção de arte arquitetônica dos slides 1–3: criação do catálogo online /loja/sua-loja,
+ * chave de publicação animada, grade P/M/G sincronizada em tempo real, sacola com
+ * reserva automática de estoque e disparo de pedido via WhatsApp).
+ */
+const VirtualStoreModuleIllustration = memo(
+  function VirtualStoreModuleIllustration() {
+    return (
+      <div className="retail-mlogin-illustration-wrap" aria-hidden="true">
+        <svg
+          viewBox="0 0 280 246"
+          fill="none"
+          className="retail-mlogin-svg is-virtual-store"
+        >
+          {/* Aura circular suave de fundo + partículas editoriais */}
+          <circle cx="142" cy="120" r="84" fill="#F8F7FC" />
+          <circle cx="42" cy="30" r="4" fill="#F3E8FF" />
+          <circle cx="246" cy="118" r="5" stroke="#E5E1ED" strokeWidth="1.4" />
+          <path
+            d="M236 22 V30 M232 26 H240 M32 126 V134 M28 130 H36"
+            stroke="#7C3AED"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+          />
+
+          {/* Pedestal e rampa arquitetônica listrada à direita (assinatura visual do login) */}
+          <rect
+            x="178"
+            y="156"
+            width="68"
+            height="64"
+            rx="4"
+            fill="#6D28D9"
+            stroke="#272321"
+            strokeWidth="1.4"
+          />
+          <polygon
+            points="136,220 246,156 246,220"
+            fill="#7C3AED"
+            stroke="#272321"
+            strokeWidth="1.4"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M156 220 L246 168 M178 220 L246 180 M200 220 L246 193 M222 220 L246 206"
+            stroke="#FFFFFF"
+            strokeWidth="1.3"
+          />
+
+          {/* Moldura Central do Smartphone / Vitrine Online (/loja/sua-loja) */}
+          <g className="retail-mlogin-float-slow">
+            {/* Sombra sólida deslocada da vitrine mobile */}
+            <rect
+              x="80"
+              y="22"
+              width="128"
+              height="186"
+              rx="14"
+              fill="#272321"
+            />
+            {/* Corpo do aparelho / navegador da Loja Virtual */}
+            <rect
+              x="74"
+              y="16"
+              width="128"
+              height="186"
+              rx="14"
+              fill="#FFFFFF"
+              stroke="#272321"
+              strokeWidth="1.5"
+            />
+
+            {/* Barra de endereço da Loja Virtual (/loja/sua-marca) */}
+            <rect
+              x="84"
+              y="26"
+              width="108"
+              height="16"
+              rx="5"
+              fill="#F3E8FF"
+              stroke="#272321"
+              strokeWidth="1.2"
+            />
+            <circle
+              cx="93"
+              cy="34"
+              r="3.2"
+              fill="#7C3AED"
+              className="retail-mlogin-vstore-pulse"
+            />
+            <line
+              x1="101"
+              y1="34"
+              x2="152"
+              y2="34"
+              stroke="#272321"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+            <rect
+              x="160"
+              y="30"
+              width="26"
+              height="8"
+              rx="4"
+              fill="#7C3AED"
+            />
+
+            {/* Toldo Digital Listrado na Vitrine do Celular */}
+            <path
+              d="M78 48 L86 39 H190 L198 48 Z"
+              fill="#7C3AED"
+              stroke="#272321"
+              strokeWidth="1.3"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M78 48 C78 56, 98 56, 98 48 C98 56, 118 56, 118 48 C118 56, 138 56, 138 48 C138 56, 158 56, 158 48 C158 56, 178 56, 178 48 C178 56, 198 56, 198 48 Z"
+              fill="#6D28D9"
+              stroke="#272321"
+              strokeWidth="1.3"
+            />
+
+            {/* Card de Produto Destaque da Coleção Online */}
+            <rect
+              x="86"
+              y="60"
+              width="104"
+              height="96"
+              rx="8"
+              fill="#F8F7FC"
+              stroke="#272321"
+              strokeWidth="1.3"
+            />
+            {/* Etiqueta de Preço no Canto do Card */}
+            <rect
+              x="148"
+              y="66"
+              width="36"
+              height="13"
+              rx="4"
+              fill="#FFFFFF"
+              stroke="#272321"
+              strokeWidth="1.1"
+            />
+            <line
+              x1="154"
+              y1="72.5"
+              x2="178"
+              y2="72.5"
+              stroke="#7C3AED"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+            />
+
+            {/* Cabide e Peça Editorial na Vitrine Digital */}
+            <path
+              d="M138 69 C138 66, 141 66, 141 68 C141 70, 138 71, 138 73 M126 77 L138 72 L150 77"
+              stroke="#272321"
+              strokeWidth="1.3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M116 82 L126 76 H150 L160 82 L153 94 L147 90 V122 H129 V90 L123 94 Z"
+              fill="#7C3AED"
+              stroke="#272321"
+              strokeWidth="1.3"
+              strokeLinejoin="round"
+            />
+            {/* Detalhes de estampa na peça */}
+            <circle cx="134" cy="92" r="2" fill="#F3E8FF" />
+            <circle cx="143" cy="96" r="2" fill="#F3E8FF" />
+            <circle cx="135" cy="104" r="2" fill="#F3E8FF" />
+            <circle cx="142" cy="110" r="2" fill="#F3E8FF" />
+
+            {/* Pílulas de Grade em Tempo Real (P / M / G) com Seleção Animada */}
+            <g transform="translate(94, 130)">
+              <rect
+                x="0"
+                y="0"
+                width="24"
+                height="16"
+                rx="4"
+                fill="#FFFFFF"
+                stroke="#272321"
+                strokeWidth="1.2"
+              />
+              <text
+                x="12"
+                y="11.5"
+                textAnchor="middle"
+                fontSize="8.5"
+                fontWeight="800"
+                fill="#272321"
+              >
+                P
+              </text>
+
+              <g className="retail-mlogin-vstore-size">
+                <rect
+                  x="32"
+                  y="0"
+                  width="24"
+                  height="16"
+                  rx="4"
+                  fill="#7C3AED"
+                  stroke="#272321"
+                  strokeWidth="1.2"
+                />
+                <text
+                  x="44"
+                  y="11.5"
+                  textAnchor="middle"
+                  fontSize="8.5"
+                  fontWeight="800"
+                  fill="#FFFFFF"
+                >
+                  M
+                </text>
+              </g>
+
+              <rect
+                x="64"
+                y="0"
+                width="24"
+                height="16"
+                rx="4"
+                fill="#FFFFFF"
+                stroke="#272321"
+                strokeWidth="1.2"
+              />
+              <text
+                x="76"
+                y="11.5"
+                textAnchor="middle"
+                fontSize="8.5"
+                fontWeight="800"
+                fill="#272321"
+              >
+                G
+              </text>
+            </g>
+
+            {/* Botão "Pedir no WhatsApp / Reservar Grade" dentro da Vitrine */}
+            <g className="retail-mlogin-vstore-cta">
+              <rect
+                x="86"
+                y="164"
+                width="104"
+                height="24"
+                rx="6"
+                fill="#272321"
+              />
+              <circle cx="100" cy="176" r="6" fill="#7C3AED" />
+              <path
+                d="M97.5 176 L99.5 178 L103 174"
+                stroke="#FFFFFF"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <rect
+                x="112"
+                y="173"
+                width="54"
+                height="6"
+                rx="3"
+                fill="#FFFFFF"
+              />
+              <circle cx="178" cy="176" r="3" fill="#F3E8FF" />
+            </g>
+          </g>
+
+          {/* CARD FLUTUANTE ESQUERDO SUPERIOR — Construtor / Publicação em 1 Clique */}
+          <g className="retail-mlogin-vstore-builder">
+            <rect
+              x="12"
+              y="40"
+              width="82"
+              height="64"
+              rx="8"
+              fill="#F3E8FF"
+              stroke="#272321"
+              strokeWidth="1.4"
+            />
+            {/* Barra de topo do construtor */}
+            <rect
+              x="20"
+              y="48"
+              width="42"
+              height="6"
+              rx="3"
+              fill="#272321"
+            />
+            {/* Paleta de personalização da marca */}
+            <circle
+              cx="26"
+              cy="65"
+              r="5.5"
+              fill="#7C3AED"
+              stroke="#272321"
+              strokeWidth="1.2"
+            />
+            <circle
+              cx="41"
+              cy="65"
+              r="5.5"
+              fill="#6D28D9"
+              stroke="#272321"
+              strokeWidth="1.2"
+            />
+            <circle
+              cx="56"
+              cy="65"
+              r="5.5"
+              fill="#FFFFFF"
+              stroke="#272321"
+              strokeWidth="1.2"
+            />
+            {/* Chave Seletora Animada "LOJA NO AR" */}
+            <rect
+              x="20"
+              y="78"
+              width="66"
+              height="18"
+              rx="9"
+              fill="#FFFFFF"
+              stroke="#272321"
+              strokeWidth="1.3"
+            />
+            <circle
+              cx="62"
+              cy="87"
+              r="5.5"
+              fill="#F3E8FF"
+              stroke="#272321"
+              strokeWidth="1.1"
+            />
+            <circle
+              className="retail-mlogin-bento-knob"
+              cx="42"
+              cy="87"
+              r="6"
+              fill="#7C3AED"
+              stroke="#272321"
+              strokeWidth="1.2"
+            />
+          </g>
+
+          {/* CARD FLUTUANTE DIREITO SUPERIOR — Sacola + Reserva de Estoque */}
+          <g className="retail-mlogin-float-fast">
+            <rect
+              x="188"
+              y="34"
+              width="78"
+              height="74"
+              rx="9"
+              fill="#7C3AED"
+              stroke="#272321"
+              strokeWidth="1.4"
+            />
+            {/* Sacola de Compras Editorial */}
+            <path
+              d="M216 58 V52 C216 46, 238 46, 238 52 V58"
+              stroke="#FFFFFF"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+            <path
+              d="M208 56 H246 L249 88 H205 Z"
+              fill="#FFFFFF"
+              stroke="#272321"
+              strokeWidth="1.4"
+              strokeLinejoin="round"
+            />
+            {/* Símbolo L oficial na sacola */}
+            <path d="M221 64 H225 V75 H234 V79 H221 Z" fill="#7C3AED" />
+            {/* Selo +1 Peça Reservada */}
+            <circle
+              cx="248"
+              cy="54"
+              r="10"
+              fill="#272321"
+              stroke="#FFFFFF"
+              strokeWidth="1.4"
+            />
+            <text
+              x="248"
+              y="57.5"
+              textAnchor="middle"
+              fontSize="8.5"
+              fontWeight="800"
+              fill="#FFFFFF"
+            >
+              +1
+            </text>
+            <rect
+              x="202"
+              y="94"
+              width="50"
+              height="6"
+              rx="3"
+              fill="#F3E8FF"
+            />
+          </g>
+
+          {/* CARD FLUTUANTE INFERIOR ESQUERDO — Pedido Recebido no WhatsApp + Reserva */}
+          <g className="retail-mlogin-vstore-order">
+            <path
+              d="M14 148 H134 C138.4 148, 142 151.6, 142 156 V194 C142 198.4, 138.4 202, 134 202 H42 L26 213 V202 H14 C9.6 202, 6 198.4, 6 194 V156 C6 151.6, 9.6 148, 14 148 Z"
+              fill="#272321"
+              stroke="#272321"
+              strokeWidth="1.4"
+              strokeLinejoin="round"
+            />
+            <circle cx="30" cy="175" r="13" fill="#7C3AED" />
+            <path
+              d="M24.5 175 L28.5 179 L36 171"
+              stroke="#FFFFFF"
+              strokeWidth="2.3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <rect
+              x="50"
+              y="161"
+              width="52"
+              height="10"
+              rx="3"
+              fill="#7C3AED"
+            />
+            <text
+              x="76"
+              y="168.5"
+              textAnchor="middle"
+              fontSize="6.8"
+              fontWeight="800"
+              fill="#FFFFFF"
+              letterSpacing="0.4"
+            >
+              RESERVADO
+            </text>
+            <rect x="50" y="176" width="76" height="6" rx="3" fill="#FFFFFF" />
+            <rect x="50" y="186" width="54" height="5" rx="2.5" fill="#F3E8FF" />
+          </g>
+
+          {/* Linha de base arquitetônica */}
+          <line
+            x1="16"
+            y1="220"
+            x2="264"
+            y2="220"
+            stroke="#272321"
+            strokeWidth="1.5"
+          />
+        </svg>
+      </div>
+    );
+  },
+);
+
+const DELIVERY_ONBOARDING_STAGES = [
+  {
+    index: 0,
+    shortLabel: "1. Aceito",
+    title: "Sistema encontrou motorista",
+    badge: "ETAPA 1 • CHAMADO ACEITO",
+    sub: "Vinculado ao Pedido Nº 4092",
+    bubble: "Chamado aceito! • Nº 4092",
+    targetZoom: 1.12,
+    focusX: 332,
+    focusY: 236,
+    parallaxSpeed: 0,
+  },
+  {
+    index: 1,
+    shortLabel: "2. Indo à loja",
+    title: "Motorista vai até a loja",
+    badge: "ETAPA 2 • EM DESLOCAMENTO",
+    sub: "Indo coletar na loja",
+    bubble: "Indo buscar na loja PDV »",
+    targetZoom: 1.34,
+    focusX: 345,
+    focusY: 248,
+    parallaxSpeed: 1.0,
+  },
+  {
+    index: 2,
+    shortLabel: "3. Coleta",
+    title: "Motorista pegou o pacote",
+    badge: "ETAPA 3 • COLETADO NA LOJA",
+    sub: "Pacote Nº 4092 na bag ✓",
+    bubble: "Pacote Nº 4092 coletado!",
+    targetZoom: 1.08,
+    focusX: 365,
+    focusY: 222,
+    parallaxSpeed: 0,
+  },
+  {
+    index: 3,
+    shortLabel: "4. Em rota",
+    title: "Motorista está chegando",
+    badge: "ETAPA 4 • RUMO AO CLIENTE",
+    sub: "Rastreio ao vivo »",
+    bubble: "Levando pacote Nº 4092 »",
+    targetZoom: 1.4,
+    focusX: 345,
+    focusY: 248,
+    parallaxSpeed: 1.35,
+  },
+  {
+    index: 4,
+    shortLabel: "5. Entregue",
+    title: "Motorista entregou o pacote",
+    badge: "ETAPA 5 • ENTREGA CONCLUÍDA",
+    sub: "Recebido pelo cliente ✓",
+    bubble: "Pacote entregue em casa ✓",
+    targetZoom: 1.08,
+    focusX: 375,
+    focusY: 222,
+    parallaxSpeed: 0,
+  },
+] as const;
+
+/**
+ * Slide 5 — Módulo Entrega em Casa (Reutilizando a animação 2D com câmera de zoom
+ * e parallax infinito do motoboy: 1. Encontrou motorista -> 2. Indo à loja ->
+ * 3. Coletou pacote na loja PDV Lojista -> 4. Em rota -> 5. Entregou na casa do cliente).
+ */
+const HomeDeliveryMotoboyIllustration = memo(
+  function HomeDeliveryMotoboyIllustration() {
+    const svgRef = useRef<SVGSVGElement | null>(null);
+    const [activeStep, setActiveStep] = useState(0);
+    const controlRef = useRef<{
+      goToStep: (idx: number, manual?: boolean) => void;
+    } | null>(null);
+
+    useEffect(() => {
+      const svg = svgRef.current;
+      if (!svg) return;
+
+      const q = <T extends Element = SVGElement>(sel: string) =>
+        svg.querySelector<T>(sel);
+
+      const el = {
+        cameraRig: q("#mloginMotoCameraRig"),
+        parallaxClouds: q("#mloginParallaxClouds"),
+        parallaxSkyline: q("#mloginParallaxSkyline"),
+        parallaxMidground: q("#mloginParallaxMidground"),
+        parallaxRoad: q("#mloginParallaxRoad"),
+        startTotemGroup: q("#mloginStartTotemGroup"),
+        totemWave1: q("#mloginTotemWave1"),
+        totemWave2: q("#mloginTotemWave2"),
+        storeWorldGroup: q("#mloginStoreWorldGroup"),
+        storeAwning0: q("#mloginStoreAwning0"),
+        storeAwning1: q("#mloginStoreAwning1"),
+        storeAwning2: q("#mloginStoreAwning2"),
+        storeCounterPkg: q("#mloginStoreCounterPkg"),
+        storeScannerLine: q("#mloginStoreScannerLine"),
+        clientWorldGroup: q("#mloginClientWorldGroup"),
+        clientConfirmWave: q("#mloginClientConfirmWave"),
+        clientDeliveredPkg: q("#mloginClientDeliveredPkg"),
+        clientCheckBadge: q("#mloginClientCheckBadge"),
+        clientConfetti: q("#mloginClientConfetti"),
+        speedWindGroup: q("#mloginSpeedWindGroup"),
+        windLine1: q("#mloginWindLine1"),
+        windLine2: q("#mloginWindLine2"),
+        puffCircle1: q("#mloginPuffCircle1"),
+        motoSuspension: q("#mloginMotoSuspension"),
+        headlightCone: q("#mloginHeadlightCone"),
+        wheelBackSpokes: q("#mloginWheelBackSpokes"),
+        wheelFrontSpokes: q("#mloginWheelFrontSpokes"),
+        scarfWavePath: q("#mloginScarfWavePath"),
+        bagBodyRect: q("#mloginBagBodyRect"),
+        bagLogoL: q("#mloginBagLogoL"),
+        bagActiveDot: q("#mloginBagActiveDot"),
+        bagLidHinge: q("#mloginBagLidHinge"),
+        parabolicPkgNode: q("#mloginParabolicPkgNode"),
+        heroSpeechBubble: q("#mloginHeroSpeechBubble"),
+        heroBubbleBg: q("#mloginHeroBubbleBg"),
+        heroBubbleText: q("#mloginHeroBubbleText"),
+        stageTopBadge: q("#mloginStageTopBadge"),
+        stageTopTitle: q("#mloginStageTopTitle"),
+        stageTopSub: q("#mloginStageTopSub"),
+      };
+
+      const state = {
+        stepIndex: 0,
+        stepElapsed: 0,
+        autoCycle: true,
+        stepDuration: 3.4,
+        lastTime: performance.now(),
+        camZoom: 1.12,
+        camX: 332,
+        camY: 236,
+        currentSpeed: 0,
+        wheelAngle: 0,
+        scrollClouds: 0,
+        scrollSkyline: 0,
+        scrollMid: 0,
+        scrollRoad: 0,
+        totemX: 255,
+        storeX: 920,
+        clientX: 920,
+      };
+
+      const clamp = (v: number, min: number, max: number) =>
+        Math.max(min, Math.min(max, v));
+      const norm = (v: number, a: number, b: number) =>
+        clamp((v - a) / (b - a), 0, 1);
+      const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+      const easeOutCubic = (x: number) => 1 - Math.pow(1 - x, 3);
+      const easeInOutCubic = (x: number) =>
+        x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+      const easeOutBack = (x: number, overshoot = 1.45) => {
+        const c1 = overshoot;
+        const c3 = c1 + 1;
+        return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
+      };
+
+      function goToStep(newIndex: number, manual = false) {
+        state.stepIndex = newIndex;
+        state.stepElapsed = 0;
+        if (manual) {
+          state.stepDuration = 4.6;
+        }
+
+        if (newIndex === 0) {
+          state.totemX = 255;
+          state.storeX = 920;
+          state.clientX = 920;
+        } else if (newIndex === 1) {
+          state.storeX = 920;
+          state.clientX = 920;
+        } else if (newIndex === 2) {
+          state.storeX = 640;
+          state.clientX = 920;
+        } else if (newIndex === 3) {
+          state.clientX = 920;
+        } else if (newIndex === 4) {
+          state.storeX = -500;
+          state.clientX = 660;
+        }
+
+        const info = DELIVERY_ONBOARDING_STAGES[newIndex];
+        if (el.stageTopBadge) el.stageTopBadge.textContent = info.badge;
+        if (el.stageTopTitle) el.stageTopTitle.textContent = info.title;
+        if (el.stageTopSub) el.stageTopSub.textContent = info.sub;
+        if (el.heroBubbleText) el.heroBubbleText.textContent = info.bubble;
+        setActiveStep(newIndex);
+      }
+
+      controlRef.current = { goToStep };
+      goToStep(0);
+
+      let rafId = 0;
+
+      function tick(now: number) {
+        const dt = Math.min(0.06, (now - state.lastTime) / 1000);
+        state.lastTime = now;
+        const nowSec = now / 1000;
+
+        state.stepElapsed += dt;
+
+        if (state.autoCycle && state.stepElapsed >= state.stepDuration) {
+          goToStep((state.stepIndex + 1) % 5);
+        }
+
+        const idx = state.stepIndex;
+        const t = state.stepElapsed;
+        const stageCfg = DELIVERY_ONBOARDING_STAGES[idx];
+
+        const camSmooth = Math.min(1, dt * 4.2);
+        state.camZoom = lerp(state.camZoom, stageCfg.targetZoom, camSmooth);
+        state.camX = lerp(state.camX, stageCfg.focusX, camSmooth);
+        state.camY = lerp(state.camY, stageCfg.focusY, camSmooth);
+
+        const cx = 230 - state.camX * state.camZoom;
+        const cy = 224 - state.camY * state.camZoom;
+        el.cameraRig?.setAttribute(
+          "transform",
+          `translate(${cx.toFixed(2)},${cy.toFixed(2)}) scale(${state.camZoom.toFixed(3)})`,
+        );
+
+        let targetSpeed: number = stageCfg.parallaxSpeed;
+        if (idx === 2 && t < 0.75) {
+          targetSpeed = (1 - easeOutCubic(t / 0.75)) * 0.85;
+        } else if (idx === 4 && t < 0.75) {
+          targetSpeed = (1 - easeOutCubic(t / 0.75)) * 0.95;
+        }
+
+        state.currentSpeed = lerp(
+          state.currentSpeed,
+          targetSpeed,
+          Math.min(1, dt * 5),
+        );
+
+        state.scrollClouds =
+          (state.scrollClouds + dt * (12 + state.currentSpeed * 28)) % 760;
+        state.scrollSkyline =
+          (state.scrollSkyline + dt * state.currentSpeed * 95) % 760;
+        state.scrollMid =
+          (state.scrollMid + dt * state.currentSpeed * 240) % 760;
+        state.scrollRoad =
+          (state.scrollRoad + dt * state.currentSpeed * 480) % 760;
+
+        el.parallaxClouds?.setAttribute(
+          "transform",
+          `translate(${(-state.scrollClouds).toFixed(1)}, 0)`,
+        );
+        el.parallaxSkyline?.setAttribute(
+          "transform",
+          `translate(${(-state.scrollSkyline).toFixed(1)}, 0)`,
+        );
+        el.parallaxMidground?.setAttribute(
+          "transform",
+          `translate(${(-state.scrollMid).toFixed(1)}, 0)`,
+        );
+        el.parallaxRoad?.setAttribute(
+          "transform",
+          `translate(${(-state.scrollRoad).toFixed(1)}, 0)`,
+        );
+
+        if (idx === 0) {
+          state.totemX = lerp(state.totemX, 255, Math.min(1, dt * 6));
+          const w1 = (nowSec * 1.4) % 1;
+          const w2 = (nowSec * 1.4 + 0.5) % 1;
+          el.totemWave1?.setAttribute("r", (8 + w1 * 26).toFixed(1));
+          el.totemWave1?.setAttribute("opacity", ((1 - w1) * 0.75).toFixed(2));
+          el.totemWave2?.setAttribute("r", (8 + w2 * 26).toFixed(1));
+          el.totemWave2?.setAttribute("opacity", ((1 - w2) * 0.75).toFixed(2));
+        } else {
+          state.totemX -= dt * state.currentSpeed * 280;
+          el.totemWave1?.setAttribute("opacity", "0");
+          el.totemWave2?.setAttribute("opacity", "0");
+        }
+        el.startTotemGroup?.setAttribute(
+          "transform",
+          `translate(${state.totemX.toFixed(1)}, 166)`,
+        );
+
+        if (idx === 2) {
+          const approachP = easeOutCubic(clamp(t / 0.75, 0, 1));
+          state.storeX = lerp(640, 310, approachP);
+        } else if (idx === 3) {
+          state.storeX -= dt * state.currentSpeed * 280;
+        } else {
+          state.storeX = 920;
+        }
+        el.storeWorldGroup?.setAttribute(
+          "transform",
+          `translate(${state.storeX.toFixed(1)}, 128)`,
+        );
+
+        const awningAmp = idx === 2 ? 2.2 : 0.8;
+        el.storeAwning0?.setAttribute(
+          "transform",
+          `translate(0,${(Math.sin(nowSec * 6.5) * awningAmp).toFixed(2)})`,
+        );
+        el.storeAwning1?.setAttribute(
+          "transform",
+          `translate(0,${(Math.sin(nowSec * 6.5 - 0.8) * awningAmp).toFixed(2)})`,
+        );
+        el.storeAwning2?.setAttribute(
+          "transform",
+          `translate(0,${(Math.sin(nowSec * 6.5 - 1.6) * awningAmp).toFixed(2)})`,
+        );
+
+        if (idx === 4) {
+          const approachC = easeOutCubic(clamp(t / 0.75, 0, 1));
+          state.clientX = lerp(660, 368, approachC);
+        } else {
+          state.clientX = 920;
+        }
+        el.clientWorldGroup?.setAttribute(
+          "transform",
+          `translate(${state.clientX.toFixed(1)}, 138)`,
+        );
+
+        state.wheelAngle =
+          (state.wheelAngle + dt * (60 + state.currentSpeed * 680)) % 360;
+        el.wheelBackSpokes?.setAttribute(
+          "transform",
+          `rotate(${state.wheelAngle.toFixed(0)})`,
+        );
+        el.wheelFrontSpokes?.setAttribute(
+          "transform",
+          `rotate(${state.wheelAngle.toFixed(0)})`,
+        );
+
+        const vibeFreq = state.currentSpeed > 0.2 ? 32 : 18;
+        const vibeAmp = state.currentSpeed > 0.2 ? 1.5 : 0.7;
+        let suspY = Math.sin(nowSec * vibeFreq) * vibeAmp;
+        let tiltDeg = 0;
+        let squashX = 1;
+        let squashY = 1;
+        let bagLidAngle = 0;
+        let hasPackage = false;
+
+        if (idx === 1 || idx === 3) {
+          if (t < 0.65) {
+            tiltDeg = -Math.sin((t / 0.65) * Math.PI) * 8.5;
+          } else {
+            tiltDeg = -1.8 + Math.sin(nowSec * 3.5) * 1.4;
+          }
+        }
+
+        const localCycle3 = t % 3.4;
+        if (idx === 2) {
+          if (t < 0.75) {
+            tiltDeg = Math.sin((t / 0.75) * Math.PI) * 5.5;
+          }
+          if (localCycle3 > 0.6 && localCycle3 < 1.8) {
+            const openP =
+              localCycle3 < 1.1
+                ? easeOutBack(norm(localCycle3, 0.6, 1.0), 1.4)
+                : 1 - easeInOutCubic(norm(localCycle3, 1.5, 1.8));
+            bagLidAngle = -openP * 70;
+          }
+          hasPackage = localCycle3 > 1.45 || t > 1.8;
+
+          if (localCycle3 > 1.42 && localCycle3 < 1.88) {
+            const imp = Math.sin(norm(localCycle3, 1.42, 1.88) * Math.PI);
+            suspY += imp * 5.5;
+            squashX = 1 + imp * 0.08;
+            squashY = 1 - imp * 0.08;
+            tiltDeg = -imp * 4.2;
+          }
+
+          if (localCycle3 < 0.85) {
+            el.storeCounterPkg?.setAttribute("opacity", "1");
+            el.storeScannerLine?.setAttribute(
+              "opacity",
+              localCycle3 > 0.45 ? "1" : "0",
+            );
+          } else {
+            el.storeCounterPkg?.setAttribute("opacity", "0");
+          }
+
+          if (localCycle3 >= 0.82 && localCycle3 <= 1.48) {
+            const pj = norm(localCycle3, 0.82, 1.46);
+            const startPkgX = state.storeX + 106;
+            const startPkgY = 212;
+            const endPkgX = 345 - 25;
+            const endPkgY = 248;
+            const fx = lerp(startPkgX, endPkgX, pj);
+            const fy =
+              lerp(startPkgY, endPkgY, pj) - Math.sin(pj * Math.PI) * 58;
+            el.parabolicPkgNode?.setAttribute("opacity", "1");
+            el.parabolicPkgNode?.setAttribute(
+              "transform",
+              `translate(${fx.toFixed(1)},${fy.toFixed(1)})`,
+            );
+          } else {
+            el.parabolicPkgNode?.setAttribute("opacity", "0");
+          }
+        } else if (idx === 3) {
+          hasPackage = true;
+          el.parabolicPkgNode?.setAttribute("opacity", "0");
+        } else if (idx === 4) {
+          if (t < 0.75) {
+            tiltDeg = Math.sin((t / 0.75) * Math.PI) * 5.5;
+          }
+          if (t > 0.55 && t < 1.55) {
+            const openP =
+              t < 0.95
+                ? easeOutBack(norm(t, 0.55, 0.9), 1.35)
+                : 1 - easeInOutCubic(norm(t, 1.25, 1.55));
+            bagLidAngle = -openP * 66;
+          }
+          hasPackage = t < 1.25;
+
+          if (t >= 0.72 && t <= 1.32) {
+            const pd = norm(t, 0.72, 1.3);
+            const fx = lerp(320, state.clientX + 56, pd);
+            const fy = lerp(248, 232, pd) - Math.sin(pd * Math.PI) * 54;
+            el.parabolicPkgNode?.setAttribute("opacity", "1");
+            el.parabolicPkgNode?.setAttribute(
+              "transform",
+              `translate(${fx.toFixed(1)},${fy.toFixed(1)})`,
+            );
+          } else {
+            el.parabolicPkgNode?.setAttribute("opacity", "0");
+          }
+
+          if (t > 1.3) {
+            const popS = easeOutBack(norm(t, 1.3, 1.68), 1.55);
+            const floatCheck = Math.sin(nowSec * 4) * 2.5;
+            el.clientDeliveredPkg?.setAttribute("opacity", "1");
+            el.clientDeliveredPkg?.setAttribute(
+              "transform",
+              `translate(56, 94) scale(${popS.toFixed(2)})`,
+            );
+            el.clientCheckBadge?.setAttribute("opacity", "1");
+            el.clientCheckBadge?.setAttribute(
+              "transform",
+              `translate(62,${(18 + floatCheck).toFixed(1)}) scale(${popS.toFixed(2)})`,
+            );
+
+            const waveP = (nowSec * 1.2) % 1;
+            el.clientConfirmWave?.setAttribute(
+              "r",
+              (26 + waveP * 44).toFixed(1),
+            );
+            el.clientConfirmWave?.setAttribute(
+              "opacity",
+              ((1 - waveP) * 0.35).toFixed(2),
+            );
+
+            const confCycle = ((t - 1.3) % 2.4) / 2.4;
+            el.clientConfetti?.setAttribute(
+              "opacity",
+              (1 - confCycle).toFixed(2),
+            );
+            el.clientConfetti?.setAttribute(
+              "transform",
+              `translate(62,${(34 - confCycle * 26).toFixed(1)}) scale(${(0.85 + confCycle * 0.45).toFixed(2)})`,
+            );
+          } else {
+            el.clientDeliveredPkg?.setAttribute("opacity", "0");
+            el.clientCheckBadge?.setAttribute("opacity", "0");
+            el.clientConfirmWave?.setAttribute("opacity", "0");
+            el.clientConfetti?.setAttribute("opacity", "0");
+          }
+        } else {
+          el.parabolicPkgNode?.setAttribute("opacity", "0");
+        }
+
+        el.motoSuspension?.setAttribute(
+          "transform",
+          `translate(0,${suspY.toFixed(2)}) rotate(${tiltDeg.toFixed(2)}) scale(${squashX.toFixed(2)},${squashY.toFixed(2)})`,
+        );
+
+        const isDriving = state.currentSpeed > 0.25;
+        el.headlightCone?.setAttribute("opacity", isDriving ? "1" : "0.35");
+        el.speedWindGroup?.setAttribute("opacity", isDriving ? "1" : "0");
+
+        if (isDriving) {
+          const wShift1 = ((nowSec * 9) % 1) * 28;
+          const wShift2 = ((nowSec * 9 + 0.5) % 1) * 32;
+          el.windLine1?.setAttribute(
+            "transform",
+            `translate(${(-wShift1).toFixed(1)}, 0)`,
+          );
+          el.windLine2?.setAttribute(
+            "transform",
+            `translate(${(-wShift2).toFixed(1)}, 0)`,
+          );
+          el.puffCircle1?.setAttribute(
+            "cx",
+            (-40 - wShift1 * 0.8).toFixed(1),
+          );
+          el.puffCircle1?.setAttribute(
+            "opacity",
+            (1 - wShift1 / 28).toFixed(2),
+          );
+        }
+
+        const scarfWave =
+          Math.sin(nowSec * (isDriving ? 24 : 8)) * (isDriving ? 4.5 : 1.2);
+        el.scarfWavePath?.setAttribute(
+          "d",
+          `M -1 -29 Q -13 ${(-32 + scarfWave).toFixed(1)} -23 ${(-27 - scarfWave).toFixed(1)}`,
+        );
+
+        el.bagLidHinge?.setAttribute(
+          "transform",
+          `translate(-12, -11) rotate(${bagLidAngle.toFixed(1)})`,
+        );
+        el.bagBodyRect?.setAttribute("fill", hasPackage ? "#7C3AED" : "#FFFFFF");
+        el.bagLogoL?.setAttribute("fill", hasPackage ? "#FFFFFF" : "#7C3AED");
+        el.bagActiveDot?.setAttribute("opacity", hasPackage ? "1" : "0");
+
+        const isHighlighted = hasPackage || (idx === 4 && t > 1.3);
+        el.heroSpeechBubble?.setAttribute(
+          "transform",
+          `translate(345,${(192 + suspY * 0.6).toFixed(1)})`,
+        );
+        el.heroBubbleBg?.setAttribute(
+          "fill",
+          isHighlighted ? "#7C3AED" : "#FFFFFF",
+        );
+        el.heroBubbleText?.setAttribute(
+          "fill",
+          isHighlighted ? "#FFFFFF" : "#272321",
+        );
+
+        rafId = requestAnimationFrame(tick);
+      }
+
+      rafId = requestAnimationFrame(tick);
+      return () => cancelAnimationFrame(rafId);
+    }, []);
+
+    return (
+      <div
+        className="retail-mlogin-illustration-wrap is-motoboy-wrap"
+        aria-hidden="true"
+      >
+        <div className="retail-mlogin-motoboy-card">
+          <div className="retail-mlogin-motoboy-stage">
+            <svg
+              ref={svgRef}
+              viewBox="0 0 460 316"
+              preserveAspectRatio="xMidYMid slice"
+              className="retail-mlogin-motoboy-svg"
+              onClick={() =>
+                controlRef.current?.goToStep((activeStep + 1) % 5, true)
+              }
+            >
+              <defs>
+                <linearGradient
+                  id="mloginSkyGrad"
+                  x1="0%"
+                  y1="0%"
+                  x2="0%"
+                  y2="100%"
+                >
+                  <stop offset="0%" stopColor="#F8F7FC" />
+                  <stop offset="100%" stopColor="#F3E8FF" stopOpacity="0.65" />
+                </linearGradient>
+                <linearGradient
+                  id="mloginBeamGrad"
+                  x1="0%"
+                  y1="50%"
+                  x2="100%"
+                  y2="50%"
+                >
+                  <stop offset="0%" stopColor="#7C3AED" stopOpacity="0.38" />
+                  <stop offset="100%" stopColor="#7C3AED" stopOpacity="0" />
+                </linearGradient>
+                <filter
+                  id="mloginElevShadow"
+                  x="-15%"
+                  y="-15%"
+                  width="130%"
+                  height="140%"
+                >
+                  <feDropShadow
+                    dx="0"
+                    dy="4"
+                    stdDeviation="5"
+                    floodColor="#7C3AED"
+                    floodOpacity="0.18"
+                  />
+                </filter>
+                <filter
+                  id="mloginHudShadow"
+                  x="-10%"
+                  y="-10%"
+                  width="120%"
+                  height="130%"
+                >
+                  <feDropShadow
+                    dx="0"
+                    dy="2"
+                    stdDeviation="3"
+                    floodColor="#272321"
+                    floodOpacity="0.08"
+                  />
+                </filter>
+
+                {/* Tile Repetível 1: Nuvens (760px de largura) */}
+                <g id="mloginCloudTile">
+                  <rect
+                    x="50"
+                    y="68"
+                    width="64"
+                    height="16"
+                    rx="8"
+                    fill="#FFFFFF"
+                  />
+                  <rect
+                    x="210"
+                    y="52"
+                    width="88"
+                    height="18"
+                    rx="9"
+                    fill="#FFFFFF"
+                  />
+                  <rect
+                    x="420"
+                    y="72"
+                    width="70"
+                    height="15"
+                    rx="7.5"
+                    fill="#FFFFFF"
+                  />
+                  <rect
+                    x="610"
+                    y="56"
+                    width="76"
+                    height="17"
+                    rx="8.5"
+                    fill="#FFFFFF"
+                  />
+                </g>
+
+                {/* Tile Repetível 2: Skyline Urbano na Paleta Oficial (760px) */}
+                <g id="mloginSkylineTile">
+                  <rect
+                    x="10"
+                    y="132"
+                    width="72"
+                    height="120"
+                    rx="6"
+                    fill="#F3E8FF"
+                  />
+                  <rect
+                    x="92"
+                    y="102"
+                    width="88"
+                    height="150"
+                    rx="6"
+                    fill="#E5E1ED"
+                    opacity="0.7"
+                  />
+                  <g fill="#FFFFFF" opacity="0.8">
+                    <rect x="106" y="116" width="14" height="12" rx="2" />
+                    <rect x="128" y="116" width="14" height="12" rx="2" />
+                    <rect x="150" y="116" width="14" height="12" rx="2" />
+                    <rect x="106" y="136" width="14" height="12" rx="2" />
+                    <rect x="128" y="136" width="14" height="12" rx="2" />
+                    <rect x="150" y="136" width="14" height="12" rx="2" />
+                  </g>
+                  <rect
+                    x="190"
+                    y="140"
+                    width="68"
+                    height="112"
+                    rx="6"
+                    fill="#F3E8FF"
+                  />
+                  <rect
+                    x="268"
+                    y="114"
+                    width="94"
+                    height="138"
+                    rx="6"
+                    fill="#E5E1ED"
+                    opacity="0.65"
+                  />
+                  <rect
+                    x="372"
+                    y="136"
+                    width="76"
+                    height="116"
+                    rx="6"
+                    fill="#F3E8FF"
+                  />
+                  <rect
+                    x="458"
+                    y="98"
+                    width="92"
+                    height="154"
+                    rx="6"
+                    fill="#E5E1ED"
+                    opacity="0.7"
+                  />
+                  <g fill="#FFFFFF" opacity="0.8">
+                    <rect x="474" y="114" width="16" height="12" rx="2" />
+                    <rect x="498" y="114" width="16" height="12" rx="2" />
+                    <rect x="474" y="134" width="16" height="12" rx="2" />
+                    <rect x="498" y="134" width="16" height="12" rx="2" />
+                  </g>
+                  <rect
+                    x="560"
+                    y="128"
+                    width="84"
+                    height="124"
+                    rx="6"
+                    fill="#F3E8FF"
+                  />
+                  <rect
+                    x="654"
+                    y="110"
+                    width="96"
+                    height="142"
+                    rx="6"
+                    fill="#E5E1ED"
+                    opacity="0.65"
+                  />
+                </g>
+
+                {/* Tile Repetível 3: Árvores, Postes e Calçada (760px) */}
+                <g id="mloginMidgroundTile">
+                  <line
+                    x1="80"
+                    y1="154"
+                    x2="80"
+                    y2="246"
+                    stroke="#E5E1ED"
+                    strokeWidth="3.5"
+                  />
+                  <path
+                    d="M 80 154 Q 95 154 100 160"
+                    fill="none"
+                    stroke="#665F70"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                  />
+                  <circle
+                    cx="100"
+                    cy="162"
+                    r="4"
+                    fill="#7C3AED"
+                    opacity="0.55"
+                  />
+
+                  <rect x="168" y="218" width="5" height="28" fill="#665F70" />
+                  <circle
+                    cx="170.5"
+                    cy="204"
+                    r="18"
+                    fill="#F3E8FF"
+                    stroke="#E5E1ED"
+                    strokeWidth="1.8"
+                  />
+                  <circle
+                    cx="170.5"
+                    cy="186"
+                    r="13"
+                    fill="#FFFFFF"
+                    stroke="#E5E1ED"
+                    strokeWidth="1.8"
+                  />
+
+                  <rect
+                    x="260"
+                    y="234"
+                    width="32"
+                    height="6"
+                    rx="2"
+                    fill="#FFFFFF"
+                    stroke="#665F70"
+                    strokeWidth="1.5"
+                  />
+                  <line
+                    x1="266"
+                    y1="240"
+                    x2="266"
+                    y2="246"
+                    stroke="#665F70"
+                    strokeWidth="2"
+                  />
+                  <line
+                    x1="286"
+                    y1="240"
+                    x2="286"
+                    y2="246"
+                    stroke="#665F70"
+                    strokeWidth="2"
+                  />
+
+                  <line
+                    x1="360"
+                    y1="154"
+                    x2="360"
+                    y2="246"
+                    stroke="#E5E1ED"
+                    strokeWidth="3.5"
+                  />
+                  <path
+                    d="M 360 154 Q 375 154 380 160"
+                    fill="none"
+                    stroke="#665F70"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                  />
+                  <circle
+                    cx="380"
+                    cy="162"
+                    r="4"
+                    fill="#7C3AED"
+                    opacity="0.55"
+                  />
+
+                  <rect x="468" y="218" width="5" height="28" fill="#665F70" />
+                  <circle
+                    cx="470.5"
+                    cy="204"
+                    r="18"
+                    fill="#F3E8FF"
+                    stroke="#E5E1ED"
+                    strokeWidth="1.8"
+                  />
+                  <circle
+                    cx="470.5"
+                    cy="186"
+                    r="13"
+                    fill="#FFFFFF"
+                    stroke="#E5E1ED"
+                    strokeWidth="1.8"
+                  />
+
+                  <line
+                    x1="600"
+                    y1="154"
+                    x2="600"
+                    y2="246"
+                    stroke="#E5E1ED"
+                    strokeWidth="3.5"
+                  />
+                  <path
+                    d="M 600 154 Q 615 154 620 160"
+                    fill="none"
+                    stroke="#665F70"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                  />
+                  <circle
+                    cx="620"
+                    cy="162"
+                    r="4"
+                    fill="#7C3AED"
+                    opacity="0.55"
+                  />
+
+                  <rect x="698" y="218" width="5" height="28" fill="#665F70" />
+                  <circle
+                    cx="700.5"
+                    cy="204"
+                    r="16"
+                    fill="#F3E8FF"
+                    stroke="#E5E1ED"
+                    strokeWidth="1.8"
+                  />
+                  <circle
+                    cx="700.5"
+                    cy="188"
+                    r="11"
+                    fill="#FFFFFF"
+                    stroke="#E5E1ED"
+                    strokeWidth="1.8"
+                  />
+                </g>
+
+                {/* Tile Repetível 4: Pista, Meio-Fio e Faixas do Asfalto (760px) */}
+                <g id="mloginRoadTile">
+                  <line
+                    x1="95"
+                    y1="246"
+                    x2="95"
+                    y2="258"
+                    stroke="#E5E1ED"
+                    strokeWidth="2"
+                  />
+                  <line
+                    x1="190"
+                    y1="246"
+                    x2="190"
+                    y2="258"
+                    stroke="#E5E1ED"
+                    strokeWidth="2"
+                  />
+                  <line
+                    x1="285"
+                    y1="246"
+                    x2="285"
+                    y2="258"
+                    stroke="#E5E1ED"
+                    strokeWidth="2"
+                  />
+                  <line
+                    x1="380"
+                    y1="246"
+                    x2="380"
+                    y2="258"
+                    stroke="#E5E1ED"
+                    strokeWidth="2"
+                  />
+                  <line
+                    x1="475"
+                    y1="246"
+                    x2="475"
+                    y2="258"
+                    stroke="#E5E1ED"
+                    strokeWidth="2"
+                  />
+                  <line
+                    x1="570"
+                    y1="246"
+                    x2="570"
+                    y2="258"
+                    stroke="#E5E1ED"
+                    strokeWidth="2"
+                  />
+                  <line
+                    x1="665"
+                    y1="246"
+                    x2="665"
+                    y2="258"
+                    stroke="#E5E1ED"
+                    strokeWidth="2"
+                  />
+                  <g fill="#FFFFFF">
+                    <rect x="10" y="284" width="42" height="5" rx="2.5" />
+                    <rect x="86" y="284" width="42" height="5" rx="2.5" />
+                    <rect x="162" y="284" width="42" height="5" rx="2.5" />
+                    <rect x="238" y="284" width="42" height="5" rx="2.5" />
+                    <rect x="314" y="284" width="42" height="5" rx="2.5" />
+                    <rect x="390" y="284" width="42" height="5" rx="2.5" />
+                    <rect x="466" y="284" width="42" height="5" rx="2.5" />
+                    <rect x="542" y="284" width="42" height="5" rx="2.5" />
+                    <rect x="618" y="284" width="42" height="5" rx="2.5" />
+                    <rect x="694" y="284" width="42" height="5" rx="2.5" />
+                  </g>
+                </g>
+              </defs>
+
+              {/* Fundo Base do Céu */}
+              <rect
+                x="0"
+                y="0"
+                width="460"
+                height="316"
+                fill="url(#mloginSkyGrad)"
+              />
+
+              {/* CAMERA RIG (Zoom Dinâmico + Parallax Infinito) */}
+              <g id="mloginMotoCameraRig">
+                <g id="mloginParallaxClouds" opacity="0.85">
+                  <use href="#mloginCloudTile" x="-760" y="0" />
+                  <use href="#mloginCloudTile" x="0" y="0" />
+                  <use href="#mloginCloudTile" x="760" y="0" />
+                </g>
+
+                <g id="mloginParallaxSkyline">
+                  <use href="#mloginSkylineTile" x="-760" y="0" />
+                  <use href="#mloginSkylineTile" x="0" y="0" />
+                  <use href="#mloginSkylineTile" x="760" y="0" />
+                </g>
+
+                <g id="mloginParallaxMidground">
+                  <use href="#mloginMidgroundTile" x="-760" y="0" />
+                  <use href="#mloginMidgroundTile" x="0" y="0" />
+                  <use href="#mloginMidgroundTile" x="760" y="0" />
+                </g>
+
+                {/* Base da Calçada e do Asfalto */}
+                <rect
+                  x="-400"
+                  y="246"
+                  width="1600"
+                  height="12"
+                  fill="#FFFFFF"
+                  stroke="#E5E1ED"
+                  strokeWidth="1.5"
+                />
+                <rect
+                  x="-400"
+                  y="258"
+                  width="1600"
+                  height="90"
+                  fill="#F3E8FF"
+                />
+                <line
+                  x1="-400"
+                  y1="258"
+                  x2="1200"
+                  y2="258"
+                  stroke="#7C3AED"
+                  strokeWidth="3"
+                  opacity="0.35"
+                />
+
+                <g id="mloginParallaxRoad">
+                  <use href="#mloginRoadTile" x="-760" y="0" />
+                  <use href="#mloginRoadTile" x="0" y="0" />
+                  <use href="#mloginRoadTile" x="760" y="0" />
+                </g>
+
+                {/* A) TOTEM DE PARTIDA (Etapa 1) */}
+                <g id="mloginStartTotemGroup" transform="translate(255, 166)">
+                  <rect
+                    x="0"
+                    y="14"
+                    width="42"
+                    height="66"
+                    rx="8"
+                    fill="#FFFFFF"
+                    stroke="#7C3AED"
+                    strokeWidth="2"
+                    filter="url(#mloginElevShadow)"
+                  />
+                  <rect
+                    x="6"
+                    y="21"
+                    width="30"
+                    height="20"
+                    rx="4"
+                    fill="#F3E8FF"
+                  />
+                  <circle cx="21" cy="31" r="5" fill="#7C3AED" />
+                  <rect
+                    x="8"
+                    y="48"
+                    width="26"
+                    height="4"
+                    rx="2"
+                    fill="#7C3AED"
+                  />
+                  <rect
+                    x="8"
+                    y="56"
+                    width="18"
+                    height="3.5"
+                    rx="1.5"
+                    fill="#E5E1ED"
+                  />
+                  <text
+                    x="21"
+                    y="74"
+                    textAnchor="middle"
+                    fontSize="8.5"
+                    fontWeight="700"
+                    fill="#665F70"
+                  >
+                    PONTO
+                  </text>
+                  <g transform="translate(21, 8)">
+                    <circle
+                      id="mloginTotemWave1"
+                      r="10"
+                      fill="none"
+                      stroke="#7C3AED"
+                      strokeWidth="2.2"
+                      opacity="0"
+                    />
+                    <circle
+                      id="mloginTotemWave2"
+                      r="22"
+                      fill="none"
+                      stroke="#7C3AED"
+                      strokeWidth="1.8"
+                      opacity="0"
+                    />
+                  </g>
+                </g>
+
+                {/* B) FACHADA DA LOJA PDV LOJISTA (Etapa 3) */}
+                <g id="mloginStoreWorldGroup" transform="translate(920, 128)">
+                  <rect
+                    x="0"
+                    y="12"
+                    width="162"
+                    height="106"
+                    rx="12"
+                    fill="#FFFFFF"
+                    stroke="#7C3AED"
+                    strokeWidth="2.5"
+                    filter="url(#mloginElevShadow)"
+                  />
+                  <path
+                    d="M 0 24 Q 0 12 12 12 L 150 12 Q 162 12 162 24 L 162 46 L 0 46 Z"
+                    fill="#7C3AED"
+                  />
+
+                  {/* Símbolo Oficial L + Loja */}
+                  <g transform="translate(12, 16) scale(0.40)">
+                    <rect
+                      x="0"
+                      y="0"
+                      width="64"
+                      height="64"
+                      rx="14"
+                      fill="#FFFFFF"
+                    />
+                    <path d="M16 15H26V39H48V49H16Z" fill="#7C3AED" />
+                    <g transform="translate(30, 12) scale(0.96)">
+                      <path
+                        fillRule="evenodd"
+                        clipRule="evenodd"
+                        d="M3 12H21V23H3ZM6 23V16C6 15.4 6.4 15 7 15H10C10.6 15 11 15.4 11 16V23ZM14.7 15H17.3C17.7 15 18 15.3 18 15.7V19.3C18 19.7 17.7 20 17.3 20H14.7C14.3 20 14 19.7 14 19.3V15.7C14 15.3 14.3 15 14.7 15Z"
+                        fill="#7C3AED"
+                      />
+                      <path
+                        d="M4 2H9L8 9C7.5 12 0 12 1 9Z"
+                        fill="#7C3AED"
+                      />
+                      <path
+                        d="M10 2H14L15 9C16 12 8 12 9 9Z"
+                        fill="#7C3AED"
+                      />
+                      <path
+                        d="M15 2H20L23 9C24 12 16.5 12 16 9Z"
+                        fill="#7C3AED"
+                      />
+                    </g>
+                  </g>
+                  <text
+                    x="46"
+                    y="29"
+                    fontSize="11.5"
+                    fontWeight="700"
+                    fill="#FFFFFF"
+                    letterSpacing="0.5"
+                  >
+                    PDV LOJISTA
+                  </text>
+                  <text
+                    x="46"
+                    y="40"
+                    fontSize="9.5"
+                    fontWeight="600"
+                    fill="#F3E8FF"
+                  >
+                    COLETA EXPRESSA
+                  </text>
+
+                  {/* Toldo de 3 Gomos Animados */}
+                  <g transform="translate(8, 44)">
+                    <path
+                      id="mloginStoreAwning0"
+                      d="M 2 0 L 46 0 L 42 15 Q 22 20 0 15 Z"
+                      fill="#6D28D9"
+                      stroke="#FFFFFF"
+                      strokeWidth="1.5"
+                    />
+                    <path
+                      id="mloginStoreAwning1"
+                      d="M 49 0 L 97 0 L 97 15 Q 73 20 49 15 Z"
+                      fill="#7C3AED"
+                      stroke="#FFFFFF"
+                      strokeWidth="1.5"
+                    />
+                    <path
+                      id="mloginStoreAwning2"
+                      d="M 100 0 L 144 0 L 146 15 Q 124 20 100 15 Z"
+                      fill="#6D28D9"
+                      stroke="#FFFFFF"
+                      strokeWidth="1.5"
+                    />
+                  </g>
+
+                  {/* Porta e Balcão de Expedição */}
+                  <rect
+                    x="16"
+                    y="66"
+                    width="38"
+                    height="52"
+                    rx="5"
+                    fill="#F3E8FF"
+                    stroke="#7C3AED"
+                    strokeWidth="1.8"
+                  />
+                  <rect
+                    x="21"
+                    y="72"
+                    width="28"
+                    height="24"
+                    rx="3"
+                    fill="#FFFFFF"
+                  />
+                  <rect
+                    x="66"
+                    y="66"
+                    width="80"
+                    height="36"
+                    rx="6"
+                    fill="#F8F7FC"
+                    stroke="#E5E1ED"
+                    strokeWidth="1.8"
+                  />
+                  <rect
+                    x="62"
+                    y="98"
+                    width="88"
+                    height="7"
+                    rx="3"
+                    fill="#7C3AED"
+                  />
+                  <text
+                    x="106"
+                    y="113"
+                    textAnchor="middle"
+                    fontSize="9.5"
+                    fontWeight="700"
+                    fill="#665F70"
+                  >
+                    RETIRADA Nº 4092
+                  </text>
+
+                  {/* Pacote no balcão da loja */}
+                  <g id="mloginStoreCounterPkg" transform="translate(106, 84)">
+                    <rect
+                      x="-12"
+                      y="-12"
+                      width="24"
+                      height="24"
+                      rx="5"
+                      fill="#FFFFFF"
+                      stroke="#7C3AED"
+                      strokeWidth="2.2"
+                    />
+                    <rect
+                      x="-10"
+                      y="-2.5"
+                      width="20"
+                      height="5"
+                      fill="#F3E8FF"
+                    />
+                    <rect
+                      x="-3.5"
+                      y="-10"
+                      width="7"
+                      height="20"
+                      fill="#7C3AED"
+                    />
+                    <line
+                      id="mloginStoreScannerLine"
+                      x1="-18"
+                      y1="0"
+                      x2="18"
+                      y2="0"
+                      stroke="#7C3AED"
+                      strokeWidth="2.5"
+                      opacity="0"
+                    />
+                  </g>
+                </g>
+
+                {/* C) CASA DO CLIENTE (Etapa 5) */}
+                <g id="mloginClientWorldGroup" transform="translate(920, 138)">
+                  <circle
+                    id="mloginClientConfirmWave"
+                    cx="62"
+                    cy="54"
+                    r="32"
+                    fill="#7C3AED"
+                    opacity="0"
+                  />
+                  <path
+                    d="M 6 36 L 62 2 L 118 36 Z"
+                    fill="#7C3AED"
+                    stroke="#FFFFFF"
+                    strokeWidth="2.2"
+                    filter="url(#mloginElevShadow)"
+                  />
+                  <rect
+                    x="14"
+                    y="34"
+                    width="96"
+                    height="74"
+                    rx="8"
+                    fill="#FFFFFF"
+                    stroke="#7C3AED"
+                    strokeWidth="2.4"
+                    filter="url(#mloginElevShadow)"
+                  />
+
+                  <rect
+                    x="24"
+                    y="44"
+                    width="38"
+                    height="16"
+                    rx="4"
+                    fill="#F3E8FF"
+                    stroke="#7C3AED"
+                    strokeWidth="1.2"
+                  />
+                  <text
+                    x="43"
+                    y="55"
+                    textAnchor="middle"
+                    fontSize="10"
+                    fontWeight="700"
+                    fill="#7C3AED"
+                  >
+                    Nº 409
+                  </text>
+
+                  <rect
+                    x="24"
+                    y="68"
+                    width="38"
+                    height="24"
+                    rx="4"
+                    fill="#F8F7FC"
+                    stroke="#E5E1ED"
+                    strokeWidth="1.6"
+                  />
+                  <rect
+                    x="72"
+                    y="54"
+                    width="26"
+                    height="54"
+                    rx="4"
+                    fill="#F3E8FF"
+                    stroke="#7C3AED"
+                    strokeWidth="1.8"
+                  />
+                  <circle cx="92" cy="82" r="2.2" fill="#7C3AED" />
+
+                  <g
+                    id="mloginClientDeliveredPkg"
+                    transform="translate(56, 94) scale(0)"
+                    opacity="0"
+                  >
+                    <rect
+                      x="-13"
+                      y="-13"
+                      width="26"
+                      height="26"
+                      rx="6"
+                      fill="#FFFFFF"
+                      stroke="#7C3AED"
+                      strokeWidth="2.4"
+                      filter="url(#mloginElevShadow)"
+                    />
+                    <rect
+                      x="-11"
+                      y="-3"
+                      width="22"
+                      height="6"
+                      fill="#F3E8FF"
+                    />
+                    <rect
+                      x="-4"
+                      y="-11"
+                      width="8"
+                      height="22"
+                      fill="#7C3AED"
+                    />
+                  </g>
+
+                  <g
+                    id="mloginClientCheckBadge"
+                    transform="translate(62, 18) scale(0)"
+                    opacity="0"
+                  >
+                    <circle
+                      r="19"
+                      fill="#7C3AED"
+                      stroke="#FFFFFF"
+                      strokeWidth="3"
+                      filter="url(#mloginElevShadow)"
+                    />
+                    <path
+                      d="M -7.5 0.5 L -2 6.5 L 8.5 -5.5"
+                      fill="none"
+                      stroke="#FFFFFF"
+                      strokeWidth="3.4"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </g>
+
+                  <g
+                    id="mloginClientConfetti"
+                    transform="translate(62, 34)"
+                    opacity="0"
+                  >
+                    <rect
+                      x="-42"
+                      y="-22"
+                      width="7"
+                      height="7"
+                      rx="1.5"
+                      fill="#7C3AED"
+                      transform="rotate(20)"
+                    />
+                    <circle cx="-26" cy="-38" r="4.5" fill="#6D28D9" />
+                    <rect
+                      x="28"
+                      y="-30"
+                      width="7"
+                      height="7"
+                      rx="1.5"
+                      fill="#7C3AED"
+                      transform="rotate(-25)"
+                    />
+                    <circle
+                      cx="44"
+                      cy="-16"
+                      r="5"
+                      fill="#F3E8FF"
+                      stroke="#7C3AED"
+                      strokeWidth="1.5"
+                    />
+                    <rect
+                      x="-4"
+                      y="-46"
+                      width="6.5"
+                      height="6.5"
+                      rx="1"
+                      fill="#6D28D9"
+                      transform="rotate(45)"
+                    />
+                  </g>
+                </g>
+
+                {/* HERO: MOTOBOY CENTRALIZADO NO PALCO */}
+                <g transform="translate(345, 272)">
+                  <ellipse
+                    cx="0"
+                    cy="15"
+                    rx="40"
+                    ry="6"
+                    fill="#272321"
+                    opacity="0.16"
+                  />
+
+                  <g id="mloginSpeedWindGroup" opacity="0">
+                    <line
+                      id="mloginWindLine1"
+                      x1="-78"
+                      y1="-22"
+                      x2="-42"
+                      y2="-22"
+                      stroke="#7C3AED"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      opacity="0.75"
+                    />
+                    <line
+                      id="mloginWindLine2"
+                      x1="-92"
+                      y1="-8"
+                      x2="-52"
+                      y2="-8"
+                      stroke="#6D28D9"
+                      strokeWidth="2.2"
+                      strokeLinecap="round"
+                      opacity="0.55"
+                    />
+                    <line
+                      x1="-68"
+                      y1="-36"
+                      x2="-38"
+                      y2="-36"
+                      stroke="#7C3AED"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      opacity="0.45"
+                    />
+                    <circle
+                      id="mloginPuffCircle1"
+                      cx="-42"
+                      cy="4"
+                      r="5.5"
+                      fill="#FFFFFF"
+                      stroke="#E5E1ED"
+                      strokeWidth="1.5"
+                    />
+                    <circle
+                      cx="-58"
+                      cy="0"
+                      r="8"
+                      fill="#F3E8FF"
+                      stroke="#E5E1ED"
+                      strokeWidth="1.2"
+                    />
+                  </g>
+
+                  <g id="mloginMotoSuspension">
+                    <polygon
+                      id="mloginHeadlightCone"
+                      points="28,-15 120,-34 120,10 28,-6"
+                      fill="url(#mloginBeamGrad)"
+                      opacity="0"
+                    />
+
+                    {/* Roda Traseira */}
+                    <g transform="translate(-24, 3)">
+                      <circle r="12.5" fill="#272321" />
+                      <circle r="7" fill="#FFFFFF" />
+                      <circle r="2.8" fill="#7C3AED" />
+                      <g id="mloginWheelBackSpokes">
+                        <line
+                          x1="-6.5"
+                          y1="0"
+                          x2="6.5"
+                          y2="0"
+                          stroke="#7C3AED"
+                          strokeWidth="2"
+                        />
+                        <line
+                          x1="0"
+                          y1="-6.5"
+                          x2="0"
+                          y2="6.5"
+                          stroke="#7C3AED"
+                          strokeWidth="2"
+                        />
+                      </g>
+                    </g>
+
+                    {/* Roda Dianteira */}
+                    <g transform="translate(26, 3)">
+                      <circle r="12.5" fill="#272321" />
+                      <circle r="7" fill="#FFFFFF" />
+                      <circle r="2.8" fill="#7C3AED" />
+                      <g id="mloginWheelFrontSpokes">
+                        <line
+                          x1="-6.5"
+                          y1="0"
+                          x2="6.5"
+                          y2="0"
+                          stroke="#7C3AED"
+                          strokeWidth="2"
+                        />
+                        <line
+                          x1="0"
+                          y1="-6.5"
+                          x2="0"
+                          y2="6.5"
+                          stroke="#7C3AED"
+                          strokeWidth="2"
+                        />
+                      </g>
+                    </g>
+
+                    {/* Escapamento e Motor */}
+                    <path d="M -30 4 L -8 4 L -4 -3 L -28 0 Z" fill="#272321" />
+                    <rect
+                      x="-9"
+                      y="-8"
+                      width="15"
+                      height="11"
+                      rx="2.5"
+                      fill="#665F70"
+                      stroke="#FFFFFF"
+                      strokeWidth="1.2"
+                    />
+
+                    {/* Suspensão Dianteira */}
+                    <line
+                      x1="15"
+                      y1="-20"
+                      x2="26"
+                      y2="3"
+                      stroke="#272321"
+                      strokeWidth="4.2"
+                      strokeLinecap="round"
+                    />
+                    <path
+                      d="M 16 -8 Q 27 -13 34 -5"
+                      fill="none"
+                      stroke="#7C3AED"
+                      strokeWidth="3.8"
+                      strokeLinecap="round"
+                    />
+
+                    {/* Chassi e Tanque Roxo */}
+                    <path
+                      d="M -28 -4 L -13 -13 L 7 -13 L 18 -22 L 27 -18 L 20 -3 L -24 -1 Z"
+                      fill="#7C3AED"
+                      stroke="#FFFFFF"
+                      strokeWidth="2"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M 2 -14 L 16 -20 L 20 -14 L 6 -9 Z"
+                      fill="#6D28D9"
+                    />
+
+                    {/* Farol Dianteiro */}
+                    <path
+                      d="M 25 -19 L 30 -16 L 27 -10 L 22 -13 Z"
+                      fill="#FFFFFF"
+                      stroke="#7C3AED"
+                      strokeWidth="1.6"
+                    />
+
+                    {/* Suporte de Celular no Guidão */}
+                    <rect
+                      x="15"
+                      y="-26"
+                      width="6"
+                      height="9"
+                      rx="1.5"
+                      fill="#FFFFFF"
+                      stroke="#7C3AED"
+                      strokeWidth="1.5"
+                    />
+
+                    {/* Banco e Piloto */}
+                    <path
+                      d="M -15 -13 Q -4 -12 4 -14 L 2 -8 L -16 -8 Z"
+                      fill="#272321"
+                    />
+                    <path
+                      d="M -3 -10 L 4 -2 L 0 5"
+                      fill="none"
+                      stroke="#272321"
+                      strokeWidth="5.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M -4 -13 L 2 -30 L 16 -20"
+                      fill="none"
+                      stroke="#6D28D9"
+                      strokeWidth="8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <line
+                      x1="-2"
+                      y1="-19"
+                      x2="1"
+                      y2="-26"
+                      stroke="#F3E8FF"
+                      strokeWidth="2.4"
+                      strokeLinecap="round"
+                    />
+
+                    {/* Cachecol Roxo Tremulando ao Vento */}
+                    <path
+                      id="mloginScarfWavePath"
+                      d="M -1 -29 Q -14 -32 -22 -27"
+                      fill="none"
+                      stroke="#7C3AED"
+                      strokeWidth="3.2"
+                      strokeLinecap="round"
+                    />
+
+                    {/* Capacete Roxo & Viseira Branca */}
+                    <g transform="translate(4, -37)">
+                      <circle
+                        r="10"
+                        fill="#7C3AED"
+                        stroke="#FFFFFF"
+                        strokeWidth="2"
+                      />
+                      <path
+                        d="M 2 -4.2 L 10 -3.2 L 10 3.2 L 2 2.2 Z"
+                        fill="#FFFFFF"
+                      />
+                    </g>
+
+                    {/* BAG TÉRMICA COM TAMPA ARTICULADA */}
+                    <g transform="translate(-25, -24)">
+                      <rect
+                        id="mloginBagBodyRect"
+                        x="-12"
+                        y="-11"
+                        width="24"
+                        height="23"
+                        rx="4.5"
+                        fill="#FFFFFF"
+                        stroke="#7C3AED"
+                        strokeWidth="2.4"
+                      />
+                      <path
+                        id="mloginBagLogoL"
+                        d="M -4.5 -5.5 H 0 V 3.5 H 5.5 V 7 H -4.5 Z"
+                        fill="#7C3AED"
+                      />
+                      <circle
+                        id="mloginBagActiveDot"
+                        cx="7"
+                        cy="-6"
+                        r="3"
+                        fill="#FFFFFF"
+                        opacity="0"
+                      />
+                      <g
+                        id="mloginBagLidHinge"
+                        transform="translate(-12, -11) rotate(0)"
+                      >
+                        <rect
+                          x="0"
+                          y="-4"
+                          width="24"
+                          height="5"
+                          rx="2"
+                          fill="#6D28D9"
+                          stroke="#FFFFFF"
+                          strokeWidth="1.2"
+                        />
+                      </g>
+                    </g>
+                  </g>
+                </g>
+
+                {/* PACOTE SALTANDO EM ARCO PARABÓLICO */}
+                <g
+                  id="mloginParabolicPkgNode"
+                  transform="translate(345, 220)"
+                  opacity="0"
+                >
+                  <rect
+                    x="-14"
+                    y="-14"
+                    width="28"
+                    height="28"
+                    rx="6"
+                    fill="#FFFFFF"
+                    stroke="#7C3AED"
+                    strokeWidth="2.5"
+                    filter="url(#mloginElevShadow)"
+                  />
+                  <rect
+                    x="-12"
+                    y="-3.5"
+                    width="24"
+                    height="7"
+                    fill="#F3E8FF"
+                  />
+                  <rect x="-4" y="-12" width="8" height="24" fill="#7C3AED" />
+                  <circle
+                    cx="10"
+                    cy="-10"
+                    r="7.5"
+                    fill="#7C3AED"
+                    stroke="#FFFFFF"
+                    strokeWidth="1.6"
+                  />
+                  <path
+                    d="M 7 -10 L 9.2 -7.5 L 13.5 -12"
+                    fill="none"
+                    stroke="#FFFFFF"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+                </g>
+
+                {/* BALÃO DE STATUS AO VIVO ACIMA DO MOTOBOY */}
+                <g
+                  id="mloginHeroSpeechBubble"
+                  transform="translate(345, 192)"
+                  filter="url(#mloginHudShadow)"
+                >
+                  <rect
+                    id="mloginHeroBubbleBg"
+                    x="-88"
+                    y="-14"
+                    width="176"
+                    height="25"
+                    rx="8"
+                    fill="#FFFFFF"
+                    stroke="#7C3AED"
+                    strokeWidth="1.8"
+                  />
+                  <polygon points="-5,11 0,17 5,11" fill="#7C3AED" />
+                  <text
+                    id="mloginHeroBubbleText"
+                    x="0"
+                    y="2.5"
+                    textAnchor="middle"
+                    fontSize="11"
+                    fontWeight="700"
+                    fill="#272321"
+                  >
+                    Chamado aceito! • Nº 4092
+                  </text>
+                </g>
+              </g>
+
+              {/* HUD SUPERIOR COMPACTO (Enquadrado no viewBox 460x316) */}
+              <g transform="translate(10, 10)" filter="url(#mloginHudShadow)">
+                <rect
+                  x="0"
+                  y="0"
+                  width="248"
+                  height="38"
+                  rx="9"
+                  fill="#FFFFFF"
+                  fillOpacity="0.95"
+                  stroke="#E5E1ED"
+                  strokeWidth="1.2"
+                />
+                <rect x="6" y="6" width="4" height="26" rx="2" fill="#7C3AED" />
+                <text
+                  id="mloginStageTopBadge"
+                  x="16"
+                  y="15.5"
+                  fontSize="9.5"
+                  fontWeight="700"
+                  fill="#7C3AED"
+                  letterSpacing="0.3"
+                >
+                  ETAPA 1 • CHAMADO ACEITO
+                </text>
+                <text
+                  id="mloginStageTopTitle"
+                  x="16"
+                  y="30"
+                  fontSize="11.5"
+                  fontWeight="700"
+                  fill="#272321"
+                >
+                  Sistema encontrou motorista
+                </text>
+              </g>
+
+              <g transform="translate(266, 10)" filter="url(#mloginHudShadow)">
+                <rect
+                  x="0"
+                  y="0"
+                  width="184"
+                  height="38"
+                  rx="9"
+                  fill="#FFFFFF"
+                  fillOpacity="0.95"
+                  stroke="#E5E1ED"
+                  strokeWidth="1.2"
+                />
+                <circle
+                  cx="18"
+                  cy="19"
+                  r="10.5"
+                  fill="#F3E8FF"
+                  stroke="#7C3AED"
+                  strokeWidth="1.4"
+                />
+                <circle cx="18" cy="19" r="4.8" fill="#7C3AED" />
+                <text
+                  x="34"
+                  y="16"
+                  fontSize="10.5"
+                  fontWeight="700"
+                  fill="#272321"
+                >
+                  Lucas M. • RXP-4E21
+                </text>
+                <text
+                  id="mloginStageTopSub"
+                  x="34"
+                  y="29.5"
+                  fontSize="10"
+                  fontWeight="600"
+                  fill="#7C3AED"
+                >
+                  Vinculado ao Pedido Nº 4092
+                </text>
+              </g>
+            </svg>
+          </div>
+
+          {/* Seletor rápido das 5 etapas do Motoboy */}
+          <div
+            className="retail-mlogin-motoboy-steps"
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchEnd={(e) => e.stopPropagation()}
+          >
+            {DELIVERY_ONBOARDING_STAGES.map((st) => (
+              <button
+                key={st.index}
+                type="button"
+                className={`retail-mlogin-motoboy-step ${
+                  activeStep === st.index
+                    ? "is-current"
+                    : activeStep > st.index
+                      ? "is-done"
+                      : ""
+                }`}
+                onClick={() => controlRef.current?.goToStep(st.index, true)}
+              >
+                {st.shortLabel}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  },
+);
+
+/**
  * Ilustração Hero da Tela "Entrar." (Replicando fielmente a cena do celular direito
  * em 00:04.2–00:09.4: personagem subindo a rampa listrada roxa, segurando o envelope
  * de credencial da loja e erguendo o quadro roxo de confirmação ao lado do título).
@@ -1123,6 +3486,20 @@ const ONBOARDING_SLIDES = [
     description:
       "Cada atendente acessa o caixa rápido com seu PIN individual e todo o movimento fica protegido.",
     Illustration: StorefrontPosIllustration,
+  },
+  {
+    id: "virtual-store",
+    title: "Crie sua Loja\nVirtual Online.",
+    description:
+      "Publique seu catálogo digital com tamanhos e cores em tempo real, reserva automática de estoque e pedidos direto no WhatsApp.",
+    Illustration: VirtualStoreModuleIllustration,
+  },
+  {
+    id: "home-delivery",
+    title: "Entrega em Casa\ncom Motoboy.",
+    description:
+      "Acione motoboy direto da venda online: acompanhe a coleta do pacote na loja e a entrega na porta do cliente ao vivo.",
+    Illustration: HomeDeliveryMotoboyIllustration,
   },
 ] as const;
 

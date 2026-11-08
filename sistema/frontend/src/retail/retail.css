@@ -3184,6 +3184,148 @@ textarea:focus-visible {
   animation: retailMloginFloatFast 3.4s ease-in-out infinite;
 }
 
+/* Animações do Slide 4 — Módulo Loja Virtual */
+@keyframes retailMloginVstoreBuilder {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(-4px, -5px);
+  }
+}
+
+@keyframes retailMloginVstoreOrder {
+  0%,
+  18% {
+    transform: translate(0, 0) scale(1);
+  }
+  48%,
+  68% {
+    transform: translate(8px, -6px) scale(1.02);
+  }
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+@keyframes retailMloginVstoreSizePulse {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2.5px);
+  }
+}
+
+@keyframes retailMloginVstoreDotPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.retail-mlogin-vstore-builder {
+  animation: retailMloginVstoreBuilder 3.8s ease-in-out infinite;
+}
+
+.retail-mlogin-vstore-order {
+  animation: retailMloginVstoreOrder 3.6s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+}
+
+.retail-mlogin-vstore-size {
+  animation: retailMloginVstoreSizePulse 2.4s ease-in-out infinite;
+}
+
+.retail-mlogin-vstore-pulse {
+  animation: retailMloginVstoreDotPulse 1.8s ease-in-out infinite;
+}
+
+/* Palco 2D do Slide 5 — Módulo Entrega em Casa (Motoboy) */
+.retail-mlogin-illustration-wrap.is-motoboy-wrap {
+  margin-top: 2px;
+}
+
+.retail-mlogin-motoboy-card {
+  width: 100%;
+  max-width: 344px;
+  background: var(--pdv-white);
+  border: 1.4px solid var(--pdv-text);
+  border-radius: 14px;
+  padding: 6px;
+  box-shadow: 0 10px 24px -8px color-mix(in srgb, var(--pdv-primary) 18%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.retail-mlogin-motoboy-stage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 460 / 304;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--pdv-border);
+  background: var(--pdv-background);
+}
+
+.retail-mlogin-motoboy-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+
+.retail-mlogin-motoboy-steps {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.retail-mlogin-motoboy-step {
+  font-family: inherit;
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 5px 2px;
+  border-radius: 7px;
+  border: 1px solid var(--pdv-border);
+  background: var(--pdv-background);
+  color: var(--pdv-text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.retail-mlogin-motoboy-step:hover {
+  border-color: var(--pdv-primary);
+  color: var(--pdv-primary);
+  background: var(--pdv-white);
+}
+
+.retail-mlogin-motoboy-step.is-done {
+  background: var(--pdv-support);
+  border-color: var(--pdv-primary);
+  color: var(--pdv-text);
+}
+
+.retail-mlogin-motoboy-step.is-current {
+  background: var(--pdv-primary);
+  border-color: var(--pdv-primary);
+  color: var(--pdv-white);
+  transform: translateY(-1px);
+}
+
 .retail-mlogin-copy {
   padding: 0 2px;
 }

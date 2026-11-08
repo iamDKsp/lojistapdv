@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAuthStore } from '@/store/auth';
-import { triggerSessionEntryTransition } from '@/components/ui';
 import { shouldIgnoreArrowNavigation } from '@/lib/routes';
 import {
   BarChart2, Package, Tag, ArrowLeftRight, LogOut, Building2,
@@ -1176,7 +1175,6 @@ export default function GroupPortalPage() {
   }, [user, navigate]);
 
   const handleTabChange = useCallback((id: TabId) => {
-    const isDifferentModule = id !== activeTab;
     setActiveTab(id);
     setTabKey(k => k + 1);
     const slugMap: Record<TabId, string> = {
@@ -1186,14 +1184,8 @@ export default function GroupPortalPage() {
       produtos: '/grupo-portal/produtos',
       transferencias: '/grupo-portal/transferencias',
     };
-    if (isDifferentModule) {
-      const targetTab = TABS.find(t => t.id === id);
-      triggerSessionEntryTransition(
-        targetTab ? `Abrindo ${targetTab.label}…` : 'Preparando módulo…',
-      );
-    }
     navigate(slugMap[id]);
-  }, [activeTab, navigate]);
+  }, [navigate]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {

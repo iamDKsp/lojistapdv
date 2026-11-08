@@ -1,5 +1,10 @@
 # Histórico — PDV Lojista
 
+## 2026-11-08 — Remoção da Sobreposição Roxa em Tela Cheia ao Trocar de Módulo
+
+- **Troca Instantânea de Módulos (`frontend/src/retail/RetailLayout.tsx` e `frontend/src/pages/GroupPortalPage.tsx`)**:
+  - Removido o disparo de `triggerSessionEntryTransition` ao alternar entre módulos, mantendo apenas as transições rápidas de palco/aba e preservando integralmente os atalhos de setas (`↑`/`↓` para módulos e `←`/`→` para abas).
+
 ## 2026-11-08 — Auto-Publicação Inicial da Loja Virtual (`/loja/:slug`), Reconciliação de Slug no Heart e Curadoria Automática Inicial
 
 - **Auto-Publicação na Primeira Inicialização (`backend/src/storefront/storefront-admin.service.ts` e `backend/src/storefront/storefront-public.service.ts`)**:

@@ -39,7 +39,6 @@ import { useAuthStore } from "@/store/auth";
 import { useShift } from "@/contexts/ShiftContext";
 import { api } from "@/lib/api";
 import { getFullUrl } from "@/lib/getFullUrl";
-import { triggerSessionEntryTransition } from "@/components/ui";
 import {
   getCanonicalModuleId,
   shouldIgnoreArrowNavigation,
@@ -787,37 +786,9 @@ export function RetailLayout() {
 
   const navDirection = navHistoryRef.current.direction;
 
-  const prevRouteRef = useRef({
-    pathname,
-    canonicalModule,
-    railIndex: activeRailIndex,
-  });
-
   useEffect(() => {
-    const prev = prevRouteRef.current;
-    if (prev.pathname === pathname) return;
-
-    const intent = pendingNavIntentRef.current;
     pendingNavIntentRef.current = null;
-
-    const isModuleSwitch =
-      intent === "module" ||
-      (intent !== "tab" && prev.canonicalModule !== canonicalModule);
-
-    prevRouteRef.current = {
-      pathname,
-      canonicalModule,
-      railIndex: activeRailIndex,
-    };
-
-    if (isModuleSwitch) {
-      const moduleLabel =
-        pathname === "/"
-          ? "Abrindo Frente de Caixa…"
-          : `Abrindo ${sectionHeading}…`;
-      triggerSessionEntryTransition(moduleLabel);
-    }
-  }, [pathname, canonicalModule, activeRailIndex, sectionHeading]);
+  }, [pathname]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {

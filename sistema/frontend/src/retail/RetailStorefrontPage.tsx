@@ -282,6 +282,16 @@ export function RetailStorefrontPage() {
   const handlePublish = async () => {
     setPublishing(true);
     try {
+      if (settingsForm.slug && settingsForm.storeName) {
+        await api
+          .put("/storefront/admin/settings", {
+            ...settingsForm,
+            confirmReservationMinutes:
+              Number(settingsForm.confirmReservationMinutes) || 15,
+            confirmedHoldHours: Number(settingsForm.confirmedHoldHours) || 24,
+          })
+          .catch(() => {});
+      }
       if (draftTheme) {
         await api.put("/storefront/admin/appearance/draft", {
           theme: draftTheme,
@@ -300,7 +310,7 @@ export function RetailStorefrontPage() {
     } catch (err: any) {
       toast.error(
         err?.response?.data?.message ||
-          "Não foi possível publicar. Confira o WhatsApp de atendimento e o endereço na aba Configurações.",
+          "Não foi possível publicar. Confira os dados na aba Configurações.",
       );
     } finally {
       setPublishing(false);
@@ -583,28 +593,44 @@ export function RetailStorefrontPage() {
   const livePreviewStoreData = useMemo(() => {
     const publishedProds = catalogProducts
       .filter((p) => p.visible)
-      .map((p) => ({
-        id: p.retailGroupId,
-        publicSlug: p.publicSlug,
-        name: p.commercialTitle || p.name,
-        description: p.commercialDescription || "",
-        imageUrl: p.imageUrl,
-        galleryUrls: p.galleryUrls || [],
-        priceSell: p.priceSell,
-        featured: p.featured,
-        sortOrder: p.sortOrder,
-        categoryId: p.categoryId,
-        categoryName: p.categoryName,
-        availableStock: p.availableStockTotal,
-        inStock: p.availableStockTotal > 0,
-        variants: (p.variants || []).map((v: any) => ({
+      .map((p) => {
+        const variants = (p.variants || []).map((v: any) => ({
           id: v.id,
           size: v.size,
           color: v.color,
-          availableStock: Math.max(0, v.availableStock),
-          inStock: v.availableStock > 0,
-        })),
-      }));
+          priceSell: Number(v.priceSell ?? p.priceSell ?? 0),
+          availableStock: Math.max(0, Number(v.availableStock ?? 0)),
+          inStock: Number(v.availableStock ?? 0) > 0,
+        }));
+        const sizes = Array.from(
+          new Set(variants.map((v: any) => v.size).filter(Boolean)),
+        ) as string[];
+        const colors = Array.from(
+          new Set(variants.map((v: any) => v.color).filter(Boolean)),
+        ) as string[];
+        return {
+          id: p.retailGroupId,
+          slug: p.publicSlug,
+          publicSlug: p.publicSlug,
+          title: p.commercialTitle || p.name,
+          name: p.commercialTitle || p.name,
+          description: p.commercialDescription || "",
+          badgeLabel: p.badgeLabel || null,
+          imageUrl: p.imageUrl,
+          galleryUrls: p.galleryUrls || [],
+          priceSell: p.priceSell,
+          featured: p.featured,
+          sortOrder: p.sortOrder,
+          categoryId: p.categoryId,
+          categoryName: p.categoryName,
+          availableStock: p.availableStockTotal,
+          totalAvailableStock: p.availableStockTotal,
+          inStock: p.availableStockTotal > 0,
+          sizes,
+          colors,
+          variants,
+        };
+      });
 
     const publishedCats = catalogCategories
       .filter((c) => c.visible)

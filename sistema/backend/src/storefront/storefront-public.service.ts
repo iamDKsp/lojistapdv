@@ -62,6 +62,79 @@ export class StorefrontPublicService {
       throw err;
     }
 
+    if (!registry && typeof (this.heartPrisma?.tenant as any)?.findMany === 'function') {
+      try {
+        const candidates = await (this.heartPrisma.tenant as any).findMany({
+          where: { status: 'active' },
+        });
+        for (const cand of candidates) {
+          const mods =
+            typeof cand.modulos === 'string'
+              ? JSON.parse(cand.modulos || '{}')
+              : cand.modulos || {};
+          if (!mods.lojaVirtual || !cand.databaseUrl) continue;
+          const candDb = await this.tenantManager.getTenantClient(
+            cand.id,
+            cand.databaseUrl,
+          );
+          const candSettings = await candDb.storefrontSettings
+            .findUnique({ where: { id: 'singleton' } })
+            .catch(() => null);
+          if (candSettings && candSettings.slug === slug) {
+            const shouldPublish =
+              Boolean(candSettings.isPublished) ||
+              Number(candSettings.publishedVersion ?? 0) === 0;
+            const nextVersion =
+              Number(candSettings.publishedVersion ?? 0) === 0
+                ? 1
+                : Number(candSettings.publishedVersion ?? 1);
+            if (Number(candSettings.publishedVersion ?? 0) === 0) {
+              await candDb.storefrontSettings
+                .update({
+                  where: { id: 'singleton' },
+                  data: {
+                    isPublished: true,
+                    publishedVersion: 1,
+                    publishedAt: new Date(),
+                  },
+                })
+                .catch(() => {});
+              await candDb.storefrontProduct
+                ?.updateMany?.({
+                  where: {},
+                  data: { visible: true },
+                })
+                ?.catch?.(() => {});
+            }
+            const upserted = await this.heartPrisma.storefrontRegistry.upsert({
+              where: { tenantId: cand.id },
+              update: {
+                publicId: candSettings.publicId,
+                slug: candSettings.slug,
+                storeName: candSettings.storeName || cand.nomeFantasia || cand.name || '',
+                enabled: true,
+                published: shouldPublish,
+                publishedVersion: nextVersion,
+              },
+              create: {
+                publicId: candSettings.publicId,
+                tenantId: cand.id,
+                slug: candSettings.slug,
+                storeName: candSettings.storeName || cand.nomeFantasia || cand.name || '',
+                enabled: true,
+                published: shouldPublish,
+                publishedVersion: nextVersion,
+              },
+            });
+            registry = { ...upserted, tenant: cand };
+            break;
+          }
+        }
+      } catch {
+        // Ignora erro de auto-reconciliação e segue fluxo normal
+      }
+    }
+
     if (!registry || !registry.tenant) {
       throw new NotFoundException('Loja virtual não encontrada.');
     }
@@ -71,6 +144,47 @@ export class StorefrontPublicService {
       typeof tenant.modulos === 'string'
         ? JSON.parse(tenant.modulos || '{}')
         : tenant.modulos || {};
+
+    const db = await this.tenantManager.getTenantClient(
+      tenant.id,
+      tenant.databaseUrl,
+    );
+
+    // Auto-promove loja recém-inicializada (publishedVersion === 0) quando o módulo está ativo
+    if (
+      tenant.status === 'active' &&
+      modulos.lojaVirtual &&
+      !registry.published &&
+      Number(registry.publishedVersion ?? 0) === 0
+    ) {
+      try {
+        await db.storefrontSettings.update({
+          where: { id: 'singleton' },
+          data: {
+            isPublished: true,
+            publishedVersion: 1,
+            publishedAt: new Date(),
+          },
+        });
+        await db.storefrontProduct
+          ?.updateMany?.({
+            where: {},
+            data: { visible: true },
+          })
+          ?.catch?.(() => {});
+        await this.heartPrisma.storefrontRegistry
+          .updateMany({
+            where: { tenantId: tenant.id },
+            data: { enabled: true, published: true, publishedVersion: 1 },
+          })
+          .catch(() => {});
+        registry.enabled = true;
+        registry.published = true;
+        registry.publishedVersion = 1;
+      } catch {
+        // segue validação abaixo
+      }
+    }
 
     if (
       tenant.status !== 'active' ||
@@ -82,11 +196,6 @@ export class StorefrontPublicService {
         'Esta loja virtual não está disponível para novos pedidos no momento.',
       );
     }
-
-    const db = await this.tenantManager.getTenantClient(
-      tenant.id,
-      tenant.databaseUrl,
-    );
 
     let settings: any = null;
     try {

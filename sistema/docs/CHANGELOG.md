@@ -1,5 +1,12 @@
 # Histórico — PDV Lojista
 
+## 2026-11-08 — Auto-Publicação Inicial da Loja Virtual (`/loja/:slug`), Reconciliação de Slug no Heart e Curadoria Automática Inicial
+
+- **Auto-Publicação na Primeira Inicialização (`backend/src/storefront/storefront-admin.service.ts` e `backend/src/storefront/storefront-public.service.ts`)**:
+  - Ao habilitar o módulo `lojaVirtual` para uma loja, `ensureSettingsInitialized` e `resolvePublishedStore` inicializam e promovem automaticamente o registro inicial (`publishedVersion: 1`, `isPublished: true`) no tenant e no `StorefrontRegistry` do Heart, evitando retorno `404` ao abrir `/loja/:slug` logo após ativar o módulo (preservando o bloqueio `404` caso o lojista clique explicitamente em *Despublicar*).
+  - Removido o bloqueio que impedia clicar em *Publicar loja* antes de preencher o WhatsApp na aba *Configurações*, e sincronizado o salvamento automático de `settingsForm` ao clicar em *Publicar loja* em `RetailStorefrontPage.tsx`.
+  - No primeiro sincronismo do catálogo da loja (`ensureProductsSynced`), todos os grupos de mercadorias ativos (`RetailGroup`) já iniciam visíveis na vitrine (`visible: true`, com os 8 primeiros em destaque).
+
 ## 2026-11-02 — Correção da Migração do Banco Heart (`operator_profiles` e `storefront_registry`) e Auto-DDL da Loja Virtual
 
 - **Mapeamento de `OperatorProfile` no Schema do Heart (`backend/prisma/heart.schema.prisma`)**:

@@ -134,6 +134,7 @@ export class StorefrontAdminService {
         defaultPhone = null;
       }
 
+      const initialPublished = tenant ? this.isModuleEnabledOnTenant(tenant) : true;
       settings = await db.storefrontSettings.upsert({
         where: { id: 'singleton' },
         update: {},
@@ -158,8 +159,22 @@ export class StorefrontAdminService {
           confirmedHoldHours: 24,
           draftThemeJson: defaultTheme as any,
           publishedThemeJson: defaultTheme as any,
-          publishedVersion: 0,
-          isPublished: false,
+          publishedVersion: initialPublished ? 1 : 0,
+          isPublished: initialPublished,
+          publishedAt: initialPublished ? new Date() : null,
+        },
+      });
+    } else if (
+      Number(settings.publishedVersion ?? 0) === 0 &&
+      !settings.isPublished &&
+      (tenant ? this.isModuleEnabledOnTenant(tenant) : true)
+    ) {
+      settings = await db.storefrontSettings.update({
+        where: { id: 'singleton' },
+        data: {
+          publishedVersion: 1,
+          isPublished: true,
+          publishedAt: new Date(),
         },
       });
     }
@@ -559,11 +574,6 @@ export class StorefrontAdminService {
       ctx.tenantId,
     );
 
-    if (!current.whatsappPhone) {
-      throw new BadRequestException(
-        'Configure o número de WhatsApp de atendimento antes de publicar a Loja Virtual.',
-      );
-    }
     if (!current.pickupEnabled && !current.deliveryEnabled) {
       throw new BadRequestException(
         'Habilite pelo menos uma modalidade (Retirada ou Entrega) antes de publicar.',
@@ -820,6 +830,22 @@ export class StorefrontAdminService {
       db.storefrontProduct.findMany(),
     ]);
 
+    const isInitialBootstrap = sfProducts.length === 0;
+    if (
+      !isInitialBootstrap &&
+      sfProducts.every((sp: any) => !sp.visible) &&
+      typeof db.storefrontRevision?.count === 'function'
+    ) {
+      const revCount = await db.storefrontRevision.count().catch(() => 1);
+      if (revCount === 0 && typeof db.storefrontProduct?.updateMany === 'function') {
+        await db.storefrontProduct
+          .updateMany({
+            where: {},
+            data: { visible: true },
+          })
+          .catch(() => {});
+      }
+    }
     const existingByGroupId = new Map(
       sfProducts.map((sp: any) => [sp.retailGroupId, sp]),
     );
@@ -831,6 +857,7 @@ export class StorefrontAdminService {
       0,
     );
 
+    let createdIdx = 0;
     for (const rg of groups) {
       if (existingByGroupId.has(rg.id)) continue;
       maxOrder += 10;
@@ -845,13 +872,14 @@ export class StorefrontAdminService {
           data: {
             retailGroupId: rg.id,
             publicSlug: slug,
-            visible: false,
-            featured: false,
+            visible: isInitialBootstrap,
+            featured: isInitialBootstrap && createdIdx < 8,
             sortOrder: maxOrder,
             commercialTitle: rg.name,
           },
         })
         .catch(() => {});
+      createdIdx++;
     }
   }
 

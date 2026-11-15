@@ -5,7 +5,9 @@ import { formatCurrencyBrl, sanitizePlainText } from './storefront.rules';
 export type ExpressVehicleType = 'MOTO' | 'CARRO';
 export type ExpressDispatchStatus =
   | 'WAITING'
+  | 'FOUND'
   | 'REQUESTED'
+  | 'PICKED_UP'
   | 'DISPATCHED'
   | 'DELIVERED';
 
@@ -994,10 +996,14 @@ export class StorefrontDeliveryService {
       params.dispatch.status === 'DELIVERED'
         ? `Seu pedido *${params.reference}* foi entregue!`
         : params.dispatch.status === 'DISPATCHED'
-          ? `Seu pedido *${params.reference}* saiu para entrega com *${vehicleLabel}*!`
-          : params.dispatch.status === 'REQUESTED'
-            ? `Já solicitamos seu *${vehicleLabel}* para o pedido *${params.reference}*!`
-            : `Atualização da entrega do seu pedido *${params.reference}*:`;
+          ? `O entregador está chegando com seu pedido *${params.reference}* (*${vehicleLabel}*)!`
+          : params.dispatch.status === 'PICKED_UP'
+            ? `O entregador já coletou seu pacote *${params.reference}* na loja (*${vehicleLabel}*)!`
+            : params.dispatch.status === 'REQUESTED'
+              ? `O motorista *${vehicleLabel}* está indo até a loja retirar seu pedido *${params.reference}*!`
+              : params.dispatch.status === 'FOUND'
+                ? `Encontramos um motorista *${vehicleLabel}* para o seu pedido *${params.reference}*!`
+                : `Atualização da entrega do seu pedido *${params.reference}*:`;
 
     const lines: string[] = [
       `Olá, ${firstName}! Aqui é da *${params.storeName || 'Loja'}*.`,

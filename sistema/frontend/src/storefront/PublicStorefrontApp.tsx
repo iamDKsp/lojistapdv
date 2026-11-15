@@ -3497,11 +3497,12 @@ export function PublicStorefrontApp() {
                     </div>
                   </div>
 
-                  {/* Animação ao vivo de Entrega 99 quando o pedido é na modalidade Entrega */}
+                  {/* Animação ao vivo 2D Motion (Parallax + Zoom) de Entrega 99 quando o pedido é na modalidade Entrega */}
                   {orderDetail.fulfillmentMode === 'DELIVERY' &&
                     !isCancelledOrExpired && (
                       <StorefrontOrderDeliveryScene
                         storeName={storeData?.storeName || 'Loja'}
+                        orderReference={orderDetail.reference}
                         commercialStatus={orderDetail.commercialStatus}
                         fulfillmentStatus={orderDetail.fulfillmentStatus}
                         deliveryFee={orderDetail.deliveryFee}
@@ -3511,37 +3512,36 @@ export function PublicStorefrontApp() {
                       />
                     )}
 
-                  {/* Linha do tempo visual em 4 etapas */}
-                  {!isCancelledOrExpired && (
-                    <div className="grid grid-cols-4 gap-2 pt-1">
-                      {[
-                        'Registrado',
-                        'Confirmado',
-                        orderDetail.fulfillmentMode === 'DELIVERY'
-                          ? 'Em rota'
-                          : 'Separação',
-                        'Concluído',
-                      ].map((label, idx) => {
-                        const reached = idx <= stepIndex;
-                        return (
-                          <div key={label} className="space-y-1.5">
-                            <div
-                              className={`h-1.5 rounded-full transition-colors ${
-                                reached ? 'bg-brand' : 'bg-line'
-                              }`}
-                            />
-                            <p
-                              className={`text-[10px] sm:text-xs font-bold truncate ${
-                                reached ? 'text-brand' : 'text-muted'
-                              }`}
-                            >
-                              {label}
-                            </p>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                  {/* Linha do tempo visual em 4 etapas (apenas para pedidos de Retirada, pois a Entrega já traz as 5 etapas interativas na cena 2D) */}
+                  {!isCancelledOrExpired &&
+                    orderDetail.fulfillmentMode !== 'DELIVERY' && (
+                      <div className="grid grid-cols-4 gap-2 pt-1">
+                        {[
+                          'Registrado',
+                          'Confirmado',
+                          'Separação',
+                          'Concluído',
+                        ].map((label, idx) => {
+                          const reached = idx <= stepIndex;
+                          return (
+                            <div key={label} className="space-y-1.5">
+                              <div
+                                className={`h-1.5 rounded-full transition-colors ${
+                                  reached ? 'bg-brand' : 'bg-line'
+                                }`}
+                              />
+                              <p
+                                className={`text-[10px] sm:text-xs font-bold truncate ${
+                                  reached ? 'text-brand' : 'text-muted'
+                                }`}
+                              >
+                                {label}
+                              </p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
 
                   {/* Ação Principal conforme o estado atual do pedido */}
                   {['AWAITING_CONFIRMATION', 'CONFIRMED'].includes(

@@ -69,7 +69,13 @@ export interface PosOrderAlertItem {
   } | null;
   expressDispatch?: {
     provider: "99_ENTREGAS";
-    status: "WAITING" | "REQUESTED" | "DISPATCHED" | "DELIVERED";
+    status:
+      | "WAITING"
+      | "FOUND"
+      | "REQUESTED"
+      | "PICKED_UP"
+      | "DISPATCHED"
+      | "DELIVERED";
     vehicleType: "MOTO" | "CARRO";
     courierName: string | null;
     courierPhone: string | null;
@@ -441,7 +447,12 @@ export function PosDeliveryAlertDrawer({
   // Campos de despacho 99 da ordem selecionada
   const [vehicleType, setVehicleType] = useState<"MOTO" | "CARRO">("MOTO");
   const [dispatchStatus, setDispatchStatus] = useState<
-    "WAITING" | "REQUESTED" | "DISPATCHED" | "DELIVERED"
+    | "WAITING"
+    | "FOUND"
+    | "REQUESTED"
+    | "PICKED_UP"
+    | "DISPATCHED"
+    | "DELIVERED"
   >("REQUESTED");
   const [courierName, setCourierName] = useState("");
   const [vehiclePlate, setVehiclePlate] = useState("");
@@ -490,7 +501,13 @@ export function PosDeliveryAlertDrawer({
 
   const handleSaveDispatch = async (
     order: PosOrderAlertItem,
-    overrideStatus?: "WAITING" | "REQUESTED" | "DISPATCHED" | "DELIVERED",
+    overrideStatus?:
+      | "WAITING"
+      | "FOUND"
+      | "REQUESTED"
+      | "PICKED_UP"
+      | "DISPATCHED"
+      | "DELIVERED",
     openWhatsappAfter = false,
   ) => {
     const nextSt = overrideStatus || dispatchStatus;
@@ -924,18 +941,22 @@ export function PosDeliveryAlertDrawer({
                       </div>
                     </div>
 
-                    {/* Botões rápidos de etapa da animação */}
-                    <div className="grid grid-cols-3 gap-2">
+                    {/* Botões rápidos das 5 etapas da animação 2D Motion */}
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
                       {(
                         [
-                          { id: "REQUESTED", label: "1. Chamando 99" },
-                          { id: "DISPATCHED", label: "2. Saiu p/ Entrega" },
-                          { id: "DELIVERED", label: "3. Entregue" },
+                          { id: "FOUND", label: "1. Encontrou" },
+                          { id: "REQUESTED", label: "2. Indo à loja" },
+                          { id: "PICKED_UP", label: "3. Pegou pacote" },
+                          { id: "DISPATCHED", label: "4. Chegando" },
+                          { id: "DELIVERED", label: "5. Entregue" },
                         ] as const
                       ).map((st) => {
+                        const currentSt =
+                          activeOrder.expressDispatch?.status || dispatchStatus;
                         const active =
-                          (activeOrder.expressDispatch?.status ||
-                            dispatchStatus) === st.id;
+                          currentSt === st.id ||
+                          (st.id === "FOUND" && currentSt === "WAITING");
                         return (
                           <button
                             key={st.id}
@@ -944,7 +965,7 @@ export function PosDeliveryAlertDrawer({
                             onClick={() =>
                               void handleSaveDispatch(activeOrder, st.id, false)
                             }
-                            className={`py-2 px-2 rounded-xl border text-[11px] font-extrabold transition cursor-pointer ${
+                            className={`py-2 px-1.5 rounded-xl border text-[11px] font-extrabold transition cursor-pointer ${
                               active
                                 ? "bg-brand border-brand text-on-brand"
                                 : "bg-surface border-line text-ink hover:border-brand"

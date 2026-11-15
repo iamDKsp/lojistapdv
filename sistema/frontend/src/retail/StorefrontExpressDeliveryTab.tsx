@@ -19,6 +19,10 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
+import {
+  type ExpressDispatchStatus,
+  StorefrontOrderDeliveryScene,
+} from "@/storefront/components/StorefrontDeliveryAnimation";
 import { apiError, money } from "./types";
 
 export interface NeighborhoodOverrideItem {
@@ -1026,6 +1030,65 @@ export function StorefrontExpressDeliveryTab({
               </div>
             )}
 
+            {/* Preview ao Vivo da Cena 2D Motion que o cliente vê no rastreio */}
+            <div className="space-y-2 pt-2 border-t border-line">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-extrabold text-ink">
+                  Preview da Animação 2D Motion do Cliente
+                </p>
+                <span className="rounded-full bg-support px-2 py-0.5 text-[10px] font-bold text-brand">
+                  Parallax + Zoom 60 FPS
+                </span>
+              </div>
+              <StorefrontOrderDeliveryScene
+                storeName={originNeighborhood || originCity || "PDV Lojista"}
+                orderReference="4092"
+                commercialStatus="CONFIRMED"
+                fulfillmentStatus="OUT_FOR_DELIVERY"
+                deliveryFee={
+                  simResult?.available
+                    ? Number(simResult.selectedFee ?? baseFee ?? 0)
+                    : Number(baseFee || 7.9)
+                }
+                deliveryDestination={
+                  simResult?.destination || {
+                    neighborhood: originNeighborhood || "Centro",
+                    city: originCity || "Cidade",
+                    zipCode: simCep || originZipCode || null,
+                  }
+                }
+                expressQuote={{
+                  provider: "99_ENTREGAS",
+                  vehicleType: "MOTO",
+                  label: "99Entrega Moto",
+                  fee: Number(baseFee || 7.9),
+                  distanceKm:
+                    simResult?.distanceKm != null
+                      ? Number(simResult.distanceKm)
+                      : 3.4,
+                  estimatedMinutes:
+                    simResult?.estimatedMinutes != null
+                      ? Number(simResult.estimatedMinutes)
+                      : 18,
+                  freeShippingApplied: false,
+                  originLabel: originNeighborhood || originCity || null,
+                }}
+                expressDispatch={{
+                  provider: "99_ENTREGAS",
+                  status: "DISPATCHED",
+                  vehicleType: "MOTO",
+                  courierName: "Lucas M.",
+                  vehiclePlate: "RXP-4E21",
+                  trackingUrl: null,
+                  confirmationPin: "4829",
+                  requestedAt: null,
+                  dispatchedAt: null,
+                  deliveredAt: null,
+                  updatedAt: null,
+                }}
+              />
+            </div>
+
             {/* Guia rápido operacional */}
             <div className="rounded-2xl border border-line bg-page p-4 space-y-2 text-xs text-muted">
               <p className="font-extrabold text-ink">
@@ -1067,9 +1130,7 @@ export function StorefrontOrderExpressDispatchCard({
   onUpdated: (updatedOrder?: any) => Promise<void> | void;
 }) {
   const [vehicleType, setVehicleType] = useState<"MOTO" | "CARRO">("MOTO");
-  const [status, setStatus] = useState<
-    "WAITING" | "REQUESTED" | "DISPATCHED" | "DELIVERED"
-  >("WAITING");
+  const [status, setStatus] = useState<ExpressDispatchStatus>("WAITING");
   const [courierName, setCourierName] = useState("");
   const [vehiclePlate, setVehiclePlate] = useState("");
   const [trackingUrl, setTrackingUrl] = useState("");
@@ -1094,7 +1155,7 @@ export function StorefrontOrderExpressDispatchCard({
   );
 
   const saveDispatch = async (
-    overrideStatus?: "WAITING" | "REQUESTED" | "DISPATCHED" | "DELIVERED",
+    overrideStatus?: ExpressDispatchStatus,
     openWhatsapp = false,
   ) => {
     const targetStatus = overrideStatus || status;
@@ -1215,29 +1276,35 @@ export function StorefrontOrderExpressDispatchCard({
 
       {!isTerminalCancelled && (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
             {(
               [
-                { id: "WAITING", label: "Na Loja" },
-                { id: "REQUESTED", label: "Chamando 99" },
-                { id: "DISPATCHED", label: "99 a Caminho" },
-                { id: "DELIVERED", label: "Entregue" },
+                { id: "FOUND", label: "1. Encontrou" },
+                { id: "REQUESTED", label: "2. Indo à loja" },
+                { id: "PICKED_UP", label: "3. Pegou pacote" },
+                { id: "DISPATCHED", label: "4. Chegando" },
+                { id: "DELIVERED", label: "5. Entregue" },
               ] as const
-            ).map((st) => (
-              <button
-                key={st.id}
-                type="button"
-                disabled={busy}
-                onClick={() => void saveDispatch(st.id, false)}
-                className={`py-2 px-2 rounded-xl border text-[11px] font-extrabold transition cursor-pointer ${
-                  status === st.id
-                    ? "bg-brand border-brand text-on-brand"
-                    : "bg-surface border-line text-ink hover:border-brand"
-                }`}
-              >
-                {st.label}
-              </button>
-            ))}
+            ).map((st) => {
+              const isSelected =
+                status === st.id ||
+                (st.id === "FOUND" && status === "WAITING");
+              return (
+                <button
+                  key={st.id}
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void saveDispatch(st.id, false)}
+                  className={`py-2 px-2 rounded-xl border text-[11px] font-extrabold transition cursor-pointer ${
+                    isSelected
+                      ? "bg-brand border-brand text-on-brand"
+                      : "bg-surface border-line text-ink hover:border-brand"
+                  }`}
+                >
+                  {st.label}
+                </button>
+              );
+            })}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">

@@ -1867,7 +1867,9 @@ export class StorefrontOrdersService {
 
     const validDispatchStatuses: ExpressDispatchStatus[] = [
       'WAITING',
+      'FOUND',
       'REQUESTED',
+      'PICKED_UP',
       'DISPATCHED',
       'DELIVERED',
     ];
@@ -1993,10 +1995,15 @@ export class StorefrontOrdersService {
           ? 'DELIVERED'
           : nextStatus === 'DISPATCHED'
             ? 'OUT_FOR_DELIVERY'
-            : nextStatus === 'REQUESTED' &&
-                order.fulfillmentStatus === 'WAITING_SEPARATION'
-              ? 'PREPARING'
-              : order.fulfillmentStatus;
+            : nextStatus === 'PICKED_UP' &&
+                ['WAITING_SEPARATION', 'PREPARING'].includes(
+                  order.fulfillmentStatus,
+                )
+              ? 'READY_FOR_PICKUP'
+              : (nextStatus === 'REQUESTED' || nextStatus === 'FOUND') &&
+                  order.fulfillmentStatus === 'WAITING_SEPARATION'
+                ? 'PREPARING'
+                : order.fulfillmentStatus;
 
       await tx.storefrontOrder.update({
         where: { id: orderId },

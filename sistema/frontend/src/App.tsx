@@ -239,24 +239,8 @@ export function App() {
           <Route path="/tv/:tvPublicId" element={<RetailVitrineTvPage />} />
           <Route path="/vitrine/:tvPublicId" element={<RetailVitrineTvPage />} />
 
-          {/* Loja Virtual Pública (acesso do consumidor final sem login no PDV) */}
-          <Route path="/loja/:slug" element={<PublicStorefrontApp />} />
-          <Route
-            path="/loja/:slug/produto/:produtoSlug"
-            element={<PublicStorefrontApp />}
-          />
-          <Route
-            path="/loja/:slug/carrinho"
-            element={<PublicStorefrontApp />}
-          />
-          <Route
-            path="/loja/:slug/finalizar"
-            element={<PublicStorefrontApp />}
-          />
-          <Route
-            path="/loja/:slug/pedido/:referencia"
-            element={<PublicStorefrontApp />}
-          />
+          {/* Loja Virtual Pública — Shell único persistente sem remontagem entre sub-rotas */}
+          <Route path="/loja/:slug/*" element={<PublicStorefrontApp />} />
           <Route element={<Protected />}>
             <Route element={<RetailLayout />}>
               <Route path="/" element={<Pos />} />

@@ -266,4 +266,19 @@ stateDiagram-v2
   - Checkout com máscara de WhatsApp, CPF/CNPJ e **campo de CEP (`zipCode`) com preenchimento automático via ViaCEP**, além de persistência local do perfil do comprador (`loadStorefrontCustomerProfile` / `saveStorefrontCustomerProfile`) isolada por `storePublicId`.
   - Página de acompanhamento do pedido (`/loja/:slug/pedido/:referencia`) com linha do tempo visual de 4 etapas e contador regressivo da reserva de estoque.
 
+### 8.3. Arquitetura de Movimento Fluido, Shell Persistente e Responsividade `1440px` (2026-11)
+- **Shell Persistente sem Desmontagem entre Rotas (`frontend/src/App.tsx` e `frontend/src/storefront/PublicStorefrontApp.tsx`)**:
+  - As 5 sub-rotas públicas (`/loja/:slug`, `/produto/:produtoSlug`, `/carrinho`, `/finalizar` e `/pedido/:referencia`) compartilham uma única instância persistente (`<Route path="/loja/:slug/*" />`), preservando `storeData`, catálogo em memória, estado da gaveta da sacola e posição de rolagem ao ir e voltar de páginas internas, com transições GPU (`AnimatePresence` + `MotionConfig reducedMotion="user"`).
+- **Motor de Catálogo em 0 ms e Fim da Cascata de Requisições (`backend/src/storefront/storefront-public.service.ts`)**:
+  - `GET /api/storefront/public/:slug` inclui `initialProducts` (até 120 grupos visíveis sanitizados sem `priceCost` ou dados fiscais internos), eliminando o segundo round-trip sequencial na abertura da loja.
+  - Trocas de categoria, tamanho, cor, disponibilidade, busca e ordenação filtram imediatamente em memória (`0 ms`), nunca desmontam a grade de produtos em um spinner vazio, colapsam suavemente a seção **Seleção em Destaque** quando há filtros ativos e revalidam saldos em segundo plano via `AbortController` + debounce.
+- **Coreografia Tátil de Sacola, Trilho de Categorias e Escolha Rápida (`frontend/src/storefront/storefront-motion.tsx` e `frontend/src/storefront/components/*`)**:
+  - **`CategoryTabsRail`**: Pílula ativa deslizante por mola (`layoutId="sf-active-category-pill"`), máscaras laterais dinâmicas (`ResizeObserver`), setas `<` / `>` em desktop, *drag-to-scroll* com mouse e centralização estritamente horizontal (`scrollTo({ left })`).
+  - **`StorefrontCartDrawer` & `MobileFloatingCartBar`**: Gaveta lateral direita no desktop e *bottom-sheet* arrastável no mobile com compensação da largura da barra de rolagem (`useBodyScrollLock`), entrada/saída animada de itens, *digit flip* nas quantidades e barra flutuante inferior no celular.
+  - **`FlyToBagOverlay` & `QuickVariantModal`**: Animação GPU de ficha da peça voando até o botão **Sacola** com pulso elástico no contador ao adicionar a partir do catálogo, e modal/*bottom-sheet* rápido de 2 toques (**Escolher tamanho e cor**) sem sair da vitrine.
+  - **`StorefrontSelectPopover` & `MobileFilterSheet`**: Substituição de `<select>` nativos do sistema operacional por popovers animados na paleta oficial e gaveta inferior de filtros em telas `< 640px`.
+- **Escala Responsiva Unificada (`320px` a `1920px+`) e Banner Hero Editorial**:
+  - Container unificado `max-w-[1440px]` em todas as telas da vitrine pública, moldura editorial arredondada para imagens/logos de capa no Hero (eliminando o corte seco 50/50 em logos quadrados) e transições suaves entre as 6 abas e o simulador Desktop/Celular em `/loja-virtual/*`.
+
+
 

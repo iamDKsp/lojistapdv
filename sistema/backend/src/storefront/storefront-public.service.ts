@@ -329,6 +329,7 @@ export class StorefrontPublicService {
         theme: publishedTheme,
         categories: categoriesRaw.map(toPublicCategoryDto),
         featuredProducts,
+        initialProducts: allPublicProducts.slice(0, 120),
         facets: {
           sizes: availableSizes,
           colors: availableColors,

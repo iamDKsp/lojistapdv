@@ -1368,6 +1368,12 @@ describe('Módulo Loja Virtual (Storefront) - Isolamento, Reservas, Idempotênci
     const h = createTestHarness();
 
     // Catálogo público só lista produtos visíveis e não contém priceCost
+    const home = await h.publicService.getStorefrontHome('loja-alfa');
+    expect(home.initialProducts).toHaveLength(1);
+    expect(home.initialProducts[0].slug).toBe('camiseta-basica-tenant-a');
+    expect((home.initialProducts[0] as any).priceCost).toBeUndefined();
+    expect((home.initialProducts[0].variants[0] as any).priceCost).toBeUndefined();
+
     const catalog = await h.publicService.listProducts('loja-alfa', {});
     expect(catalog.data).toHaveLength(1);
     expect(catalog.data[0].slug).toBe('camiseta-basica-tenant-a');

@@ -42,6 +42,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { AnimatePresence, motion } from 'framer-motion';
 import { api } from '@/lib/api';
 import { getFullUrl } from '@/lib/getFullUrl';
 import PdvLojistaLoader from '@/components/PdvLojistaLoader';
@@ -52,6 +53,10 @@ import {
 import { RetailSelect } from '@/components/ui/Select';
 import { RetailSwitch } from '@/components/ui/Switch';
 import { StorefrontHomeView } from '@/storefront/PublicStorefrontApp';
+import {
+  SF_SPRING_PILL,
+  SF_VIEW_TRANSITION,
+} from '@/storefront/storefront-motion';
 import { RetailDialog } from './RetailDialog';
 import { apiError, money } from './types';
 
@@ -342,6 +347,9 @@ export function RetailStorefrontPage() {
   const [previewColor, setPreviewColor] = useState('');
   const [previewSortBy, setPreviewSortBy] = useState('featured');
   const [previewInStockOnly, setPreviewInStockOnly] = useState(false);
+  const [previewCartCount, setPreviewCartCount] = useState(2);
+  const [previewCartTotal, setPreviewCartTotal] = useState(189.9);
+  const [previewBagPulseKey, setPreviewBagPulseKey] = useState(0);
 
   // Products state
   const [products, setProducts] = useState<any[]>([]);
@@ -1320,6 +1328,14 @@ export function RetailStorefrontPage() {
         </div>
       )}
 
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={activeTab}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -4 }}
+          transition={SF_VIEW_TRANSITION}
+        >
       {/* ==================================================================== */}
       {/* ABA 1: VISÃO GERAL OPERACIONAL                                       */}
       {/* ==================================================================== */}
@@ -3194,31 +3210,51 @@ export function RetailStorefrontPage() {
                   <button
                     type="button"
                     onClick={() => setPreviewDevice('desktop')}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 ${
+                    className={`relative px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors ${
                       previewDevice === 'desktop'
-                        ? 'bg-brand text-on-brand'
-                        : 'text-muted'
+                        ? 'text-on-brand'
+                        : 'text-muted hover:text-ink'
                     }`}
                   >
-                    <Monitor size={13} /> Desktop
+                    {previewDevice === 'desktop' && (
+                      <motion.span
+                        layoutId="sf-admin-preview-device"
+                        transition={SF_SPRING_PILL}
+                        className="absolute inset-0 rounded-lg bg-brand"
+                      />
+                    )}
+                    <span className="relative z-10 flex items-center gap-1">
+                      <Monitor size={13} /> Desktop
+                    </span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setPreviewDevice('mobile')}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 ${
+                    className={`relative px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors ${
                       previewDevice === 'mobile'
-                        ? 'bg-brand text-on-brand'
-                        : 'text-muted'
+                        ? 'text-on-brand'
+                        : 'text-muted hover:text-ink'
                     }`}
                   >
-                    <Smartphone size={13} /> Celular
+                    {previewDevice === 'mobile' && (
+                      <motion.span
+                        layoutId="sf-admin-preview-device"
+                        transition={SF_SPRING_PILL}
+                        className="absolute inset-0 rounded-lg bg-brand"
+                      />
+                    )}
+                    <span className="relative z-10 flex items-center gap-1">
+                      <Smartphone size={13} /> Celular
+                    </span>
                   </button>
                 </div>
               </div>
 
               <div className="p-4 bg-page flex justify-center max-h-[760px] overflow-y-auto">
-                <div
-                  className={`border border-line rounded-2xl overflow-hidden shadow-md transition-all bg-surface ${
+                <motion.div
+                  layout
+                  transition={SF_SPRING_PILL}
+                  className={`border border-line rounded-2xl overflow-hidden shadow-md bg-surface ${
                     previewDevice === 'mobile'
                       ? 'w-[375px] shrink-0'
                       : 'w-full'
@@ -3239,12 +3275,24 @@ export function RetailStorefrontPage() {
                     setSortBy={setPreviewSortBy}
                     inStockOnly={previewInStockOnly}
                     setInStockOnly={setPreviewInStockOnly}
-                    cartCount={2}
-                    cartTotal={189.9}
+                    cartCount={previewCartCount}
+                    cartTotal={previewCartTotal}
+                    bagPulseKey={previewBagPulseKey}
                     onSelectProduct={() => {}}
+                    onQuickAdd={(prod, variant, qty = 1) => {
+                      const unitPrice = Number(
+                        variant?.priceSell ?? prod?.priceSell ?? 0,
+                      );
+                      setPreviewCartCount((c) => c + qty);
+                      setPreviewCartTotal((t) => t + unitPrice * qty);
+                      setPreviewBagPulseKey((k) => k + 1);
+                      toast.success(
+                        `Prévia: "${prod.title}" simulado na sacola!`,
+                      );
+                    }}
                     isPreview={true}
                   />
-                </div>
+                </motion.div>
               </div>
             </div>
           </div>
@@ -3677,6 +3725,8 @@ export function RetailStorefrontPage() {
           </div>
         </form>
       )}
+        </motion.div>
+      </AnimatePresence>
 
       {/* ==================================================================== */}
       {/* DIALOG 1: PERSONALIZAR PRODUTO NA VITRINE                            */}

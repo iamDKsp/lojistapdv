@@ -1,5 +1,17 @@
 # Histórico — PDV Lojista
 
+## 2026-11-15 — Reformulação Completa de Responsividade, Movimento, Transições e Animações da Loja Virtual
+
+- **Shell Persistente sem Recarregamento e Catálogo Instantâneo em `0 ms` (`frontend/src/App.tsx`, `frontend/src/storefront/PublicStorefrontApp.tsx`, `backend/src/storefront/storefront-public.service.ts` e `backend/src/storefront/storefront.spec.ts`)**:
+  - Unificadas as 5 rotas públicas sob `<Route path="/loja/:slug/*" element={<PublicStorefrontApp />} />` com resolução interna via `useMatch`, transições suaves (`AnimatePresence` + `MotionConfig reducedMotion="user"`), restauração automática da posição de rolagem ao voltar ao catálogo e abertura imediata da página de produto a partir dos dados já carregados em memória (*optimistic seed*).
+  - Incluído `initialProducts` (até 120 grupos públicos sanitizados) em `GET /api/storefront/public/:slug`, eliminando a cascata inicial de requisições; trocas de categoria, tamanho, cor, busca e ordenação agora respondem em `0 ms` no cliente sem desmontar a grade de peças em um spinner e revalidam saldos silenciosamente via `AbortController` + debounce, enquanto a seção **Seleção em Destaque** recolhe/expande suavemente sem salto vertical.
+- **Coreografia Tátil da Sacola, Fly-to-Bag, Escolha Rápida e Filtros (`frontend/src/storefront/storefront-motion.tsx`, `StorefrontCartDrawer.tsx`, `StorefrontProductCard.tsx` e `StorefrontFilterControls.tsx`)**:
+  - Criada `StorefrontCartDrawer` com entrada/saída por física de mola (gaveta lateral direita no desktop e *bottom-sheet* arrastável no celular), compensação da largura da barra de rolagem (`useBodyScrollLock` sem salto horizontal do cabeçalho sticky), colapso suave de altura ao remover itens, *digit flip* nas quantidades e `MobileFloatingCartBar` flutuante no celular.
+  - Adicionada animação GPU `FlyToBagOverlay` (ficha da peça voando até o botão **Sacola** com pulso elástico no contador e atalho *Ver sacola*) e `QuickVariantModal` (modal desktop / *bottom-sheet* mobile para escolher tamanho e cor em 2 toques direto da vitrine).
+  - Criados `CategoryTabsRail` (pílula roxa deslizante `layoutId`, máscaras de gradiente nas bordas com `ResizeObserver`, setas `<`/`>` no desktop e *drag-to-scroll*), `StorefrontSelectPopover` (substituindo `<select>` nativos do SO) e `MobileFilterSheet` para telas `< 640px`.
+- **Responsividade `1440px` (`320px` a `1920px+`), Hero Editorial e Polimento do Painel Administrativo (`frontend/src/storefront/PublicStorefrontApp.tsx` e `frontend/src/retail/RetailStorefrontPage.tsx`)**:
+  - Unificada a largura máxima em `max-w-[1440px]` em todas as sub-rotas da loja virtual, redesenhado o enquadramento da imagem/logo de capa no Hero em moldura editorial arredondada (eliminando a divisão brusca 50/50 em logos quadrados) e adicionadas transições de mola na troca das 6 abas e no seletor Desktop/Celular da simulação em `/loja-virtual/aparencia` — 100% dentro dos 8 tokens da paleta aprovada `roxo-branco`.
+
 ## 2026-11-15 — Correção Integral do Módulo Rede Multi-Lojas (`Multi-Empresa`) Fim a Fim
 
 - **Provisionamento Automático da Rede no `Heart` e Fim do Erro `HTTP 401` (`backend/src/prisma/heart-prisma.service.ts`, `backend/src/tenants/tenants.service.ts`, `backend/src/auth/auth.service.ts` e `backend/src/groups/groups.service.ts`)**:

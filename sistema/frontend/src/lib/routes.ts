@@ -69,6 +69,7 @@ export const ROUTES = {
 
   lojaPublica: {
     home: "/loja/:slug",
+    colecao: "/loja/:slug/colecao/:colecaoSlug",
     produto: "/loja/:slug/produto/:produtoSlug",
     carrinho: "/loja/:slug/carrinho",
     finalizar: "/loja/:slug/finalizar",

@@ -392,9 +392,9 @@ export function StorefrontExpressDeliveryTab({
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
         {/* Coluna Principal (7 cols): Origem + Regras + Exceções + API */}
-        <div className="lg:col-span-7 space-y-6">
+        <div className="xl:col-span-7 min-w-0 space-y-6">
           {/* 1. Endereço de Origem (Coleta na Loja) */}
           <div className="rounded-3xl border border-line bg-surface p-5 sm:p-6 space-y-4">
             <div className="flex items-center gap-2">
@@ -726,7 +726,7 @@ export function StorefrontExpressDeliveryTab({
                 value={newNbName}
                 onChange={(e) => setNewNbName(e.target.value)}
                 placeholder="Nome do bairro (ex.: Centro)"
-                className="flex-1 min-w-[180px] p-2.5 rounded-xl border border-line bg-page text-xs text-ink"
+                className="flex-1 min-w-0 sm:min-w-[160px] p-2.5 rounded-xl border border-line bg-page text-xs text-ink"
               />
               <input
                 type="number"
@@ -913,7 +913,7 @@ export function StorefrontExpressDeliveryTab({
         </div>
 
         {/* Coluna Direita (5 cols): Simulador de Cotação 99 em Tempo Real */}
-        <div className="lg:col-span-5">
+        <div className="xl:col-span-5 min-w-0">
           <div className="rounded-3xl border border-line bg-surface p-5 sm:p-6 space-y-4 sticky top-20 shadow-2xs">
             <div className="flex items-center gap-2">
               <Navigation size={17} className="text-brand" />

@@ -2,23 +2,129 @@
 const http=require('node:http');const fs=require('node:fs');const path=require('node:path');const crypto=require('node:crypto');
 const dir=path.resolve(__dirname,'../.local');const file=path.join(dir,'demonstracao.json');
 const rules=require('../backend/dist/retail/retail.rules.js');
+const sfRules=require('../backend/dist/storefront/storefront.rules.js');
 let DEFAULT_SP_WHOLESALE_SUPPLIERS=[];try{DEFAULT_SP_WHOLESALE_SUPPLIERS=require('../backend/dist/suppliers/sp-wholesale.seed.js').DEFAULT_SP_WHOLESALE_SUPPLIERS||[];}catch{}
 function buildDefaultSpHub(){return DEFAULT_SP_WHOLESALE_SUPPLIERS.map((s,idx)=>({...s,id:s.id||`sp-hub-${idx+1}`,active:true,items:(s.items||[]).map((it,i)=>({...it,id:it.id||`${s.id}-item-${i+1}`,supplierId:s.id||`sp-hub-${idx+1}`,active:true}))}));}
 const EMAIL='demo@lojista.local',PASSWORD='Lojista123!',PIN='1234',SETUP_PIN=process.env.SETUP_PIN||'teltech352',SQL_PIN=process.env.SQL_PIN||SETUP_PIN,tenant='lojista-demo-local';
 const stamp=()=>new Date().toISOString();const id=()=>crypto.randomUUID();const money=n=>Math.round(Number(n)*100)/100;
 const jwt=payload=>[Buffer.from(JSON.stringify({alg:'none',typ:'JWT'})).toString('base64url'),Buffer.from(JSON.stringify({...payload,exp:Math.floor(Date.now()/1000)+86400*7})).toString('base64url'),'demo-local'].join('.');
-function svgPhoto(title,subtitle,glyph){return `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" fill="none"><rect width="400" height="400" rx="36" fill="#F8F7FC"/><circle cx="200" cy="176" r="118" fill="#F3E8FF"/><rect x="24" y="24" width="352" height="352" rx="28" stroke="#E6E1F0" stroke-width="2"/><g transform="translate(0, -10)">${glyph}</g><rect x="36" y="302" width="328" height="62" rx="16" fill="#FFFFFF" stroke="#E6E1F0" stroke-width="1.5"/><text x="200" y="330" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="700" fill="#272321">${title}</text><text x="200" y="350" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="600" fill="#7C3AED">${subtitle}</text></svg>`)}`;}
-const PHOTOS={
- 'Camiseta Peruana':svgPhoto('Camiseta Peruana','Algodão Pima · P ao GG','<path d="M138 96 L166 78 H234 L262 96 L292 134 L262 158 L244 136 V254 H156 V136 L138 158 L108 134 Z" fill="#7C3AED" stroke="#272321" stroke-width="4" stroke-linejoin="round"/>'),
- 'Camiseta básica':svgPhoto('Camiseta Básica','Linha Dia a Dia · P ao GG','<path d="M138 96 L166 78 H234 L262 96 L292 134 L262 158 L244 136 V254 H156 V136 L138 158 L108 134 Z" fill="#FFFFFF" stroke="#272321" stroke-width="4" stroke-linejoin="round"/>'),
- 'Tênis casual':svgPhoto('Tênis Casual','Solado Confort · 36 ao 41','<path d="M102 214 C102 188, 128 176, 154 172 L198 138 L224 146 L248 182 L292 190 C306 194, 312 208, 312 224 V236 H96 V220 Z" fill="#7C3AED" stroke="#272321" stroke-width="4" stroke-linejoin="round"/><rect x="94" y="232" width="220" height="18" rx="8" fill="#FFFFFF" stroke="#272321" stroke-width="4"/>'),
- 'Boné aba curva':svgPhoto('Boné Aba Curva','Ajustável · Tamanho Único','<path d="M118 196 C118 136, 156 106, 206 106 C254 106, 284 136, 286 196 Z" fill="#7C3AED" stroke="#272321" stroke-width="4" stroke-linejoin="round"/><path d="M114 196 H292 C312 196, 326 208, 330 218 H172 C142 218, 118 208, 114 196 Z" fill="#272321"/>'),
- 'Relógio casual':svgPhoto('Relógio Casual','Caixa Metálica · Pulseira','<rect x="176" y="76" width="48" height="208" rx="12" fill="#272321"/><circle cx="200" cy="180" r="54" fill="#FFFFFF" stroke="#7C3AED" stroke-width="6"/><path d="M200 148 V180 L222 194" stroke="#272321" stroke-width="5" stroke-linecap="round"/>'),
- 'Carteira':svgPhoto('Carteira Slim','Couro Legítimo · Porta-Cartões','<rect x="114" y="118" width="172" height="126" rx="18" fill="#272321" stroke="#272321" stroke-width="4"/><path d="M234 156 H292 V206 H234 C220 206, 212 196, 212 181 C212 166, 220 156, 234 156 Z" fill="#7C3AED" stroke="#272321" stroke-width="4"/>')
+const DEMO_SVGS={
+ 'camiseta-peruana':`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 460" fill="none"><path d="M126 74 L168 52 H252 L294 74 L356 138 L314 176 L284 146 V396 H136 V146 L106 176 L64 138 Z" fill="#7C3AED" stroke="#272321" stroke-width="5" stroke-linejoin="round"/><path d="M168 52 C182 76, 238 76, 252 52" stroke="#272321" stroke-width="5"/></svg>`,
+ 'camiseta-branca':`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 460" fill="none"><path d="M124 72 L170 48 H270 L316 72 L382 142 L336 182 L302 150 V404 H138 V150 L104 182 L58 142 Z" fill="#FFFFFF" stroke="#272321" stroke-width="4.5" stroke-linejoin="round"/><path d="M170 48 C188 78, 252 78, 270 48" stroke="#272321" stroke-width="4"/><line x1="152" y1="382" x2="288" y2="382" stroke="#E5E1ED" stroke-width="3" stroke-dasharray="6 6"/><rect x="196" y="132" width="48" height="22" rx="4" fill="#F3E8FF" stroke="#7C3AED" stroke-width="2"/></svg>`,
+ 'camiseta-basica':`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 460" fill="none"><path d="M126 74 L168 52 H252 L294 74 L356 138 L314 176 L284 146 V396 H136 V146 L106 176 L64 138 Z" fill="#272321" stroke="#272321" stroke-width="5" stroke-linejoin="round"/><path d="M168 52 C182 76, 238 76, 252 52" stroke="#F3E8FF" stroke-width="4"/></svg>`,
+ 'oculos-largo':`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 840 240" fill="none"><path d="M24 96 H356 C374 96, 390 112, 420 112 C450 112, 466 96, 484 96 H816" stroke="#272321" stroke-width="14" stroke-linecap="round"/><rect x="52" y="54" width="312" height="136" rx="34" fill="#272321" stroke="#7C3AED" stroke-width="8"/><rect x="476" y="54" width="312" height="136" rx="34" fill="#272321" stroke="#7C3AED" stroke-width="8"/><path d="M96 86 L152 158" stroke="#F3E8FF" stroke-width="8" stroke-linecap="round"/><path d="M520 86 L576 158" stroke="#F3E8FF" stroke-width="8" stroke-linecap="round"/></svg>`,
+ 'calca-cargo':`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 780" fill="none"><path d="M64 36 H236 L262 738 H178 L150 264 L122 738 H38 Z" fill="#272321" stroke="#272321" stroke-width="6" stroke-linejoin="round"/><rect x="64" y="36" width="172" height="36" fill="#665F70" stroke="#272321" stroke-width="4"/><rect x="44" y="330" width="46" height="96" rx="8" fill="#7C3AED" stroke="#FFFFFF" stroke-width="3"/><rect x="210" y="330" width="46" height="96" rx="8" fill="#7C3AED" stroke="#FFFFFF" stroke-width="3"/></svg>`,
+ 'tenis-casual':`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 380" fill="none"><path d="M68 244 C68 194, 118 176, 174 166 L268 92 L322 108 L382 184 L536 204 C574 210, 592 238, 592 268 V288 H56 V256 Z" fill="#FFFFFF" stroke="#272321" stroke-width="6" stroke-linejoin="round"/><path d="M188 188 L354 226" stroke="#7C3AED" stroke-width="16" stroke-linecap="round"/><rect x="50" y="284" width="548" height="38" rx="16" fill="#7C3AED" stroke="#272321" stroke-width="6"/></svg>`,
+ 'bone-aba-curva':`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 360" fill="none"><path d="M98 238 C98 118, 172 64, 278 64 C382 64, 446 122, 450 238 Z" fill="#7C3AED" stroke="#272321" stroke-width="6" stroke-linejoin="round"/><path d="M88 238 H464 C506 238, 534 260, 542 282 H214 C148 282, 98 262, 88 238 Z" fill="#272321"/><circle cx="276" cy="58" r="12" fill="#272321"/></svg>`,
+ 'jaqueta-street':`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 480" fill="none"><path d="M148 58 L192 40 H288 L332 58 L424 176 L374 214 L336 164 V420 H144 V164 L106 214 L56 176 Z" fill="#F3E8FF" stroke="#272321" stroke-width="5" stroke-linejoin="round"/><line x1="240" y1="44" x2="240" y2="420" stroke="#7C3AED" stroke-width="6"/></svg>`,
+ 'relogio-casual':`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 620" fill="none"><rect x="116" y="38" width="88" height="544" rx="22" fill="#272321"/><circle cx="160" cy="310" r="106" fill="#FFFFFF" stroke="#7C3AED" stroke-width="12"/><path d="M160 242 V310 L208 342" stroke="#272321" stroke-width="10" stroke-linecap="round"/></svg>`,
+ 'carteira-slim':`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 360" fill="none"><rect x="64" y="68" width="356" height="228" rx="28" fill="#272321" stroke="#272321" stroke-width="6"/><path d="M312 138 H436 V226 H312 C284 226, 268 208, 268 182 C268 156, 284 138, 312 138 Z" fill="#7C3AED" stroke="#FFFFFF" stroke-width="4"/></svg>`,
+ 'campanha-street-desktop':`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 540" fill="none"><rect width="1280" height="540" fill="#272321"/><circle cx="940" cy="250" r="240" fill="#7C3AED"/><circle cx="1060" cy="140" r="110" fill="#6D28D9"/><path d="M840 130 L890 104 H990 L1040 130 L1110 210 L1060 250 L1026 212 V442 H854 V212 L820 250 L770 210 Z" fill="#FFFFFF" stroke="#272321" stroke-width="8" stroke-linejoin="round"/><rect x="72" y="72" width="1136" height="396" rx="28" stroke="#665F70" stroke-width="2"/></svg>`,
+ 'campanha-street-mobile':`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 880" fill="none"><rect width="720" height="880" fill="#272321"/><circle cx="360" cy="360" r="220" fill="#7C3AED"/><path d="M260 210 L310 184 H410 L460 210 L530 290 L480 330 L446 292 V540 H274 V292 L240 330 L190 290 Z" fill="#FFFFFF" stroke="#272321" stroke-width="8" stroke-linejoin="round"/></svg>`
 };
+const PHOTOS={
+ 'Camiseta Peruana':'/api/products/uploads/images/camiseta-peruana',
+ 'Camiseta Oversized Branca':'/api/products/uploads/images/camiseta-branca',
+ 'Camiseta básica':'/api/products/uploads/images/camiseta-basica',
+ 'Óculos Retrô Largo':'/api/products/uploads/images/oculos-largo',
+ 'Calça Cargo Longa':'/api/products/uploads/images/calca-cargo',
+ 'Tênis casual':'/api/products/uploads/images/tenis-casual',
+ 'Boné aba curva':'/api/products/uploads/images/bone-aba-curva',
+ 'Jaqueta Corta-Vento':'/api/products/uploads/images/jaqueta-street',
+ 'Relógio casual':'/api/products/uploads/images/relogio-casual',
+ 'Carteira':'/api/products/uploads/images/carteira-slim'
+};
+function buildInitialStorefront(state){
+ const legacyTheme={
+  template:'editorial_roxo',
+  primaryColor:'#7C3AED',
+  accentColor:'#6D28D9',
+  surfaceColor:'#F8F7FC',
+  textColor:'#272321',
+  heroTitle:'Streetwear & Essenciais Urbanos',
+  heroSubtitle:'Escolha suas peças com grade atualizada em tempo real e finalize pelo WhatsApp.',
+  heroCtaLabel:'Explorar peças',
+  announcementText:'Retirada rápida na loja física ou entrega expressa no mesmo dia',
+  banners:[{id:'bnr-legacy-1',title:'Semana Streetwear',subtitle:'Peças selecionadas com retirada rápida no balcão',imageUrl:'/api/products/uploads/images/campanha-street-desktop',ctaLabel:'Conferir destaques',linkType:'featured',active:true}],
+  sections:[
+   {id:'sec-header',type:'header',enabled:true,title:'Cabeçalho'},
+   {id:'sec-hero',type:'hero',enabled:true,title:'Capa de destaque'},
+   {id:'sec-categories',type:'categories',enabled:true,title:'Categorias'},
+   {id:'sec-featured',type:'featured',enabled:true,title:'Destaques da loja'},
+   {id:'sec-collection',type:'collection',enabled:true,title:'Catálogo completo'},
+   {id:'sec-fulfillment',type:'fulfillment_info',enabled:true,title:'Retirada e Entrega'},
+   {id:'sec-footer',type:'footer',enabled:true,title:'Rodapé e Contato'}
+  ]
+ };
+ return {
+  settings:{
+   id:'singleton',
+   publicId:'pub-loja-demo-local',
+   slug:'loja-demonstracao',
+   storeName:'Loja Demonstração Streetwear',
+   tagline:'Moda urbana, calçados e acessórios',
+   description:'Curadoria de vestuário, calçados e acessórios com estoque integrado ao PDV.',
+   logoUrl:null,
+   coverUrl:'/api/products/uploads/images/campanha-street-desktop',
+   whatsappPhone:'5511999998888',
+   whatsappMessageIntro:'Olá! Fiz um pedido pela vitrine online da *Loja Demonstração Streetwear*.',
+   pickupEnabled:true,
+   pickupInstructions:'Retire no balcão após a confirmação da separação pelo WhatsApp.',
+   deliveryEnabled:true,
+   deliveryInstructions:'Entregamos em toda a região com confirmação pelo WhatsApp.',
+   deliveryFeeNote:'Frete a combinar pelo WhatsApp',
+   confirmReservationMinutes:15,
+   confirmedHoldHours:24,
+   draftThemeJson:JSON.parse(JSON.stringify(legacyTheme)),
+   publishedThemeJson:JSON.parse(JSON.stringify(legacyTheme)),
+   publishedVersion:1,
+   isPublished:true,
+   publishedAt:stamp(),
+   publishedByUserId:'admin-demo',
+   publishedByName:'Administrador de demonstração',
+   updatedAt:stamp()
+  },
+  categories:(state.categories||[]).map((c,idx)=>({
+   id:`sc-${idx+1}`,
+   categoryId:c.id,
+   slug:sfRules.normalizeStorefrontSlug(c.name)||`cat-${idx+1}`,
+   displayName:c.name,
+   description:'',
+   visible:true,
+   featured:idx<4,
+   sortOrder:(idx+1)*10
+  })),
+  products:(state.groups||[]).map((g,idx)=>({
+   id:`sp-${idx+1}`,
+   retailGroupId:g.id,
+   publicSlug:sfRules.buildProductPublicSlug(g.name,g.id),
+   visible:true,
+   featured:idx<9,
+   sortOrder:(idx+1)*10,
+   commercialTitle:g.name,
+   commercialDescription:'Peça com acabamento revisado e grade integrada ao estoque da loja.',
+   badgeLabel:idx===0?'Destaque':null,
+   galleryUrlsJson:g.imageUrl?[g.imageUrl]:[]
+  })),
+  orders:[],
+  uploadedSvgs:{}
+ };
+}
 function initial(existingLeads=[]){
  const state={mode:'demo-local',version:1,leads:existingLeads,groups:[],products:[],categories:[],suppliers:[{id:'forn-1',name:'Têxtil Sul Confecções Ltda',tradeName:'Têxtil Sul',document:'12345678000190',phone:'11988887777',email:'comercial@textilsul.com.br',active:true}],purchaseOrders:[{id:'po-1',supplierId:'forn-1',status:'RECEIVED',totalCost:1840,notes:'Reposição quinzenal de camisetas e calçados',createdAt:stamp()}],payables:[{id:'pay-1',description:'Aluguel do Ponto Comercial',category:'Ocupação',supplierId:null,amount:2850,dueDate:new Date(Date.now()+4*86400000).toISOString(),paidAt:null,status:'PENDING',paymentMethod:'pix',isFixed:true,createdAt:stamp()},{id:'pay-2',description:'Reposição Grade Camisetas — Têxtil Sul',category:'Fornecedores',supplierId:'forn-1',amount:1840,dueDate:new Date(Date.now()-2*86400000).toISOString(),paidAt:new Date(Date.now()-2*86400000).toISOString(),status:'PAID',paymentMethod:'pix',isFixed:false,createdAt:stamp()},{id:'pay-3',description:'Energia Elétrica e Iluminação da Vitrine',category:'Utilidades',supplierId:null,amount:468.9,dueDate:new Date(Date.now()+2*86400000).toISOString(),paidAt:null,status:'PENDING',paymentMethod:'boleto',isFixed:true,createdAt:stamp()}],customers:[{id:'cliente-exemplo',name:'Cliente Exemplo',phone:'11900000000'},{id:'cliente-2',name:'Mariana Costa',phone:'11987654321'}],operators:[{id:'operador-exemplo',name:'Operador de demonstração',pin:PIN,isManager:true,jobTitle:'Gerente de Loja',active:true}],registers:[{id:'caixa-exemplo',code:1,status:'open',operatorId:'operador-exemplo',openingTime:stamp(),openingValue:250}],sales:[],returns:[],credits:[],methods:[],movements:[{id:'mov-1',cashRegisterId:'caixa-exemplo',type:'IN',value:80,reason:'Reforço de moedas e notas de troco',createdAt:stamp()}],users:[],settings:{allowNegativeStock:false,enableExpiryControl:false,expiryAlertDays:30,lowStockAlertDefault:3}};
- for(const [name,category,price,cost,sizes,colors] of [['Camiseta Peruana','Camisetas',49.9,22,['P','M','G','GG'],['Preta','Branca']],['Camiseta básica','Camisetas',39.9,16,['P','M','G','GG'],['Sortida']],['Tênis casual','Calçados',129.9,65,['36','37','38','39','40','41'],['Preto','Branco']],['Boné aba curva','Bonés',39.9,15,['Único'],['Preto','Bege']],['Relógio casual','Relógios',89.9,35,['Único'],['Prata','Dourado']],['Carteira','Acessórios',29.9,12,['Único'],['Preta','Marrom']]]){
+ const catalogSeed=[
+  ['Camiseta Oversized Branca','Camisetas',69.9,28,['P','M','G','GG'],['Branca','Off-White']],
+  ['Camiseta Peruana','Camisetas',49.9,22,['P','M','G','GG'],['Preta','Roxa']],
+  ['Óculos Retrô Largo','Óculos',119.9,45,['Único'],['Preto','Tartaruga']],
+  ['Calça Cargo Longa','Calças',159.9,72,['38','40','42','44'],['Preta','Grafite']],
+  ['Tênis casual','Calçados',129.9,65,['38','39','40','41'],['Branco','Preto']],
+  ['Boné aba curva','Bonés',39.9,15,['Único'],['Roxo','Preto']],
+  ['Jaqueta Corta-Vento','Jaquetas',189.9,84,['M','G','GG'],['Lavanda','Preta']],
+  ['Camiseta básica','Camisetas',39.9,16,['P','M','G','GG'],['Preta']],
+  ['Relógio casual','Relógios',89.9,35,['Único'],['Prata','Preto']],
+  ['Carteira','Acessórios',29.9,12,['Único'],['Preta']]
+ ];
+ for(const [name,category,price,cost,sizes,colors] of catalogSeed){
   let cat=state.categories.find(c=>c.name===category);if(!cat){cat={id:id(),name:category};state.categories.push(cat);}
   const photo=PHOTOS[name]||null;
   const group={id:id(),name,categoryId:cat.id,imageUrl:photo,priceSell:price,priceCost:cost,active:true,version:1,ncm:null,cest:null,origem:0,grupoTributacaoId:null,createdAt:stamp(),updatedAt:stamp()};state.groups.push(group);
@@ -28,11 +134,12 @@ function initial(existingLeads=[]){
  state.sales.push({id:id(),code:1,status:'completed',source:'pdv',customerId:state.customers[0].id,operatorId:'operador-exemplo',cashRegisterId:'caixa-exemplo',subtotal:99.8,discount:0,total:99.8,createdAt:stamp(),emitirNfce:false,nfceStatus:null,items:[{id:id(),productId:p.id,productName:p.name,unit:'UN',quantity:2,priceUnit:49.9,subtotal:99.8,priceCost:p.priceCost,retailReturnItems:[]}],payments:[{method:'pix',label:'Pix',value:99.8,troco:0}]});
  const g0=state.groups[0],g2=state.groups[2],g3=state.groups[3],g4=state.groups[4];
  const initSlides=[
-  g0&&{slideType:'single',productId:state.products.find(x=>x.retailGroupId===g0.id)?.id||g0.id,retailGroupId:g0.id,productName:g0.name,categoryName:'Camisetas',imageUrl:g0.imageUrl,priceSell:g0.priceSell,promoPrice:39.9,badge:'OFERTA DA SEMANA',showSizes:true,sizesAvailable:['P','M','G','GG'],colorsAvailable:['Preta','Branca'],order:0},
-  g2&&{slideType:'single',productId:state.products.find(x=>x.retailGroupId===g2.id)?.id||g2.id,retailGroupId:g2.id,productName:g2.name,categoryName:'Calçados',imageUrl:g2.imageUrl,priceSell:g2.priceSell,promoPrice:109.9,badge:'LANÇAMENTO',showSizes:true,sizesAvailable:['36','37','38','39','40','41'],colorsAvailable:['Preto','Branco'],order:1},
+  g0&&{slideType:'single',productId:state.products.find(x=>x.retailGroupId===g0.id)?.id||g0.id,retailGroupId:g0.id,productName:g0.name,categoryName:'Camisetas',imageUrl:g0.imageUrl,priceSell:g0.priceSell,promoPrice:59.9,badge:'OFERTA DA SEMANA',showSizes:true,sizesAvailable:['P','M','G','GG'],colorsAvailable:['Branca','Off-White'],order:0},
+  g2&&{slideType:'single',productId:state.products.find(x=>x.retailGroupId===g2.id)?.id||g2.id,retailGroupId:g2.id,productName:g2.name,categoryName:'Óculos',imageUrl:g2.imageUrl,priceSell:g2.priceSell,promoPrice:99.9,badge:'LANÇAMENTO',showSizes:true,sizesAvailable:['Único'],colorsAvailable:['Preto','Tartaruga'],order:1},
   (g0&&g2&&g3&&g4)&&{slideType:'grid',gridId:'grid-demo-1',order:2,gridTitle:'Destaques da Estação',gridSubtitle:'Peças selecionadas com grade imediata',gridBadge:'COLEÇÃO',gridProducts:[g0,g2,g3,g4].map(g=>({productId:state.products.find(x=>x.retailGroupId===g.id)?.id||g.id,retailGroupId:g.id,productName:g.name,imageUrl:g.imageUrl,priceSell:g.priceSell,promoPrice:null,sizesAvailable:[...new Set(state.products.filter(x=>x.retailGroupId===g.id).map(x=>x.size).filter(Boolean))]}) )}
  ].filter(Boolean);
  state.vitrineConfig={id:'singleton',active:true,theme:'dark_premium',customBgUrl:null,showLogo:true,logoPosition:'top-right',logoUrl:null,instagramHandle:'@lojademonstracao',storeTagline:'Moda, Calçados e Acessórios · Consulte tamanhos no balcão',slideDuration:8,gridSlideDuration:14,draftSlides:initSlides,publishedSlides:initSlides,publishedVersion:1,publishedAt:stamp(),tvPublicId:'DEMOLOJA'};
+ state.storefront=buildInitialStorefront(state);
  return state;
 }
 fs.mkdirSync(dir,{recursive:true});let state=fs.existsSync(file)?JSON.parse(fs.readFileSync(file,'utf8')):initial();
@@ -41,13 +148,14 @@ if(!Array.isArray(state.leads))state.leads=[];
 if(!Array.isArray(state.payables))state.payables=initial(state.leads).payables;
 if(!Array.isArray(state.suppliers))state.suppliers=initial(state.leads).suppliers;
 if(!Array.isArray(state.purchaseOrders))state.purchaseOrders=initial(state.leads).purchaseOrders;
-for(const g of state.groups||[]){if(!g.imageUrl&&PHOTOS[g.name])g.imageUrl=PHOTOS[g.name];}
-for(const p of state.products||[]){if(!p.imageUrl){const g=(state.groups||[]).find(x=>x.id===p.retailGroupId);if(g?.imageUrl)p.imageUrl=g.imageUrl;}}
+for(const g of state.groups||[]){if((!g.imageUrl||String(g.imageUrl).startsWith('data:'))&&PHOTOS[g.name])g.imageUrl=PHOTOS[g.name];}
+for(const p of state.products||[]){const g=(state.groups||[]).find(x=>x.id===p.retailGroupId);if(g?.imageUrl&&(!p.imageUrl||String(p.imageUrl).startsWith('data:')))p.imageUrl=g.imageUrl;}
 function resetDemoLocalState(){const preserved={leads:state.leads||[],tenants:state.tenants,tenantGroups:state.tenantGroups,paymentLogs:state.paymentLogs,tenantInvoices:state.tenantInvoices,webhookOutbox:state.webhookOutbox,backupSchedule:state.backupSchedule};state=Object.assign(initial(preserved.leads),preserved);save();return state;}
-if(!Array.isArray(state.tenants)||!state.tenants.length)state.tenants=[{id:tenant,name:'Loja Demonstração',nomeFantasia:'Loja Demonstração',razaoSocial:'Loja Demonstração — dados fictícios',cnpj:'00000000000191',databaseName:'lojista_demo_local',status:'active',tvPublicId:'DEMOLOJA',mensalidadeValor:149.9,mensalidadeVencimento:new Date(Date.now()+7*86400000).toISOString(),modulos:{estoque:true,nfce:false,dashboardMobile:true,vitrineDigital:true,inteligenciaComercial:true,fornecedores:true,multiEmpresa:true},users:[{id:'admin-demo',name:'Administrador de demonstração',email:EMAIL,role:'admin',active:true,createdAt:stamp()}],tenantIntegrations:[]}];
-for(const t of state.tenants){if(!t.tvPublicId)t.tvPublicId='DEMOLOJA';if(t.modulos&&typeof t.modulos==='object'){if(t.modulos.vitrineDigital===undefined)t.modulos.vitrineDigital=true;if(t.modulos.inteligenciaComercial===undefined)t.modulos.inteligenciaComercial=true;if(t.modulos.fornecedores===undefined)t.modulos.fornecedores=true;if(t.modulos.multiEmpresa===undefined)t.modulos.multiEmpresa=true;}}
+if(!Array.isArray(state.tenants)||!state.tenants.length)state.tenants=[{id:tenant,name:'Loja Demonstração',nomeFantasia:'Loja Demonstração',razaoSocial:'Loja Demonstração — dados fictícios',cnpj:'00000000000191',databaseName:'lojista_demo_local',status:'active',tvPublicId:'DEMOLOJA',mensalidadeValor:149.9,mensalidadeVencimento:new Date(Date.now()+7*86400000).toISOString(),modulos:{estoque:true,nfce:false,dashboardMobile:true,vitrineDigital:true,lojaVirtual:true,entregaLojaVirtual:true,inteligenciaComercial:true,fornecedores:true,multiEmpresa:true},users:[{id:'admin-demo',name:'Administrador de demonstração',email:EMAIL,role:'admin',active:true,createdAt:stamp()}],tenantIntegrations:[]}];
+for(const t of state.tenants){if(!t.tvPublicId)t.tvPublicId='DEMOLOJA';if(t.modulos&&typeof t.modulos==='object'){if(t.modulos.vitrineDigital===undefined)t.modulos.vitrineDigital=true;if(t.modulos.lojaVirtual===undefined)t.modulos.lojaVirtual=true;if(t.modulos.entregaLojaVirtual===undefined)t.modulos.entregaLojaVirtual=true;if(t.modulos.inteligenciaComercial===undefined)t.modulos.inteligenciaComercial=true;if(t.modulos.fornecedores===undefined)t.modulos.fornecedores=true;if(t.modulos.multiEmpresa===undefined)t.modulos.multiEmpresa=true;}}
 if(!Array.isArray(state.spHubSuppliers)||!state.spHubSuppliers.length)state.spHubSuppliers=buildDefaultSpHub();
 if(!state.vitrineConfig)state.vitrineConfig=initial(state.leads).vitrineConfig;
+if(!state.storefront||(state.groups||[]).length<8){const fresh=initial(state.leads);if((state.groups||[]).length<8){state.categories=fresh.categories;state.groups=fresh.groups;state.products=fresh.products;}state.storefront=buildInitialStorefront(state);}
 if(!Array.isArray(state.tenantGroups)||!state.tenantGroups.length)state.tenantGroups=[{id:'group-demo-local',name:'Rede Loja Demonstração',members:[{id:'gm-demo-1',tenantId:state.tenants[0].id,alias:state.tenants[0].nomeFantasia||state.tenants[0].name||'Loja Demonstração',tenant:state.tenants[0]}],users:[],createdAt:stamp()}];
 if(!Array.isArray(state.paymentLogs))state.paymentLogs=[];
 if(!Array.isArray(state.tenantInvoices))state.tenantInvoices=[{id:'inv-demo-1',externalId:`inv-${tenant}-${stamp().slice(0,7)}`,tenantId:tenant,referenceMonth:stamp().slice(0,7),dueDate:new Date(Date.now()+7*86400000).toISOString(),amount:14990,status:'pending',paidAt:null,paymentMethod:null,description:`Mensalidade ${stamp().slice(0,7)}`,notes:null,version:1,createdAt:stamp(),updatedAt:stamp()}];
@@ -224,7 +332,225 @@ async function handle(req,url,b){const p=url.pathname.replace(/^\/api/,'').repla
  if(p==='/vitrine/publish'&&method==='POST'){state.vitrineConfig.publishedSlides=[...(state.vitrineConfig.draftSlides||[])];state.vitrineConfig.publishedVersion=(state.vitrineConfig.publishedVersion||0)+1;state.vitrineConfig.publishedAt=stamp();state.vitrineConfig.active=true;save();return {ok:true,version:state.vitrineConfig.publishedVersion,publishedAt:state.vitrineConfig.publishedAt,slidesCount:state.vitrineConfig.publishedSlides.length};}
  if(p==='/vitrine/active'&&method==='PATCH'){state.vitrineConfig.active=Boolean(b.active);save();return {ok:true,active:state.vitrineConfig.active};}
  if(p.startsWith('/vitrine/public/')&&method==='GET'){const code=decodeURIComponent(p.split('/')[3]||'').toUpperCase();const tCur=state.tenants.find(t=>String(t.tvPublicId||'DEMOLOJA').toUpperCase()===code)||state.tenants[0];if(!tCur||code!=='DEMOLOJA'&&String(tCur.tvPublicId||'').toUpperCase()!==code)fail('Vitrine não encontrada.',404);const vc=state.vitrineConfig;return {active:Boolean(vc.active),version:vc.publishedVersion||1,storeName:tCur.nomeFantasia||tCur.name||'Loja Demonstração',storeTagline:vc.storeTagline,theme:vc.theme||'dark_premium',customBgUrl:vc.customBgUrl||null,showLogo:vc.showLogo!==false,logoPosition:vc.logoPosition||'top-right',logoUrl:vc.logoUrl||tCur.logoUrl||null,instagramHandle:vc.instagramHandle||null,slideDuration:vc.slideDuration||8,gridSlideDuration:vc.gridSlideDuration||14,slides:vc.publishedSlides||[]};}
+ if(p.startsWith('/storefront/')){
+  if(!state.storefront)state.storefront=buildInitialStorefront(state);
+  const sf=state.storefront;
+  const syncSfCatalog=()=>{
+   for(const c of state.categories||[]){if(!sf.categories.some(sc=>sc.categoryId===c.id))sf.categories.push({id:`sc-${sf.categories.length+1}`,categoryId:c.id,slug:sfRules.normalizeStorefrontSlug(c.name)||`cat-${sf.categories.length+1}`,displayName:c.name,description:'',visible:true,featured:false,sortOrder:(sf.categories.length+1)*10});}
+   for(const g of state.groups||[]){if(!sf.products.some(sp=>sp.retailGroupId===g.id))sf.products.push({id:`sp-${sf.products.length+1}`,retailGroupId:g.id,publicSlug:sfRules.buildProductPublicSlug(g.name,g.id),visible:true,featured:false,sortOrder:(sf.products.length+1)*10,commercialTitle:g.name,commercialDescription:'',badgeLabel:null,galleryUrlsJson:g.imageUrl?[g.imageUrl]:[]});}
+  };
+  syncSfCatalog();
+  const formatSfSettings=()=>{
+   const s=sf.settings;
+   const draftTheme=sfRules.validateAndSanitizeTheme(s.draftThemeJson,s.storeName);
+   const publishedTheme=sfRules.validateAndSanitizeTheme(s.publishedThemeJson,s.storeName);
+   const pubVer=Number(s.publishedVersion||0);
+   const isPub=Boolean(s.isPublished);
+   const diff=sfRules.summarizeThemeChanges(draftTheme,pubVer>0?publishedTheme:null,isPub);
+   return {
+    publicId:s.publicId,slug:s.slug,publicPath:`/loja/${s.slug}`,storeName:s.storeName,tagline:s.tagline||'',description:s.description||'',logoUrl:s.logoUrl||null,coverUrl:s.coverUrl||null,whatsappPhone:s.whatsappPhone||'',whatsappMessageIntro:s.whatsappMessageIntro||'',pickupEnabled:Boolean(s.pickupEnabled),pickupInstructions:s.pickupInstructions||'',deliveryEnabled:Boolean(s.deliveryEnabled),deliveryInstructions:s.deliveryInstructions||'',deliveryNotes:s.deliveryInstructions||'',deliveryFeeNote:s.deliveryFeeNote||'',deliveryFeeDefault:0,expressDeliveryModuleEnabled:true,expressDelivery:{enabled:false,effectivelyActive:false,baseFee:8.9,baseIncludedKm:2,feePerAdditionalKm:2.5,maxRadiusKm:15,motoEnabled:true,carEnabled:true,carSurcharge:6,minOrderAmount:0,freeShippingAbove:200,estimatedPrepMinutes:15,neighborhoodOverrides:[],apiIntegration:{mode:'MANUAL_APP_99',environment:'sandbox',autoRequestOnConfirm:false,hasCorporateToken:false,corporateTokenMasked:null}},confirmReservationMinutes:Number(s.confirmReservationMinutes||15),reservationTtlMinutes:Number(s.confirmReservationMinutes||15),confirmedHoldHours:Number(s.confirmedHoldHours||24),draftTheme,publishedTheme,publishedVersion:pubVer,isPublished:isPub,status:isPub?'PUBLISHED':pubVer>0?'PAUSED':'DRAFT',hasUnpublishedChanges:diff.hasChanges,pendingChanges:diff.items,effectivelyOnline:isPub,publishedAt:s.publishedAt||null,publishedByUserId:s.publishedByUserId||'admin-demo',publishedByName:s.publishedByName||'Administrador de demonstração',publishedByImageUrl:null,updatedAt:s.updatedAt||stamp()
+   };
+  };
+  const buildAdminProductDto=(sp)=>{
+   const rg=(state.groups||[]).find(g=>g.id===sp.retailGroupId);if(!rg||!rg.active)return null;
+   const cat=(state.categories||[]).find(c=>c.id===rg.categoryId);
+   const vars=(state.products||[]).filter(pr=>pr.retailGroupId===rg.id&&pr.active!==false);
+   const totalStock=vars.reduce((n,v)=>n+Math.max(0,Math.floor(Number(v.stock||0))),0);
+   const gallery=Array.isArray(sp.galleryUrlsJson)?sp.galleryUrlsJson:[];
+   return {
+    retailGroupId:rg.id,storefrontProductId:sp.id,publicSlug:sp.publicSlug,name:rg.name,commercialTitle:sp.commercialTitle||rg.name,commercialDescription:sp.commercialDescription||'',badgeLabel:sp.badgeLabel||'',visible:Boolean(sp.visible),featured:Boolean(sp.featured),sortOrder:Number(sp.sortOrder||0),categoryId:rg.categoryId,categoryName:cat?.name||'Geral',priceSell:Number(rg.priceSell||0),imageUrl:rg.imageUrl||gallery[0]||null,galleryUrls:gallery,physicalStock:totalStock,reservedStock:0,availableStock:totalStock,variantsCount:vars.length,sizes:[...new Set(vars.map(v=>v.size).filter(Boolean))],colors:[...new Set(vars.map(v=>v.color).filter(Boolean))],variants:vars.map(v=>({id:v.id,size:v.size||null,color:v.color||null,barcode:v.barcode||null,physicalStock:Math.max(0,Math.floor(Number(v.stock||0))),reservedStock:0,availableStock:Math.max(0,Math.floor(Number(v.stock||0))),priceSell:Number(rg.priceSell||v.priceSell||0)}))
+   };
+  };
+  const buildPublicProductsList=()=>{
+   return (sf.products||[]).filter(sp=>sp.visible).sort((a,b)=>(a.sortOrder||0)-(b.sortOrder||0)).map(sp=>{
+    const rg=(state.groups||[]).find(g=>g.id===sp.retailGroupId);if(!rg||!rg.active)return null;
+    const cat=(state.categories||[]).find(c=>c.id===rg.categoryId);
+    const vars=(state.products||[]).filter(pr=>pr.retailGroupId===rg.id&&pr.active!==false);
+    return sfRules.toPublicProductDto({...sp,retailGroup:{...rg,category:cat,variants:vars}},new Map());
+   }).filter(Boolean);
+  };
+  if(p==='/storefront/admin/pos-alerts'&&method==='GET')return {enabled:true,pendingDeliveryCount:0,activeExpressCount:0,alerts:[]};
+  if(p==='/storefront/admin/overview'&&method==='GET'){
+   const cfg=formatSfSettings();
+   const adminProds=sf.products.map(buildAdminProductDto).filter(Boolean);
+   const visCount=adminProds.filter(x=>x.visible).length;
+   const featCount=adminProds.filter(x=>x.visible&&x.featured).length;
+   const stats={totalRetailGroups:adminProds.length,totalProductsCount:adminProds.length,publishedProductsCount:visCount,visibleProductsCount:visCount,unpublishedProductsCount:Math.max(0,adminProds.length-visCount),featuredProductsCount:featCount,visibleCategoriesCount:sf.categories.filter(c=>c.visible).length,awaitingOrdersCount:0,awaitingConfirmationCount:0,confirmedOrdersCount:0,completedOrdersCount:0,convertedOrdersCount:0,convertedRevenue:0,conflictOrdersCount:0,activeReservationsCount:0,activeReservedUnits:0};
+   return {moduleEnabled:true,schemaCompatible:true,missingTables:[],publicPath:`/loja/${sf.settings.slug}`,settings:cfg,config:cfg,stats,metrics:stats,readinessChecklist:[{key:'whatsapp',label:'WhatsApp comercial configurado',done:Boolean(sf.settings.whatsappPhone)},{key:'fulfillment',label:'Modalidade de entrega ou retirada ativa',done:Boolean(sf.settings.pickupEnabled||sf.settings.deliveryEnabled)},{key:'products',label:'Pelo menos 1 produto visível na vitrine',done:visCount>0},{key:'branding',label:'Identidade visual configurada (nome e tema)',done:true}]};
+  }
+  if(p==='/storefront/admin/settings'&&method==='GET')return formatSfSettings();
+  if(p==='/storefront/admin/settings'&&method==='PUT'){
+   const s=sf.settings;
+   if(b.slug!==undefined&&String(b.slug).trim())s.slug=sfRules.assertValidStorefrontSlug(b.slug);
+   if(b.storeName!==undefined&&String(b.storeName).trim())s.storeName=sfRules.sanitizePlainText(b.storeName,140,'Nome da loja');
+   if(b.tagline!==undefined)s.tagline=sfRules.sanitizePlainText(b.tagline,240);
+   if(b.description!==undefined)s.description=sfRules.sanitizePlainText(b.description,2000);
+   if(b.logoUrl!==undefined)s.logoUrl=sfRules.sanitizeSafeImageUrl(b.logoUrl);
+   if(b.coverUrl!==undefined)s.coverUrl=sfRules.sanitizeSafeImageUrl(b.coverUrl);
+   if(b.whatsappPhone!==undefined)s.whatsappPhone=String(b.whatsappPhone||'').trim()?sfRules.normalizeWhatsappPhone(b.whatsappPhone):null;
+   if(b.whatsappMessageIntro!==undefined)s.whatsappMessageIntro=sfRules.sanitizePlainText(b.whatsappMessageIntro,300);
+   if(b.pickupEnabled!==undefined)s.pickupEnabled=Boolean(b.pickupEnabled);
+   if(b.pickupInstructions!==undefined)s.pickupInstructions=sfRules.sanitizePlainText(b.pickupInstructions,600);
+   if(b.deliveryEnabled!==undefined)s.deliveryEnabled=Boolean(b.deliveryEnabled);
+   const delivInstr=b.deliveryInstructions!==undefined?b.deliveryInstructions:b.deliveryNotes;
+   if(delivInstr!==undefined)s.deliveryInstructions=sfRules.sanitizePlainText(delivInstr,600);
+   if(b.deliveryFeeNote!==undefined)s.deliveryFeeNote=sfRules.sanitizePlainText(b.deliveryFeeNote,240);
+   if(b.confirmReservationMinutes!==undefined)s.confirmReservationMinutes=Number(b.confirmReservationMinutes)||15;
+   else if(b.reservationTtlMinutes!==undefined)s.confirmReservationMinutes=Number(b.reservationTtlMinutes)||15;
+   if(b.confirmedHoldHours!==undefined)s.confirmedHoldHours=Number(b.confirmedHoldHours)||24;
+   if(!s.pickupEnabled&&!s.deliveryEnabled)fail('Habilite pelo menos Retirada ou Entrega.');
+   s.updatedAt=stamp();save();return formatSfSettings();
+  }
+  if(p==='/storefront/admin/appearance/draft'&&method==='PUT'){
+   const s=sf.settings;
+   const rawCandidate=b?.theme??b?.draftTheme??(b&&(b.template||b.sections||b.primaryColor)?b:s.draftThemeJson);
+   if(b?.storeName!==undefined&&String(b.storeName).trim())s.storeName=sfRules.sanitizePlainText(b.storeName,140);
+   if(b?.logoUrl!==undefined)s.logoUrl=sfRules.sanitizeSafeImageUrl(b.logoUrl);
+   if(b?.coverUrl!==undefined)s.coverUrl=sfRules.sanitizeSafeImageUrl(b.coverUrl);
+   s.draftThemeJson=sfRules.validateAndSanitizeTheme(rawCandidate,s.storeName);
+   s.updatedAt=stamp();save();return formatSfSettings();
+  }
+  if(p==='/storefront/admin/appearance/publish'&&method==='POST'){
+   const s=sf.settings;
+   if(b?.settings&&typeof b.settings==='object'){
+    if(b.settings.storeName)s.storeName=sfRules.sanitizePlainText(b.settings.storeName,140);
+    if(b.settings.slug)s.slug=sfRules.assertValidStorefrontSlug(b.settings.slug);
+    if(b.settings.whatsappPhone!==undefined)s.whatsappPhone=String(b.settings.whatsappPhone||'').trim()?sfRules.normalizeWhatsappPhone(b.settings.whatsappPhone):null;
+   }
+   if(b?.draftTheme&&typeof b.draftTheme==='object')s.draftThemeJson=sfRules.validateAndSanitizeTheme(b.draftTheme,s.storeName);
+   if(!s.whatsappPhone)fail('Configure o número de WhatsApp comercial antes de publicar.');
+   const validated=sfRules.validateAndSanitizeTheme(s.draftThemeJson,s.storeName);
+   s.draftThemeJson=validated;s.publishedThemeJson=JSON.parse(JSON.stringify(validated));
+   s.publishedVersion=Number(s.publishedVersion||0)+1;s.isPublished=true;s.publishedAt=stamp();s.updatedAt=stamp();
+   save();return formatSfSettings();
+  }
+  if(p==='/storefront/admin/appearance/unpublish'&&method==='POST'){sf.settings.isPublished=false;sf.settings.updatedAt=stamp();save();return formatSfSettings();}
+  if(p==='/storefront/admin/appearance/reactivate'&&method==='POST'){if(Number(sf.settings.publishedVersion||0)<=0)fail('Publique a vitrine pela primeira vez antes de reativá-la.');sf.settings.isPublished=true;sf.settings.updatedAt=stamp();save();return formatSfSettings();}
+  if(p==='/storefront/admin/categories'&&method==='GET'){
+   return sf.categories.sort((a,b)=>(a.sortOrder||0)-(b.sortOrder||0)).map(sc=>{const cat=state.categories.find(c=>c.id===sc.categoryId)||{};const cnt=(state.groups||[]).filter(g=>g.categoryId===sc.categoryId&&g.active).length;return {...sc,name:cat.name||sc.displayName||'Categoria',categoryName:cat.name||'Categoria',productsCount:cnt,activeGroupsCount:cnt};});
+  }
+  if(p==='/storefront/admin/categories'&&method==='PUT'){
+   const list=Array.isArray(b?.categories)?b.categories:(Array.isArray(b)?b:[]);
+   list.forEach((item,idx)=>{const sc=sf.categories.find(x=>x.categoryId===item.categoryId||x.id===item.id);if(sc){if(item.displayName!==undefined)sc.displayName=sfRules.sanitizePlainText(item.displayName,120);if(item.description!==undefined)sc.description=sfRules.sanitizePlainText(item.description,300);if(item.visible!==undefined)sc.visible=Boolean(item.visible);if(item.featured!==undefined)sc.featured=Boolean(item.featured);sc.sortOrder=item.sortOrder!==undefined?Number(item.sortOrder):(idx+1)*10;}});
+   save();return sf.categories.sort((a,b)=>(a.sortOrder||0)-(b.sortOrder||0)).map(sc=>{const cat=state.categories.find(c=>c.id===sc.categoryId)||{};const cnt=(state.groups||[]).filter(g=>g.categoryId===sc.categoryId&&g.active).length;return {...sc,name:cat.name||sc.displayName||'Categoria',categoryName:cat.name||'Categoria',productsCount:cnt,activeGroupsCount:cnt};});
+  }
+  if(p==='/storefront/admin/categories'&&method==='POST'){
+   const nm=rules.retailLabel(b.name,'Categoria',120);const cat={id:id(),name:nm,active:true};state.categories.push(cat);
+   const sc={id:`sc-${sf.categories.length+1}`,categoryId:cat.id,slug:sfRules.normalizeStorefrontSlug(nm),displayName:b.displayName||nm,description:b.description||'',visible:b.visible!==false,featured:Boolean(b.featured),sortOrder:(sf.categories.length+1)*10};sf.categories.push(sc);save();return {...sc,name:nm,categoryName:nm,productsCount:0,activeGroupsCount:0};
+  }
+  if(p==='/storefront/admin/products'&&method==='GET'){
+   let rows=sf.products.map(buildAdminProductDto).filter(Boolean);
+   const term=(url.searchParams.get('search')||'').trim().toLowerCase();
+   const catId=url.searchParams.get('categoryId')||'';
+   const vis=url.searchParams.get('visibility')||'all';
+   const feat=url.searchParams.get('featured');
+   if(term)rows=rows.filter(r=>`${r.name} ${r.commercialTitle} ${r.categoryName}`.toLowerCase().includes(term));
+   if(catId)rows=rows.filter(r=>r.categoryId===catId);
+   if(vis==='visible')rows=rows.filter(r=>r.visible);
+   if(vis==='hidden')rows=rows.filter(r=>!r.visible);
+   if(feat==='true')rows=rows.filter(r=>r.featured);
+   rows.sort((a,b)=>(a.sortOrder||0)-(b.sortOrder||0));
+   return rows;
+  }
+  if(p==='/storefront/admin/products/batch'&&method==='POST'){
+   const ids=Array.isArray(b.retailGroupIds)?b.retailGroupIds:[];let updatedCount=0;
+   for(const sp of sf.products){if(ids.includes(sp.retailGroupId)){if(b.visible!==undefined)sp.visible=Boolean(b.visible);if(b.featured!==undefined)sp.featured=Boolean(b.featured);updatedCount++;}}
+   save();return {updatedCount};
+  }
+  if(p.startsWith('/storefront/admin/products/')&&method==='PUT'){
+   const rgId=p.split('/')[4];const sp=sf.products.find(x=>x.retailGroupId===rgId);if(!sp)fail('Produto não encontrado.',404);
+   if(b.visible!==undefined)sp.visible=Boolean(b.visible);
+   if(b.featured!==undefined)sp.featured=Boolean(b.featured);
+   if(b.sortOrder!==undefined)sp.sortOrder=Number(b.sortOrder)||0;
+   if(b.commercialTitle!==undefined)sp.commercialTitle=sfRules.sanitizePlainText(b.commercialTitle,160);
+   if(b.commercialDescription!==undefined)sp.commercialDescription=sfRules.sanitizePlainText(b.commercialDescription,2000);
+   if(b.badgeLabel!==undefined)sp.badgeLabel=sfRules.sanitizePlainText(b.badgeLabel,60)||null;
+   if(Array.isArray(b.galleryUrls))sp.galleryUrlsJson=b.galleryUrls.map(u=>sfRules.sanitizeSafeImageUrl(u)).filter(Boolean);
+   save();return buildAdminProductDto(sp);
+  }
+  if(p==='/storefront/admin/orders'&&method==='GET')return {data:sf.orders||[],meta:{total:(sf.orders||[]).length,page:1,limit:30,lastPage:1}};
+  if(p==='/storefront/admin/delivery-settings'&&method==='PUT')return formatSfSettings();
+  if(p==='/storefront/admin/delivery/simulate'&&method==='POST')return {available:true,provider:'99_ENTREGAS',vehicleType:'MOTO',label:'99Entrega Moto',fee:9.9,distanceKm:3.2,estimatedMinutes:22,freeShippingApplied:false};
+  if(p.startsWith('/storefront/public/')){
+   const parts=p.split('/'),pubSlug=decodeURIComponent(parts[3]||''),sub=parts[4],sub2=parts[5];
+   if(sfRules.normalizeStorefrontSlug(pubSlug)!==sf.settings.slug)fail('Loja virtual não encontrada.',404);
+   if(!sf.settings.isPublished&&sub!=='orders')fail('Esta vitrine está temporariamente indisponível.',404);
+   const pubTheme=sfRules.validateAndSanitizeTheme(sf.settings.publishedThemeJson,sf.settings.storeName);
+   const allPubProds=buildPublicProductsList();
+   const byGrp=new Map(allPubProds.map(pr=>[pr.retailGroupId,pr]));
+   const resolvedCols=(pubTheme.collections||[]).filter(c=>c.enabled!==false).map(col=>{
+    const prods=(col.productIds||[]).map(pid=>byGrp.get(pid)).filter(Boolean);
+    return {id:col.id,slug:col.slug,kind:col.kind,title:col.title,subtitle:col.subtitle||null,description:col.description||null,coverUrl:col.coverUrl||null,focalX:col.focalX??50,focalY:col.focalY??50,productIds:col.productIds||[],totalConfiguredCount:(col.productIds||[]).length,availableCount:prods.filter(x=>x.inStock).length,products:prods};
+   });
+   if(!sub&&method==='GET'){
+    const pubCats=sf.categories.filter(c=>c.visible).sort((a,b)=>(a.sortOrder||0)-(b.sortOrder||0)).map(sc=>sfRules.toPublicCategoryDto({...sc,category:state.categories.find(c=>c.id===sc.categoryId)}));
+    const prices=allPubProds.map(x=>x.priceSell).filter(n=>n>0);
+    return {publicId:sf.settings.publicId,slug:sf.settings.slug,storeName:sf.settings.storeName,tagline:sf.settings.tagline||null,description:sf.settings.description||null,logoUrl:sf.settings.logoUrl||null,coverUrl:sf.settings.coverUrl||null,publishedVersion:Number(sf.settings.publishedVersion||1),pickupEnabled:Boolean(sf.settings.pickupEnabled),pickupInstructions:sf.settings.pickupInstructions||null,deliveryEnabled:Boolean(sf.settings.deliveryEnabled),deliveryInstructions:sf.settings.deliveryInstructions||null,deliveryFeeNote:sf.settings.deliveryFeeNote||null,confirmReservationMinutes:Number(sf.settings.confirmReservationMinutes||15),whatsappConfigured:Boolean(sf.settings.whatsappPhone),expressDelivery:{enabled:false},theme:pubTheme,categories:pubCats,collections:resolvedCols,featuredProducts:allPubProds.filter(x=>x.featured).slice(0,48),initialProducts:allPubProds,facets:{sizes:[...new Set(allPubProds.flatMap(x=>x.sizes))].sort(),colors:[...new Set(allPubProds.flatMap(x=>x.colors))].sort(),minPrice:prices.length?Math.min(...prices):0,maxPrice:prices.length?Math.max(...prices):0,totalPublishedProducts:allPubProds.length}};
+   }
+   if(sub==='collections'&&sub2&&method==='GET'){
+    const colSlug=sfRules.normalizeStorefrontSlug(decodeURIComponent(sub2));
+    const found=resolvedCols.find(c=>c.slug===colSlug||c.id===decodeURIComponent(sub2));
+    if(!found)fail('Coleção não encontrada.',404);
+    return {collection:found,products:found.products};
+   }
+   if(sub==='products'&&!sub2&&method==='GET'){
+    let items=[...allPubProds];
+    const catSlug=url.searchParams.get('categorySlug')||'';const catId=url.searchParams.get('categoryId')||'';
+    const colSlug=url.searchParams.get('collectionSlug')||'';const selId=url.searchParams.get('selectionId')||'';
+    let manualMap=null;
+    if(catSlug){const sc=sf.categories.find(c=>c.slug===sfRules.normalizeStorefrontSlug(catSlug));if(sc)items=items.filter(x=>x.categoryId===sc.categoryId);}
+    else if(catId)items=items.filter(x=>x.categoryId===catId);
+    if(colSlug){const col=resolvedCols.find(c=>c.slug===sfRules.normalizeStorefrontSlug(colSlug)||c.id===colSlug);manualMap=new Map((col?.productIds||[]).map((pid,i)=>[pid,i]));items=items.filter(x=>manualMap.has(x.retailGroupId));}
+    else if(selId){const sec=(pubTheme.sections||[]).find(s=>s.id===selId&&s.enabled!==false);if(sec){if(sec.sourceType==='collection'&&sec.collectionId){const col=resolvedCols.find(c=>c.id===sec.collectionId);manualMap=new Map((col?.productIds||[]).map((pid,i)=>[pid,i]));items=items.filter(x=>manualMap.has(x.retailGroupId));}else if(sec.sourceType==='featured'||(sec.type==='featured'&&!sec.sourceType)){items=items.filter(x=>x.featured);}else{manualMap=new Map((sec.productIds||[]).map((pid,i)=>[pid,i]));items=items.filter(x=>manualMap.has(x.retailGroupId));}}}
+    const q=(url.searchParams.get('search')||'').trim().toLowerCase();
+    if(q)items=items.filter(x=>`${x.title} ${x.description||''} ${x.categoryName||''}`.toLowerCase().includes(q));
+    if(url.searchParams.get('featured')==='true')items=items.filter(x=>x.featured);
+    if(url.searchParams.get('inStockOnly')==='true')items=items.filter(x=>x.inStock);
+    const sort=(url.searchParams.get('sort')||(manualMap?'manual':'featured')).toLowerCase();
+    items.sort((a,b)=>{if(sort==='price_asc')return a.priceSell-b.priceSell;if(sort==='price_desc')return b.priceSell-a.priceSell;if(sort==='name_asc')return a.title.localeCompare(b.title);if(manualMap&&sort==='manual')return (manualMap.get(a.retailGroupId)??999)-(manualMap.get(b.retailGroupId)??999);if(a.featured!==b.featured)return a.featured?-1:1;return (a.sortOrder||0)-(b.sortOrder||0);});
+    return listPage(items,url);
+   }
+   if(sub==='products'&&sub2&&method==='GET'){
+    const prod=allPubProds.find(x=>x.slug===sfRules.normalizeStorefrontSlug(decodeURIComponent(sub2)));
+    if(!prod)fail('Mercadoria não encontrada.',404);
+    return {product:prod,relatedProducts:allPubProds.filter(x=>x.categoryId===prod.categoryId&&x.id!==prod.id).slice(0,4)};
+   }
+   if(sub==='cart'&&sub2==='validate'&&method==='POST'){
+    const rawItems=Array.isArray(b.items)?b.items:[];
+    const validated=rawItems.map(it=>{
+     const pr=state.products.find(x=>x.id===it.productId&&x.active!==false);
+     const rg=pr?state.groups.find(g=>g.id===pr.retailGroupId):null;
+     const sp=rg?sf.products.find(s=>s.retailGroupId===rg.id&&s.visible):null;
+     const avail=pr&&sp?Math.max(0,Math.floor(Number(pr.stock||0))):0;
+     const reqQty=Math.max(1,Math.floor(Number(it.quantity||1)));
+     const price=Number(rg?.priceSell||pr?.priceSell||0);
+     return {productId:it.productId,valid:Boolean(pr&&sp&&avail>=reqQty),availableStock:avail,requestedQuantity:reqQty,acceptedQuantity:Math.min(avail,reqQty),currentPriceUnit:price,productName:sp?.commercialTitle||rg?.name||pr?.name||'Item',size:pr?.size||null,color:pr?.color||null,imageUrl:rg?.imageUrl||pr?.imageUrl||null};
+    });
+    return {valid:validated.every(v=>v.valid),hasStockShortage:validated.some(v=>v.availableStock<v.requestedQuantity),items:validated,subtotal:money(validated.reduce((n,v)=>n+v.acceptedQuantity*v.currentPriceUnit,0))};
+   }
+  }
+ }
  fail('Este recurso precisa do backend MySQL. A demonstração local cobre catálogo, grade, venda, troca e crédito.',503);
 }
-const server=http.createServer(async(req,res)=>{try{const url=new URL(req.url,'http://127.0.0.1');let text='';for await(const chunk of req){text+=chunk;if(text.length>2*1024*1024)fail('Requisição muito grande.',413);}let body={};if(text){try{body=JSON.parse(text);}catch{fail('Esta demonstração aceita cadastro em JSON; upload de foto requer a API real.');}}const result=await handle(req,url,body);res.writeHead(200,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(result));}catch(error){res.writeHead(error.status||error.getStatus?.()||500,{'Content-Type':'application/json; charset=utf-8'});res.end(JSON.stringify({message:error.message,mode:'demo-local'}));}});
-server.listen(3530,'127.0.0.1',()=>console.log('Demonstração local: http://127.0.0.1:3530/api — somente dados fictícios.'));
+const server=http.createServer(async(req,res)=>{try{
+ const url=new URL(req.url,'http://127.0.0.1');
+ if(req.method==='GET'&&url.pathname.startsWith('/api/products/uploads/images/')){
+  const imgKey=decodeURIComponent(url.pathname.split('/').pop()||'');
+  const svg=DEMO_SVGS[imgKey]||state.storefront?.uploadedSvgs?.[imgKey]||DEMO_SVGS['camiseta-peruana'];
+  res.writeHead(200,{'Content-Type':'image/svg+xml; charset=utf-8','Cache-Control':'public, max-age=3600'});
+  res.end(svg);
+  return;
+ }
+ if(req.method==='POST'&&(url.pathname==='/api/products/upload-image'||url.pathname==='/api/storefront/admin/media/upload')){
+  for await(const _chunk of req){}
+  const upKey=`upload-${Date.now()}`;
+  if(!state.storefront)state.storefront=buildInitialStorefront(state);
+  if(!state.storefront.uploadedSvgs)state.storefront.uploadedSvgs={};
+  state.storefront.uploadedSvgs[upKey]=DEMO_SVGS['campanha-street-desktop'];
+  save();
+  res.writeHead(200,{'Content-Type':'application/json; charset=utf-8'});
+  res.end(JSON.stringify({imageUrl:`/api/products/uploads/images/${upKey}`,width:1280,height:540,bytes:2048}));
+  return;
+ }
+ let text='';for await(const chunk of req){text+=chunk;if(text.length>2*1024*1024)fail('Requisição muito grande.',413);}let body={};if(text){try{body=JSON.parse(text);}catch{fail('Esta demonstração aceita cadastro em JSON; upload de foto requer a API real.');}}const result=await handle(req,url,body);res.writeHead(200,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(result));}catch(error){res.writeHead(error.status||error.getStatus?.()||500,{'Content-Type':'application/json; charset=utf-8'});res.end(JSON.stringify({message:error.message,mode:'demo-local'}));}});
+server.listen(3530,()=>console.log('Demonstração local: http://localhost:3530/api — somente dados fictícios.'));

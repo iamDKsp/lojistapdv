@@ -27,6 +27,7 @@ import {
   normalizeWhatsappPhone,
   sanitizePlainText,
   sanitizeSafeImageUrl,
+  summarizeThemeChanges,
   validateAndSanitizeTheme,
 } from './storefront.rules';
 
@@ -473,6 +474,12 @@ export class StorefrontAdminService {
     delete (publishedTheme as any).expressDelivery;
 
     const isPublished = Boolean(settings.isPublished);
+    const pubVer = Number(settings.publishedVersion ?? 0);
+    const changeSummary = summarizeThemeChanges(
+      draftTheme,
+      pubVer > 0 ? publishedTheme : null,
+      isPublished,
+    );
     const confirmMins = Number(settings.confirmReservationMinutes ?? 15);
     return {
       publicId: settings.publicId,
@@ -501,9 +508,11 @@ export class StorefrontAdminService {
       confirmedHoldHours: Number(settings.confirmedHoldHours ?? 24),
       draftTheme,
       publishedTheme,
-      publishedVersion: Number(settings.publishedVersion ?? 0),
+      publishedVersion: pubVer,
       isPublished,
-      status: isPublished ? 'PUBLISHED' : 'DRAFT',
+      status: isPublished ? 'PUBLISHED' : pubVer > 0 ? 'PAUSED' : 'DRAFT',
+      hasUnpublishedChanges: changeSummary.hasChanges,
+      pendingChanges: changeSummary.items,
       effectivelyOnline: Boolean(isPublished && moduleEnabled),
       publishedAt: settings.publishedAt || null,
       publishedByUserId: settings.publishedByUserId || null,
@@ -976,6 +985,46 @@ export class StorefrontAdminService {
       where: { id: 'singleton' },
       data: {
         isPublished: false,
+      },
+    });
+
+    await this.syncRegistryToHeart(updated, tenant, ctx.tenantId);
+    return this.formatSettingsWithActor(updated, true, tenant, ctx.tenantId, db);
+  }
+
+  async reactivateStorefront() {
+    const { ctx, db, tenant } = await this.assertModuleAndSchemaReady(true);
+    const current = await this.ensureSettingsInitialized(
+      db,
+      tenant,
+      ctx.tenantId,
+    );
+
+    if (Number(current.publishedVersion ?? 0) <= 0) {
+      throw new BadRequestException(
+        'Publique a vitrine pela primeira vez antes de reativá-la.',
+      );
+    }
+
+    if (!current.pickupEnabled && !current.deliveryEnabled) {
+      throw new BadRequestException(
+        'Habilite pelo menos uma modalidade (Retirada ou Entrega) antes de reativar.',
+      );
+    }
+
+    if (
+      !current.whatsappPhone ||
+      String(current.whatsappPhone).replace(/\D/g, '').length < 10
+    ) {
+      throw new BadRequestException(
+        'Configure o número de WhatsApp comercial na aba Configurações antes de reativar.',
+      );
+    }
+
+    const updated = await db.storefrontSettings.update({
+      where: { id: 'singleton' },
+      data: {
+        isPublished: true,
       },
     });
 

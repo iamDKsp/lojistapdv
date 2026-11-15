@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   AlertCircle,
@@ -12,30 +12,20 @@ import {
   ExternalLink,
   Eye,
   EyeOff,
-  FolderKanban,
-  Globe,
   Image as ImageIcon,
   Layers,
-  LayoutTemplate,
   Loader2,
-  MapPin,
   MessageCircle,
-  Monitor,
   Package,
   Palette,
-  Phone,
   Plus,
   RefreshCw,
   Save,
   Search,
   Send,
-  Settings,
   ShoppingBag,
-  Smartphone,
+  Sparkles,
   Star,
-  Store,
-  Tag,
-  Trash2,
   Truck,
   Upload,
   X,
@@ -46,22 +36,24 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { api } from '@/lib/api';
 import { getFullUrl } from '@/lib/getFullUrl';
 import PdvLojistaLoader from '@/components/PdvLojistaLoader';
-import {
-  CategoryIconBadge,
-  CategoryIconIllustration,
-} from '@/components/CategoryIcons';
+import { CategoryIconBadge } from '@/components/CategoryIcons';
 import { RetailSelect } from '@/components/ui/Select';
 import { RetailSwitch } from '@/components/ui/Switch';
-import { StorefrontHomeView } from '@/storefront/PublicStorefrontApp';
-import {
-  SF_SPRING_PILL,
-  SF_VIEW_TRANSITION,
-} from '@/storefront/storefront-motion';
+import { SF_VIEW_TRANSITION } from '@/storefront/storefront-motion';
+import { StorefrontProductFrame } from '@/storefront/components/StorefrontProductFrame';
 import { RetailDialog } from './RetailDialog';
 import {
   StorefrontExpressDeliveryTab,
   StorefrontOrderExpressDispatchCard,
 } from './StorefrontExpressDeliveryTab';
+import {
+  StorefrontCollectionsManager,
+  StorefrontVisualStudio,
+  computePrePublishChanges,
+  computeThemeWarnings,
+  normalizeDraftTheme,
+  syncThemeBanners,
+} from './StorefrontVisualStudio';
 import { apiError, money } from './types';
 import { OperatorInlineBadge, StockItemThumb } from '@/components/EntityPhotos';
 import { useShift } from '@/contexts/ShiftContext';
@@ -100,33 +92,6 @@ const RESERVATION_STATUS_LABELS: Record<string, string> = {
   EXPIRED: 'Expirada',
 };
 
-const TEMPLATE_OPTIONS = [
-  {
-    id: 'editorial_roxo',
-    name: 'Editorial Roxo',
-    desc: 'Vitrine boutique com destaque de marca, cartões suaves e leitura acolhedora.',
-    bgPreview: '#F8F7FC',
-    cardPreview: '#FFFFFF',
-    textPreview: '#272321',
-  },
-  {
-    id: 'minimal_branco',
-    name: 'Minimalista Branco',
-    desc: 'Foco absoluto nas fotos das peças com fundo branco puro e linhas retas.',
-    bgPreview: '#FFFFFF',
-    cardPreview: '#F8F7FC',
-    textPreview: '#272321',
-  },
-  {
-    id: 'vitrine_escura',
-    name: 'Vitrine Escura',
-    desc: 'Contraste intenso com fundo grafite escuro e detalhes em roxo e lavanda.',
-    bgPreview: '#272321',
-    cardPreview: '#272321',
-    textPreview: '#FFFFFF',
-  },
-];
-
 const BADGE_PRESETS = [
   'Lançamento',
   'Mais Vendido',
@@ -151,57 +116,6 @@ const CANCEL_REASON_PRESETS = [
   'Peça com divergência física na separação',
   'Pedido duplicado pelo cliente',
 ];
-
-const DEFAULT_STOREFRONT_SECTIONS = [
-  { id: 'sec-header', type: 'header', enabled: true, title: 'Cabeçalho da Loja' },
-  { id: 'sec-hero', type: 'hero', enabled: true, title: 'Banner Principal (Hero)' },
-  { id: 'sec-categories', type: 'categories', enabled: true, title: 'Navegação por Categorias' },
-  { id: 'sec-featured', type: 'featured', enabled: true, title: 'Destaques da Semana' },
-  { id: 'sec-collection', type: 'collection', enabled: true, title: 'Catálogo Completo' },
-  { id: 'sec-fulfillment', type: 'fulfillment_info', enabled: true, title: 'Retirada & Entrega' },
-  { id: 'sec-footer', type: 'footer', enabled: true, title: 'Rodapé Institucional' },
-];
-
-function normalizeDraftTheme(raw: any) {
-  const src = raw && typeof raw === 'object' ? raw : {};
-  const rawSections = Array.isArray(src.sections) && src.sections.length > 0
-    ? src.sections
-    : DEFAULT_STOREFRONT_SECTIONS;
-  const seenTypes = new Set<string>();
-  const mergedSections: any[] = [];
-  for (const s of rawSections) {
-    const typeKey = String(s?.type || s?.id || '');
-    if (!typeKey || seenTypes.has(typeKey)) continue;
-    seenTypes.add(typeKey);
-    const fallbackDef = DEFAULT_STOREFRONT_SECTIONS.find(
-      (d) => d.type === typeKey || d.id === typeKey,
-    );
-    mergedSections.push({
-      id: String(s?.id || fallbackDef?.id || `sec-${typeKey}`),
-      type: fallbackDef?.type || typeKey,
-      enabled: s?.enabled !== false,
-      title: s?.title || fallbackDef?.title || typeKey,
-    });
-  }
-  for (const def of DEFAULT_STOREFRONT_SECTIONS) {
-    if (!seenTypes.has(def.type)) {
-      mergedSections.push({ ...def });
-    }
-  }
-  return {
-    template: src.template || 'editorial_roxo',
-    primaryColor: src.primaryColor || '#7C3AED',
-    accentColor: src.accentColor || '#6D28D9',
-    surfaceColor: src.surfaceColor || '#F8F7FC',
-    textColor: src.textColor || '#272321',
-    announcementText: src.announcementText ?? '',
-    heroTitle: src.heroTitle ?? '',
-    heroSubtitle: src.heroSubtitle ?? '',
-    heroCtaLabel: src.heroCtaLabel || 'Ver coleção',
-    banners: Array.isArray(src.banners) ? src.banners : [],
-    sections: mergedSections,
-  };
-}
 
 function normalizeAdminProduct(p: any) {
   const id = p.id || p.retailGroupId;
@@ -327,8 +241,15 @@ export function RetailStorefrontPage() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [togglingVisibility, setTogglingVisibility] = useState(false);
+  const [savingCategories, setSavingCategories] = useState(false);
+  const [batchBusy, setBatchBusy] = useState(false);
+  const [showPublishDialog, setShowPublishDialog] = useState(false);
   const [overview, setOverview] = useState<any>(null);
+  const actionLockRef = useRef<Record<string, boolean>>({});
 
   // Settings form state
   const [settingsForm, setSettingsForm] = useState({
@@ -354,26 +275,23 @@ export function RetailStorefrontPage() {
   const [previewDevice, setPreviewDevice] = useState<'desktop' | 'mobile'>(
     'desktop',
   );
-  // Estados interativos dentro do Live Preview
-  const [previewSearch, setPreviewSearch] = useState('');
-  const [previewCategoryId, setPreviewCategoryId] = useState('');
-  const [previewSize, setPreviewSize] = useState('');
-  const [previewColor, setPreviewColor] = useState('');
-  const [previewSortBy, setPreviewSortBy] = useState('featured');
-  const [previewInStockOnly, setPreviewInStockOnly] = useState(false);
-  const [previewCartCount, setPreviewCartCount] = useState(2);
-  const [previewCartTotal, setPreviewCartTotal] = useState(189.9);
-  const [previewBagPulseKey, setPreviewBagPulseKey] = useState(0);
+  const [selectedSectionId, setSelectedSectionId] = useState<string | null>(
+    'sec-hero',
+  );
 
-  // Products state
+  // Products & Curated Collections state
+  const [productsSubView, setProductsSubView] = useState<
+    'catalog' | 'collections'
+  >('catalog');
   const [products, setProducts] = useState<any[]>([]);
-  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [, setLoadingProducts] = useState(false);
   const [productSearch, setProductSearch] = useState('');
   const [productCategoryFilter, setProductCategoryFilter] = useState('all');
   const [productVisibilityFilter, setProductVisibilityFilter] = useState<
     'all' | 'visible' | 'hidden' | 'featured' | 'out_of_stock'
   >('all');
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
+  const [batchFeedback, setBatchFeedback] = useState<string | null>(null);
   const [editingProduct, setEditingProduct] = useState<any | null>(null);
   const [uploadingGalleryPhoto, setUploadingGalleryPhoto] = useState(false);
 
@@ -439,33 +357,47 @@ export function RetailStorefrontPage() {
     return () => window.clearTimeout(t);
   }, [orderSearch]);
 
-  const applyOverviewData = useCallback((ovData: any) => {
-    setOverview(ovData);
-    const cfg = ovData?.config || ovData?.settings;
-    if (cfg) {
-      setSettingsForm({
-        storeName: cfg.storeName || '',
-        slug: cfg.slug || '',
-        tagline: cfg.tagline || '',
-        description: cfg.description || '',
-        whatsappPhone: cfg.whatsappPhone || '',
-        address: cfg.address || '',
-        businessHours: cfg.businessHours || '',
-        logoUrl: cfg.logoUrl || '',
-        coverUrl: cfg.coverUrl || '',
-        pickupEnabled: cfg.pickupEnabled !== false,
-        deliveryEnabled: Boolean(cfg.deliveryEnabled),
-        deliveryFeeDefault: String(cfg.deliveryFeeDefault ?? '0'),
-        pickupInstructions: cfg.pickupInstructions || '',
-        deliveryNotes: cfg.deliveryNotes || cfg.deliveryInstructions || '',
-        reservationTtlMinutes: String(
-          cfg.reservationTtlMinutes ?? cfg.confirmReservationMinutes ?? '30',
-        ),
-      });
-      const rawTheme = cfg.draftTheme || cfg.draftThemeJson || cfg.publishedTheme;
-      setDraftTheme(normalizeDraftTheme(rawTheme));
-    }
-  }, []);
+  const applyOverviewData = useCallback(
+    (
+      ovData: any,
+      opts: { syncSettings?: boolean; syncDraft?: boolean } = {},
+    ) => {
+      const { syncSettings = true, syncDraft = true } = opts;
+      setOverview(ovData);
+      const cfg = ovData?.config || ovData?.settings;
+      if (cfg) {
+        if (syncSettings) {
+          setSettingsForm({
+            storeName: cfg.storeName || '',
+            slug: cfg.slug || '',
+            tagline: cfg.tagline || '',
+            description: cfg.description || '',
+            whatsappPhone: cfg.whatsappPhone || '',
+            address: cfg.address || '',
+            businessHours: cfg.businessHours || '',
+            logoUrl: cfg.logoUrl || '',
+            coverUrl: cfg.coverUrl || '',
+            pickupEnabled: cfg.pickupEnabled !== false,
+            deliveryEnabled: Boolean(cfg.deliveryEnabled),
+            deliveryFeeDefault: String(cfg.deliveryFeeDefault ?? '0'),
+            pickupInstructions: cfg.pickupInstructions || '',
+            deliveryNotes: cfg.deliveryNotes || cfg.deliveryInstructions || '',
+            reservationTtlMinutes: String(
+              cfg.reservationTtlMinutes ??
+                cfg.confirmReservationMinutes ??
+                '30',
+            ),
+          });
+        }
+        if (syncDraft) {
+          const rawTheme =
+            cfg.draftTheme || cfg.draftThemeJson || cfg.publishedTheme;
+          setDraftTheme(normalizeDraftTheme(rawTheme));
+        }
+      }
+    },
+    [],
+  );
 
   // Carregamento inicial completo
   const loadInitialData = useCallback(async () => {
@@ -481,7 +413,7 @@ export function RetailStorefrontPage() {
         api.get('/payment-methods').catch(() => ({ data: [] })),
       ]);
 
-      applyOverviewData(ovRes.data);
+      applyOverviewData(ovRes.data, { syncSettings: true, syncDraft: true });
       const rawProds = Array.isArray(prodRes.data) ? prodRes.data : [];
       setProducts(rawProds.map(normalizeAdminProduct));
       const rawCats = Array.isArray(catRes.data) ? catRes.data : [];
@@ -581,42 +513,47 @@ export function RetailStorefrontPage() {
     reservationTtlMinutes: Number(settingsForm.reservationTtlMinutes || 30),
   });
 
-  // Salvar configurações
+  // 1. Salvar apenas Configurações operacionais (separado de rascunho e publicação)
   const handleSaveSettings = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    setSaving(true);
+    if (actionLockRef.current.settings) return;
+    actionLockRef.current.settings = true;
+    setSavingSettings(true);
     try {
       await api.put('/storefront/admin/settings', buildSettingsPayload());
       const ovRes = await api.get('/storefront/admin/overview');
-      applyOverviewData(ovRes.data);
-      toast.success('Configurações da loja salvas com sucesso!');
+      applyOverviewData(ovRes.data, { syncSettings: true, syncDraft: false });
+      toast.success('Configurações operacionais salvas!');
     } catch (err) {
       toast.error(apiError(err, 'Erro ao salvar configurações.'));
     } finally {
-      setSaving(false);
+      actionLockRef.current.settings = false;
+      setSavingSettings(false);
     }
   };
 
-  // Salvar rascunho de aparência + configurações
-  const handleSaveDraft = async () => {
-    setSaving(true);
+  // 2. Salvar apenas Rascunho visual (seções, banners, carrosséis, coleções e looks — sem publicar)
+  const handleSaveDraftOnly = async () => {
+    if (actionLockRef.current.draft) return;
+    actionLockRef.current.draft = true;
+    setSavingDraft(true);
     try {
-      await Promise.all([
-        api.put('/storefront/admin/settings', buildSettingsPayload()),
-        api.put('/storefront/admin/appearance/draft', draftTheme),
-      ]);
+      const payload = syncThemeBanners(draftTheme);
+      await api.put('/storefront/admin/appearance/draft', payload);
       const ovRes = await api.get('/storefront/admin/overview');
-      applyOverviewData(ovRes.data);
-      toast.success('Rascunho salvo com sucesso!');
+      applyOverviewData(ovRes.data, { syncSettings: false, syncDraft: true });
+      toast.success('Rascunho salvo! A vitrine publicada não foi alterada.');
     } catch (err) {
       toast.error(apiError(err, 'Erro ao salvar rascunho.'));
     } finally {
-      setSaving(false);
+      actionLockRef.current.draft = false;
+      setSavingDraft(false);
     }
   };
 
-  // Publicar loja (salva automaticamente settings + draftTheme antes de publicar)
-  const handlePublish = async () => {
+  // 3. Confirmar Publicação (após revisão do resumo de mudanças)
+  const handleConfirmPublish = async () => {
+    if (actionLockRef.current.publish) return;
     const phoneDigits = String(settingsForm.whatsappPhone || '').replace(
       /\D/g,
       '',
@@ -625,6 +562,7 @@ export function RetailStorefrontPage() {
       toast.error(
         'Informe o WhatsApp de atendimento antes de publicar a loja.',
       );
+      setShowPublishDialog(false);
       setTab('settings');
       return;
     }
@@ -632,105 +570,102 @@ export function RetailStorefrontPage() {
       toast.error(
         'Habilite pelo menos uma modalidade (Retirada na loja ou Entrega) para publicar.',
       );
+      setShowPublishDialog(false);
       setTab('settings');
       return;
     }
 
+    actionLockRef.current.publish = true;
     setPublishing(true);
     try {
       const res = await api.post('/storefront/admin/appearance/publish', {
         settings: buildSettingsPayload(),
-        draftTheme,
+        draftTheme: syncThemeBanners(draftTheme),
       });
       toast.success(res.data?.message || 'Loja Virtual publicada no ar!');
+      setShowPublishDialog(false);
       const ovRes = await api.get('/storefront/admin/overview');
-      applyOverviewData(ovRes.data);
+      applyOverviewData(ovRes.data, { syncSettings: true, syncDraft: true });
     } catch (err: any) {
       const msg = apiError(err, 'Não foi possível publicar a loja.');
       toast.error(msg);
       if (msg.toLowerCase().includes('produto')) {
+        setShowPublishDialog(false);
         setTab('products');
       } else if (msg.toLowerCase().includes('whatsapp')) {
+        setShowPublishDialog(false);
         setTab('settings');
       }
     } finally {
+      actionLockRef.current.publish = false;
       setPublishing(false);
     }
   };
 
-  const handleUnpublish = async () => {
-    setPublishing(true);
+  // 4. Pausar e Reativar vitrine exatamente no mesmo slot de botão
+  const handleToggleStorePauseOrReactivate = async (currentlyPublished: boolean) => {
+    if (actionLockRef.current.visibility) return;
+    actionLockRef.current.visibility = true;
+    setTogglingVisibility(true);
     try {
-      const res = await api.post('/storefront/admin/appearance/unpublish');
-      toast.success(res.data?.message || 'Loja Virtual pausada.');
+      const endpoint = currentlyPublished
+        ? '/storefront/admin/appearance/unpublish'
+        : '/storefront/admin/appearance/reactivate';
+      const res = await api.post(endpoint);
+      toast.success(
+        res.data?.message ||
+          (currentlyPublished
+            ? 'Vitrine pausada com sucesso.'
+            : 'Vitrine reativada no ar!'),
+      );
       const ovRes = await api.get('/storefront/admin/overview');
-      applyOverviewData(ovRes.data);
+      applyOverviewData(ovRes.data, { syncSettings: false, syncDraft: false });
     } catch (err) {
-      toast.error(apiError(err, 'Erro ao pausar loja.'));
+      toast.error(
+        apiError(
+          err,
+          currentlyPublished
+            ? 'Erro ao pausar vitrine.'
+            : 'Erro ao reativar vitrine.',
+        ),
+      );
     } finally {
-      setPublishing(false);
+      actionLockRef.current.visibility = false;
+      setTogglingVisibility(false);
     }
   };
 
-  // Upload de mídia (logo, capa, banner, galeria)
+  // Upload puro de arquivo (retorna URL sem sobrescrever configurações silenciosamente)
+  const handleUploadMediaFile = useCallback(
+    async (file: File): Promise<string | null> => {
+      const fd = new FormData();
+      fd.append('file', file);
+      try {
+        const res = await api.post('/storefront/admin/media/upload', fd);
+        const imageUrl = res.data?.imageUrl || null;
+        if (imageUrl) {
+          toast.success('Imagem enviada!');
+        }
+        return imageUrl;
+      } catch (err) {
+        toast.error(apiError(err, 'Erro ao enviar imagem.'));
+        return null;
+      }
+    },
+    [],
+  );
+
+  // Upload de mídia na aba Configurações (atualiza formulário local para salvar em seguida)
   const handleUploadMedia = async (
     file: File,
     target: 'logoUrl' | 'coverUrl',
   ) => {
-    const fd = new FormData();
-    fd.append('file', file);
-    setSaving(true);
-    try {
-      const res = await api.post('/storefront/admin/media/upload', fd);
-      const imageUrl = res.data?.imageUrl;
-      if (imageUrl) {
-        const updatedSettings = {
-          ...settingsForm,
-          [target]: imageUrl,
-        };
-        setSettingsForm(updatedSettings);
-        await api.put('/storefront/admin/settings', {
-          ...updatedSettings,
-          deliveryFeeDefault: Number(updatedSettings.deliveryFeeDefault || 0),
-          reservationTtlMinutes: Number(
-            updatedSettings.reservationTtlMinutes || 30,
-          ),
-        });
-        toast.success(
-          target === 'logoUrl'
-            ? 'Logotipo atualizado!'
-            : 'Imagem de capa atualizada!',
-        );
-      }
-    } catch (err) {
-      toast.error(apiError(err, 'Erro ao enviar imagem.'));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleUploadBannerImage = async (file: File, bannerIndex: number) => {
-    const fd = new FormData();
-    fd.append('file', file);
-    setSaving(true);
-    try {
-      const res = await api.post('/storefront/admin/media/upload', fd);
-      const imageUrl = res.data?.imageUrl;
-      if (imageUrl) {
-        const nextBanners = [...(draftTheme.banners || [])];
-        if (nextBanners[bannerIndex]) {
-          nextBanners[bannerIndex] = {
-            ...nextBanners[bannerIndex],
-            imageUrl,
-          };
-          setDraftTheme({ ...draftTheme, banners: nextBanners });
-          toast.success('Imagem do banner enviada!');
-        }
-      }
-    } catch (err) {
-      toast.error(apiError(err, 'Erro ao enviar imagem do banner.'));
-    } finally {
-      setSaving(false);
+    const imageUrl = await handleUploadMediaFile(file);
+    if (imageUrl) {
+      setSettingsForm((prev) => ({
+        ...prev,
+        [target]: imageUrl,
+      }));
     }
   };
 
@@ -759,13 +694,16 @@ export function RetailStorefrontPage() {
     }
   };
 
-  // Produtos: alternância rápida e ações em lote
+  // Produtos: alternância rápida (efeito imediato na loja publicada) e ações em lote
   const handleQuickToggleProduct = async (
     product: any,
     field: 'isVisible' | 'featured',
   ) => {
+    const lockKey = `prod-${product.id}-${field}`;
+    if (actionLockRef.current[lockKey]) return;
+    actionLockRef.current[lockKey] = true;
+
     const nextVal = !product[field];
-    // Atualização otimista local
     setProducts((prev) =>
       prev.map((p) => (p.id === product.id ? { ...p, [field]: nextVal } : p)),
     );
@@ -785,6 +723,8 @@ export function RetailStorefrontPage() {
     } catch (err) {
       toast.error(apiError(err, 'Erro ao atualizar produto.'));
       refreshProductsAndOverview();
+    } finally {
+      actionLockRef.current[lockKey] = false;
     }
   };
 
@@ -792,26 +732,40 @@ export function RetailStorefrontPage() {
     action: 'show' | 'hide' | 'feature' | 'unfeature',
     explicitIds?: string[],
   ) => {
+    if (actionLockRef.current.batch) return;
     const targetIds = explicitIds || selectedProductIds;
     if (targetIds.length === 0) {
       toast.info('Selecione ao menos um produto na tabela.');
       return;
     }
-    setSaving(true);
+    actionLockRef.current.batch = true;
+    setBatchBusy(true);
     try {
       const res = await api.post('/storefront/admin/products/batch', {
         retailGroupIds: targetIds,
         action,
       });
-      toast.success(
-        `${res.data?.updatedCount || targetIds.length} produto(s) atualizado(s) na vitrine!`,
-      );
-      setSelectedProductIds([]);
+      const count = Number(res.data?.updatedCount || targetIds.length);
+      const actionLabels: Record<typeof action, string> = {
+        show: 'marcados como visíveis na loja',
+        hide: 'ocultados da vitrine',
+        feature: 'marcados como destaque',
+        unfeature: 'removidos dos destaques',
+      };
+      if (!explicitIds) {
+        // Preserva a seleção para o lojista conferir o resultado antes de limpá-la
+        setBatchFeedback(
+          `Resultado aplicado agora: ${count} produto(s) ${actionLabels[action]}. Confira a tabela ou clique em "Limpar seleção".`,
+        );
+      } else {
+        toast.success(`${count} produto(s) ${actionLabels[action]}!`);
+      }
       await refreshProductsAndOverview();
     } catch (err) {
       toast.error(apiError(err, 'Erro na atualização em lote.'));
     } finally {
-      setSaving(false);
+      actionLockRef.current.batch = false;
+      setBatchBusy(false);
     }
   };
 
@@ -839,7 +793,8 @@ export function RetailStorefrontPage() {
 
   const handleSaveProductModal = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingProduct) return;
+    if (!editingProduct || actionLockRef.current.productModal) return;
+    actionLockRef.current.productModal = true;
     setSaving(true);
     try {
       await api.put(`/storefront/admin/products/${editingProduct.id}`, {
@@ -854,19 +809,22 @@ export function RetailStorefrontPage() {
           : [],
         sortOrder: Number(editingProduct.sortOrder || 0),
       });
-      toast.success('Configurações da peça salvas!');
+      toast.success('Peça atualizada na vitrine (efeito imediato)!');
       setEditingProduct(null);
       await refreshProductsAndOverview();
     } catch (err) {
       toast.error(apiError(err, 'Erro ao salvar peça.'));
     } finally {
+      actionLockRef.current.productModal = false;
       setSaving(false);
     }
   };
 
-  // Categorias
+  // Categorias (efeito imediato na loja publicada)
   const handleSaveCategories = async () => {
-    setSaving(true);
+    if (actionLockRef.current.categories) return;
+    actionLockRef.current.categories = true;
+    setSavingCategories(true);
     try {
       await api.put('/storefront/admin/categories', {
         categories: categories.map((c, idx) => ({
@@ -877,7 +835,7 @@ export function RetailStorefrontPage() {
           sortOrder: idx * 10,
         })),
       });
-      toast.success('Categorias da vitrine salvas!');
+      toast.success('Categorias atualizadas na vitrine (efeito imediato)!');
       const [catRes, ovRes] = await Promise.all([
         api.get('/storefront/admin/categories'),
         api.get('/storefront/admin/overview'),
@@ -888,13 +846,15 @@ export function RetailStorefrontPage() {
     } catch (err) {
       toast.error(apiError(err, 'Erro ao salvar categorias.'));
     } finally {
-      setSaving(false);
+      actionLockRef.current.categories = false;
+      setSavingCategories(false);
     }
   };
 
   const handleCreateCategory = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCategoryName.trim()) return;
+    if (!newCategoryName.trim() || actionLockRef.current.createCategory) return;
+    actionLockRef.current.createCategory = true;
     setSaving(true);
     try {
       await api.post('/storefront/admin/categories', {
@@ -916,6 +876,7 @@ export function RetailStorefrontPage() {
     } catch (err) {
       toast.error(apiError(err, 'Erro ao criar categoria.'));
     } finally {
+      actionLockRef.current.createCategory = false;
       setSaving(false);
     }
   };
@@ -1063,7 +1024,7 @@ export function RetailStorefrontPage() {
     productSearch,
   ]);
 
-  // Dados normalizados e interativos para o Live Preview na aba Aparência
+  // Dados completos e interativos para a prévia em iframe na aba Aparência
   const livePreviewStoreData = useMemo(() => {
     const visibleCats = categories
       .filter((c) => c.isVisible !== false)
@@ -1075,7 +1036,6 @@ export function RetailStorefrontPage() {
         productCount: c.productCount,
       }));
 
-    // Se ainda não houver produtos visíveis na vitrine, exibe os produtos do catálogo na simulação
     const sourceProducts = products.some((p) => p.isVisible)
       ? products.filter((p) => p.isVisible)
       : products;
@@ -1085,6 +1045,7 @@ export function RetailStorefrontPage() {
       const unitPrice = Number(p.priceSale ?? p.priceSell ?? 0);
       return {
         id: p.id,
+        retailGroupId: p.retailGroupId || p.id,
         title: p.displayTitle || p.name,
         slug: p.publicSlug || p.id,
         description: p.customDescription || p.description,
@@ -1094,8 +1055,10 @@ export function RetailStorefrontPage() {
         priceSell: unitPrice,
         badgeLabel: p.badgeLabel,
         featured: Boolean(p.featured),
+        availableStock: totalAvail,
         totalAvailableStock: totalAvail,
         inStock: totalAvail > 0,
+        sortOrder: Number(p.sortOrder ?? 0),
         categoryId: p.categoryId || null,
         categoryName: p.categoryName || '',
         category: p.categoryId
@@ -1130,38 +1093,7 @@ export function RetailStorefrontPage() {
       new Set(baseVisibleProducts.flatMap((p) => p.colors as string[])),
     );
 
-    // Aplica filtros interativos do preview
-    const previewFiltered = baseVisibleProducts.filter((prod) => {
-      if (
-        previewCategoryId &&
-        prod.category?.id !== previewCategoryId &&
-        prod.category?.slug !== previewCategoryId
-      ) {
-        return false;
-      }
-      if (previewSize && !(prod.sizes || []).includes(previewSize)) {
-        return false;
-      }
-      if (previewColor && !(prod.colors || []).includes(previewColor)) {
-        return false;
-      }
-      if (previewInStockOnly && Number(prod.totalAvailableStock || 0) <= 0) {
-        return false;
-      }
-      if (previewSearch.trim()) {
-        const q = previewSearch.trim().toLowerCase();
-        if (!String(prod.title || '').toLowerCase().includes(q)) return false;
-      }
-      return true;
-    });
-
-    const sortedPreview = [...previewFiltered].sort((a, b) => {
-      if (previewSortBy === 'price_asc') return Number(a.price) - Number(b.price);
-      if (previewSortBy === 'price_desc') return Number(b.price) - Number(a.price);
-      if (previewSortBy === 'name_asc')
-        return String(a.title || '').localeCompare(String(b.title || ''));
-      return Number(Boolean(b.featured)) - Number(Boolean(a.featured));
-    });
+    const normalizedDraft = normalizeDraftTheme(draftTheme);
 
     return {
       publicId:
@@ -1187,7 +1119,8 @@ export function RetailStorefrontPage() {
         pickupInstructions: settingsForm.pickupInstructions,
         deliveryNotes: settingsForm.deliveryNotes,
       },
-      theme: normalizeDraftTheme(draftTheme),
+      theme: normalizedDraft,
+      collections: normalizedDraft.collections,
       categories: visibleCats,
       facets: {
         sizes: allSizes,
@@ -1195,8 +1128,9 @@ export function RetailStorefrontPage() {
       },
       featuredProducts: baseVisibleProducts
         .filter((p) => p.featured)
-        .slice(0, 4),
-      previewProducts: sortedPreview,
+        .slice(0, 48),
+      initialProducts: baseVisibleProducts,
+      previewProducts: baseVisibleProducts,
     };
   }, [
     categories,
@@ -1205,13 +1139,92 @@ export function RetailStorefrontPage() {
     overview?.settings?.publicId,
     settingsForm,
     draftTheme,
-    previewCategoryId,
-    previewSize,
-    previewColor,
-    previewSortBy,
-    previewInStockOnly,
-    previewSearch,
   ]);
+
+  const savedCfg = overview?.config || overview?.settings || null;
+  const publishedThemeRaw =
+    savedCfg?.publishedTheme || savedCfg?.publishedThemeJson || null;
+  const publishedVersion = Number(savedCfg?.publishedVersion || 0);
+  const hasEverPublished = Boolean(publishedVersion > 0 || publishedThemeRaw);
+
+  const pendingPublishChanges = useMemo(
+    () =>
+      computePrePublishChanges(
+        draftTheme,
+        publishedThemeRaw,
+        settingsForm,
+        savedCfg,
+      ),
+    [draftTheme, publishedThemeRaw, settingsForm, savedCfg],
+  );
+
+  const curatorialWarnings = useMemo(
+    () => computeThemeWarnings(draftTheme, products, categories),
+    [draftTheme, products, categories],
+  );
+
+  const handleExposeCollectionInHome = useCallback(
+    (col: any) => {
+      const targetType = col.kind === 'look' ? 'look' : 'product_selection';
+      let targetSecId = '';
+      setDraftTheme((prev: any) => {
+        const list = [...(prev.sections || [])];
+        const existing = list.find(
+          (s: any) =>
+            s.type === targetType &&
+            (s.collectionId === col.id || s.collectionId === col.slug),
+        );
+        if (existing) {
+          targetSecId = existing.id;
+          return syncThemeBanners({
+            ...prev,
+            sections: list.map((s: any) =>
+              s.id === existing.id ? { ...s, enabled: true } : s,
+            ),
+          });
+        }
+        const stamp = Date.now().toString(36);
+        targetSecId =
+          targetType === 'look' ? `sec-look-${stamp}` : `sec-sel-${stamp}`;
+        const catalogIdx = list.findIndex((s: any) => s.type === 'collection');
+        const insertAt = catalogIdx >= 0 ? catalogIdx : list.length;
+        const newSection =
+          targetType === 'look'
+            ? {
+                id: targetSecId,
+                type: 'look',
+                enabled: true,
+                title: col.title || 'Monte o look',
+                subtitle: col.subtitle || '',
+                collectionId: col.id,
+                productIds: [],
+              }
+            : {
+                id: targetSecId,
+                type: 'product_selection',
+                enabled: true,
+                title: col.title || 'Seleção da coleção',
+                subtitle: col.subtitle || '',
+                presentation: 'carousel',
+                sourceType: 'collection',
+                collectionId: col.id,
+                productIds: [],
+                visibleCount: 12,
+                columnsDesktop: 4,
+                autoPlay: false,
+              };
+        list.splice(insertAt, 0, newSection);
+        return syncThemeBanners({ ...prev, sections: list });
+      });
+      if (targetSecId) {
+        setSelectedSectionId(targetSecId);
+      }
+      setTab('appearance');
+      toast.success(`"${col.title}" adicionada à página inicial no editor!`);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
 
   if (loading && !overview) {
     return (
@@ -1273,20 +1286,24 @@ export function RetailStorefrontPage() {
     : settingsForm.address || '';
 
   return (
-    <div className="management-storefront space-y-5">
+    <div className="management-storefront space-y-5 min-w-0">
       {/* Cabeçalho Nativo do Módulo de Gestão */}
       <div className="retail-page-header">
-        <div>
-          <div className="flex flex-wrap items-center gap-2.5 mb-1">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2 mb-1">
             <span className="retail-kicker">Canal de Vendas Online</span>
             <span
-              className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-extrabold border ${
+              className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
                 isPublished
                   ? 'bg-support text-brand border-brand'
                   : 'bg-page text-muted border-line'
               }`}
             >
-              {isPublished ? '● Loja Publicada' : '○ Rascunho Offline'}
+              {isPublished
+                ? `● Loja publicada${publishedVersion > 0 ? ` (v${publishedVersion})` : ''}`
+                : hasEverPublished
+                  ? '◐ Vitrine pausada'
+                  : '○ Rascunho inicial'}
             </span>
             {(overview?.config?.publishedByName ||
               overview?.settings?.publishedByName) && (
@@ -1308,15 +1325,23 @@ export function RetailStorefrontPage() {
                 variant="pill"
               />
             )}
-            {overview?.hasUnpublishedChanges && isPublished && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-page text-brand border border-line">
-                Alterações de aparência pendentes de publicação
+            {pendingPublishChanges.length > 0 || overview?.hasUnpublishedChanges ? (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-page text-brand border border-line">
+                {pendingPublishChanges.length > 0
+                  ? `${pendingPublishChanges.length} mudança(s) antes de publicar`
+                  : 'Rascunho pendente de publicação'}
               </span>
+            ) : (
+              isPublished && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-page text-muted border border-line">
+                  Em dia com a loja publicada
+                </span>
+              )
             )}
           </div>
           <h1>{settingsForm.storeName || 'Loja Virtual'}</h1>
-          <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-muted">
-            <span className="font-mono text-ink bg-page px-2.5 py-1 rounded-lg border border-line">
+          <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-muted min-w-0">
+            <span className="font-mono text-ink bg-page px-2.5 py-1 rounded-lg border border-line break-all max-w-full">
               {publicStoreUrl}
             </span>
             <button
@@ -1330,7 +1355,7 @@ export function RetailStorefrontPage() {
             >
               <Copy size={13} /> Copiar link
             </button>
-            {isPublished && (
+            {isPublished ? (
               <a
                 href={publicStoreUrl}
                 target="_blank"
@@ -1340,51 +1365,94 @@ export function RetailStorefrontPage() {
               >
                 <ExternalLink size={13} /> Abrir vitrine
               </a>
+            ) : (
+              <button
+                type="button"
+                disabled
+                title="Publique ou reative a vitrine para abrir o link público"
+                className="retail-button retail-button-ghost"
+                style={{ minHeight: 30, padding: '4px 10px', fontSize: 12 }}
+              >
+                <ExternalLink size={13} /> Abrir vitrine
+              </button>
             )}
           </div>
         </div>
 
         <div className="retail-header-actions">
+          {/* Slot fixo 1: Pausar e Reativar ocupam exatamente o mesmo lugar */}
           <button
             type="button"
-            disabled={saving || publishing}
-            onClick={handleSaveDraft}
-            className="retail-button retail-button-secondary"
+            disabled={
+              togglingVisibility ||
+              publishing ||
+              (!isPublished && !hasEverPublished)
+            }
+            onClick={() => handleToggleStorePauseOrReactivate(isPublished)}
+            title={
+              !isPublished && !hasEverPublished
+                ? 'Publique a vitrine pela primeira vez para poder pausar ou reativar'
+                : undefined
+            }
+            className="retail-button retail-button-ghost sm:min-w-[148px]"
           >
-            {saving ? (
-              <Loader2 size={16} className="animate-spin" />
+            {togglingVisibility ? (
+              <Loader2 size={15} className="animate-spin" />
+            ) : isPublished ? (
+              <EyeOff size={15} />
             ) : (
-              <Save size={16} />
-            )}
-            <span>Salvar Alterações</span>
-          </button>
-
-          {isPublished && (
-            <button
-              type="button"
-              disabled={publishing}
-              onClick={handleUnpublish}
-              className="retail-button retail-button-ghost"
-            >
-              <EyeOff size={16} />
-              <span>Pausar Vitrine</span>
-            </button>
-          )}
-
-          <button
-            type="button"
-            disabled={publishing || saving}
-            onClick={handlePublish}
-            className="retail-button retail-button-primary"
-          >
-            {publishing ? (
-              <Loader2 size={16} className="animate-spin" />
-            ) : (
-              <Send size={16} />
+              <Eye size={15} />
             )}
             <span>
-              {isPublished ? 'Publicar Atualizações' : 'Publicar Loja'}
+              {isPublished || !hasEverPublished
+                ? 'Pausar vitrine'
+                : 'Reativar vitrine'}
             </span>
+          </button>
+
+          {/* Slot fixo 2: Salvar configurações (operacional) */}
+          <button
+            type="button"
+            disabled={savingSettings || publishing}
+            onClick={() => handleSaveSettings()}
+            className="retail-button retail-button-secondary sm:min-w-[168px]"
+          >
+            {savingSettings ? (
+              <Loader2 size={15} className="animate-spin" />
+            ) : (
+              <Save size={15} />
+            )}
+            <span>Salvar configurações</span>
+          </button>
+
+          {/* Slot fixo 3: Salvar rascunho (visual e curadoria, sem publicar) */}
+          <button
+            type="button"
+            disabled={savingDraft || publishing}
+            onClick={handleSaveDraftOnly}
+            className="retail-button retail-button-secondary sm:min-w-[148px]"
+          >
+            {savingDraft ? (
+              <Loader2 size={15} className="animate-spin" />
+            ) : (
+              <Save size={15} />
+            )}
+            <span>Salvar rascunho</span>
+          </button>
+
+          {/* Slot fixo 4: Publicar (abre resumo das mudanças antes de ir ao ar) */}
+          <button
+            type="button"
+            disabled={publishing || savingSettings || savingDraft}
+            onClick={() => setShowPublishDialog(true)}
+            className="retail-button retail-button-primary sm:min-w-[136px]"
+          >
+            {publishing ? (
+              <Loader2 size={15} className="animate-spin" />
+            ) : (
+              <Send size={15} />
+            )}
+            <span>Publicar</span>
           </button>
         </div>
       </div>
@@ -1466,9 +1534,9 @@ export function RetailStorefrontPage() {
             </article>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-5">
             {/* Fila Imediata de Atendimento de Pedidos */}
-            <div className="lg:col-span-7 retail-panel space-y-4">
+            <div className="xl:col-span-7 min-w-0 retail-panel space-y-4">
               <div className="flex items-center justify-between border-b border-line pb-3">
                 <div>
                   <span className="retail-kicker">Operação Imediata</span>
@@ -1634,7 +1702,7 @@ export function RetailStorefrontPage() {
             </div>
 
             {/* Checklist Interativo de Prontidão & Atalhos */}
-            <div className="lg:col-span-5 retail-panel space-y-4">
+            <div className="xl:col-span-5 min-w-0 retail-panel space-y-4">
               <div className="border-b border-line pb-3">
                 <span className="retail-kicker">Diagnóstico da Vitrine</span>
                 <h2 className="text-base font-black">
@@ -1698,7 +1766,7 @@ export function RetailStorefrontPage() {
                         <button
                           type="button"
                           onClick={action.onClick}
-                          className="px-2.5 py-1 rounded-lg bg-brand text-on-brand text-[11px] font-bold shrink-0 hover:bg-brand-strong transition"
+                          className="px-2.5 py-1 rounded-lg bg-brand text-on-brand text-[11px] font-bold shrink-0 hover:bg-brand-hover transition"
                         >
                           {action.label}
                         </button>
@@ -1832,8 +1900,8 @@ export function RetailStorefrontPage() {
           </div>
 
           {/* Lista + Painel de Detalhes do Pedido */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-            <div className="lg:col-span-5 retail-panel p-0 overflow-hidden">
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-5">
+            <div className="xl:col-span-5 min-w-0 retail-panel p-0 overflow-hidden">
               <div className="px-4 py-3 border-b border-line flex items-center justify-between bg-page">
                 <span className="text-xs font-extrabold uppercase tracking-wider text-muted">
                   Pedidos ({orders.length})
@@ -1944,7 +2012,7 @@ export function RetailStorefrontPage() {
               )}
             </div>
 
-            <div className="lg:col-span-7">
+            <div className="xl:col-span-7 min-w-0">
               {!selectedOrder ? (
                 <div className="retail-panel py-20 text-center text-muted">
                   <ShoppingBag
@@ -2284,20 +2352,14 @@ export function RetailStorefrontPage() {
                           className="p-3 flex items-center justify-between gap-3 text-xs"
                         >
                           <div className="flex items-center gap-3 min-w-0">
-                            <div className="w-10 h-12 rounded-lg overflow-hidden border border-line bg-page shrink-0">
-                              {item.imageUrl ? (
-                                <img
-                                  src={getFullUrl(item.imageUrl)}
-                                  alt=""
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <CategoryIconIllustration
-                                  productName={item.productName}
-                                  compact
-                                />
-                              )}
-                            </div>
+                            <StorefrontProductFrame
+                              imageUrl={item.imageUrl}
+                              alt={item.productName}
+                              productName={item.productName}
+                              padding="xs"
+                              aspectClassName="w-10 h-12 shrink-0"
+                              roundedClassName="rounded-lg border border-line"
+                            />
                             <div className="min-w-0">
                               <p className="font-bold text-ink truncate">
                                 {item.productName}
@@ -2428,327 +2490,419 @@ export function RetailStorefrontPage() {
       )}
 
       {/* ==================================================================== */}
-      {/* ABA 3: PRODUTOS NA VITRINE                                           */}
+      {/* ABA 3: PRODUTOS NA VITRINE & COLEÇÕES CURADAS / MONTE O LOOK         */}
       {/* ==================================================================== */}
       {activeTab === 'products' && (
-        <div className="space-y-4">
-          <div className="retail-panel space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <span className="retail-kicker">Curadoria do Catálogo</span>
-                <h2 className="text-base font-black">
-                  Grupos de Mercadorias na Vitrine Online
-                </h2>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  disabled={saving}
-                  onClick={handlePublishAllAvailableProducts}
-                  className="retail-button retail-button-secondary"
-                  style={{ minHeight: 36, fontSize: 12 }}
-                >
-                  <CheckCircle2 size={15} />
-                  <span>Publicar todos com estoque</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Filtros de Produtos */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 pt-1">
-              <div className="md:col-span-5 relative">
-                <Search
-                  size={15}
-                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted"
-                />
-                <input
-                  type="text"
-                  value={productSearch}
-                  onChange={(e) => setProductSearch(e.target.value)}
-                  placeholder="Buscar por nome da peça, título público ou categoria..."
-                  className="w-full pl-9 pr-4 py-2 rounded-xl border border-line bg-surface text-xs"
-                />
-              </div>
-
-              <div className="md:col-span-3">
-                <RetailSelect
-                  value={productCategoryFilter}
-                  onValueChange={setProductCategoryFilter}
-                  options={[
-                    { value: 'all', label: 'Todas as categorias' },
-                    ...categories.map((c) => ({
-                      value: c.id,
-                      label: `${c.name} (${c.productCount || 0})`,
-                    })),
-                  ]}
-                />
-              </div>
-
-              <div className="md:col-span-4 flex items-center gap-1.5 overflow-x-auto">
-                {[
-                  { id: 'all' as const, label: `Todos (${products.length})` },
-                  {
-                    id: 'visible' as const,
-                    label: `Na Vitrine (${products.filter((p) => p.isVisible).length})`,
-                  },
-                  {
-                    id: 'hidden' as const,
-                    label: `Ocultos (${products.filter((p) => !p.isVisible).length})`,
-                  },
-                  {
-                    id: 'featured' as const,
-                    label: `Destaques (${products.filter((p) => p.featured).length})`,
-                  },
-                ].map((f) => {
-                  const active = productVisibilityFilter === f.id;
-                  return (
-                    <button
-                      key={f.id}
-                      type="button"
-                      onClick={() => setProductVisibilityFilter(f.id)}
-                      className={`px-3 py-2 rounded-xl text-xs font-bold border whitespace-nowrap transition ${
-                        active
-                          ? 'bg-brand text-on-brand border-brand'
-                          : 'bg-page text-ink border-line hover:border-brand'
-                      }`}
-                    >
-                      {f.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Barra de Ação em Lote quando há itens selecionados */}
-            {selectedProductIds.length > 0 && (
-              <div className="p-3 rounded-xl bg-support border border-brand flex flex-wrap items-center justify-between gap-2">
-                <span className="text-xs font-extrabold text-brand">
-                  {selectedProductIds.length} produto(s) selecionado(s)
+        <div className="space-y-4 min-w-0">
+          {/* Sub-navegação: Catálogo de Mercadorias vs Coleções e Monte o look */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div
+              role="tablist"
+              aria-label="Subáreas de Produtos e Curadoria"
+              className="inline-flex flex-wrap items-center gap-1 p-1 rounded-2xl border border-line bg-surface max-w-full"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={productsSubView === 'catalog'}
+                onClick={() => setProductsSubView('catalog')}
+                className={`px-3.5 py-2 rounded-xl text-xs font-semibold inline-flex items-center gap-2 transition cursor-pointer ${
+                  productsSubView === 'catalog'
+                    ? 'bg-brand text-on-brand'
+                    : 'text-muted hover:text-ink'
+                }`}
+              >
+                <Package size={14} />
+                <span>Mercadorias do catálogo ({products.length})</span>
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={productsSubView === 'collections'}
+                onClick={() => setProductsSubView('collections')}
+                className={`px-3.5 py-2 rounded-xl text-xs font-semibold inline-flex items-center gap-2 transition cursor-pointer ${
+                  productsSubView === 'collections'
+                    ? 'bg-brand text-on-brand'
+                    : 'text-muted hover:text-ink'
+                }`}
+              >
+                <Layers size={14} />
+                <span>
+                  Coleções e Monte o look ({(draftTheme.collections || []).length})
                 </span>
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleBatchProducts('show')}
-                    className="px-3 py-1.5 rounded-lg bg-brand text-on-brand text-xs font-bold"
-                  >
-                    Exibir na vitrine
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleBatchProducts('hide')}
-                    className="px-3 py-1.5 rounded-lg bg-surface text-ink border border-line text-xs font-bold"
-                  >
-                    Ocultar da vitrine
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleBatchProducts('feature')}
-                    className="px-3 py-1.5 rounded-lg bg-surface text-brand border border-brand text-xs font-bold"
-                  >
-                    Marcar destaque
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleBatchProducts('unfeature')}
-                    className="px-3 py-1.5 rounded-lg bg-surface text-muted border border-line text-xs font-bold"
-                  >
-                    Remover destaque
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedProductIds([])}
-                    className="text-xs font-bold text-muted hover:text-ink px-2"
-                  >
-                    Limpar seleção
-                  </button>
-                </div>
-              </div>
-            )}
+              </button>
+            </div>
           </div>
 
-          <div className="retail-table-wrap">
-            <table className="retail-table">
-              <thead>
-                <tr>
-                  <th style={{ width: 42 }}>
-                    <input
-                      type="checkbox"
-                      checked={
-                        filteredProducts.length > 0 &&
-                        selectedProductIds.length === filteredProducts.length
-                      }
-                      onChange={(e) =>
-                        setSelectedProductIds(
-                          e.target.checked
-                            ? filteredProducts.map((p) => p.id)
-                            : [],
-                        )
-                      }
-                      className="rounded accent-brand"
+          {productsSubView === 'collections' ? (
+            <StorefrontCollectionsManager
+              draftTheme={draftTheme}
+              setDraftTheme={setDraftTheme}
+              products={products}
+              storeSlug={settingsForm.slug || 'minha-loja'}
+              savingDraft={savingDraft}
+              publishing={publishing}
+              onSaveDraft={handleSaveDraftOnly}
+              onOpenPublishModal={() => setShowPublishDialog(true)}
+              onExposeCollectionInHome={handleExposeCollectionInHome}
+            />
+          ) : (
+            <>
+              <div className="retail-panel space-y-3 min-w-0">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <span className="retail-kicker">Curadoria do Catálogo</span>
+                    <h2 className="text-base font-black">
+                      Grupos de Mercadorias na Vitrine Online
+                    </h2>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={batchBusy || saving}
+                      onClick={handlePublishAllAvailableProducts}
+                      className="retail-button retail-button-secondary sm:min-w-[205px]"
+                      style={{ minHeight: 36, fontSize: 12 }}
+                    >
+                      {batchBusy ? (
+                        <Loader2 size={15} className="animate-spin" />
+                      ) : (
+                        <CheckCircle2 size={15} />
+                      )}
+                      <span>Publicar todos com estoque</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Aviso explícito de efeito imediato no controle */}
+                <div className="px-3 py-2 rounded-xl border border-line bg-page flex items-start sm:items-center gap-2 text-xs text-muted">
+                  <AlertCircle size={14} className="text-brand shrink-0 mt-0.5 sm:mt-0" />
+                  <span>
+                    <strong className="text-ink">Efeito imediato:</strong> alterar{' '}
+                    <strong className="text-ink">Visível</strong>,{' '}
+                    <strong className="text-ink">Destaque</strong>, ações em lote ou{' '}
+                    <strong className="text-ink">Personalizar</strong> atualiza na
+                    hora a loja publicada.
+                  </span>
+                </div>
+
+                {/* Filtros de Produtos */}
+                <div className="grid grid-cols-1 xl:grid-cols-12 gap-3 pt-1">
+                  <div className="xl:col-span-5 relative min-w-0">
+                    <Search
+                      size={15}
+                      className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted"
                     />
-                  </th>
-                  <th>Peça / Grupo</th>
-                  <th>Categoria</th>
-                  <th>Preço</th>
-                  <th>Saldo Disponível</th>
-                  <th>Visível na Loja</th>
-                  <th>Destaque</th>
-                  <th className="text-right">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredProducts.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="py-12 text-center text-muted">
-                      Nenhuma peça encontrada com os filtros atuais.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredProducts.map((p) => {
-                    const checked = selectedProductIds.includes(p.id);
-                    return (
-                      <tr key={p.id}>
-                        <td>
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={(e) => {
-                              setSelectedProductIds((prev) =>
-                                e.target.checked
-                                  ? [...prev, p.id]
-                                  : prev.filter((id) => id !== p.id),
-                              );
-                            }}
-                            className="rounded accent-brand"
-                          />
+                    <input
+                      type="text"
+                      value={productSearch}
+                      onChange={(e) => setProductSearch(e.target.value)}
+                      placeholder="Buscar por nome da peça, título público ou categoria..."
+                      className="w-full pl-9 pr-4 py-2 rounded-xl border border-line bg-surface text-xs"
+                    />
+                  </div>
+
+                  <div className="xl:col-span-3 min-w-0">
+                    <RetailSelect
+                      value={productCategoryFilter}
+                      onValueChange={setProductCategoryFilter}
+                      options={[
+                        { value: 'all', label: 'Todas as categorias' },
+                        ...categories.map((c) => ({
+                          value: c.id,
+                          label: `${c.name} (${c.productCount || 0})`,
+                        })),
+                      ]}
+                    />
+                  </div>
+
+                  <div className="xl:col-span-4 flex flex-wrap items-center gap-1.5 min-w-0">
+                    {[
+                      { id: 'all' as const, label: `Todos (${products.length})` },
+                      {
+                        id: 'visible' as const,
+                        label: `Na Vitrine (${products.filter((p) => p.isVisible).length})`,
+                      },
+                      {
+                        id: 'hidden' as const,
+                        label: `Ocultos (${products.filter((p) => !p.isVisible).length})`,
+                      },
+                      {
+                        id: 'featured' as const,
+                        label: `Destaques (${products.filter((p) => p.featured).length})`,
+                      },
+                    ].map((f) => {
+                      const active = productVisibilityFilter === f.id;
+                      return (
+                        <button
+                          key={f.id}
+                          type="button"
+                          onClick={() => setProductVisibilityFilter(f.id)}
+                          className={`px-3 py-2 rounded-xl text-xs font-bold border whitespace-nowrap transition ${
+                            active
+                              ? 'bg-brand text-on-brand border-brand'
+                              : 'bg-page text-ink border-line hover:border-brand'
+                          }`}
+                        >
+                          {f.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Barra de Ação em Lote — preserva a seleção e exibe o resultado antes de limpar */}
+                {(selectedProductIds.length > 0 || batchFeedback) && (
+                  <div className="p-3 rounded-xl bg-support border border-brand space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-xs font-extrabold text-brand">
+                        {selectedProductIds.length} produto(s) selecionado(s) • efeito imediato
+                      </span>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={batchBusy || selectedProductIds.length === 0}
+                          onClick={() => handleBatchProducts('show')}
+                          className="px-3 py-1.5 rounded-lg bg-brand text-on-brand text-xs font-bold inline-flex items-center gap-1.5 disabled:opacity-50"
+                        >
+                          {batchBusy && <Loader2 size={12} className="animate-spin" />}
+                          <span>Exibir na vitrine</span>
+                        </button>
+                        <button
+                          type="button"
+                          disabled={batchBusy || selectedProductIds.length === 0}
+                          onClick={() => handleBatchProducts('hide')}
+                          className="px-3 py-1.5 rounded-lg bg-surface text-ink border border-line text-xs font-bold inline-flex items-center gap-1.5 disabled:opacity-50"
+                        >
+                          {batchBusy && <Loader2 size={12} className="animate-spin" />}
+                          <span>Ocultar da vitrine</span>
+                        </button>
+                        <button
+                          type="button"
+                          disabled={batchBusy || selectedProductIds.length === 0}
+                          onClick={() => handleBatchProducts('feature')}
+                          className="px-3 py-1.5 rounded-lg bg-surface text-brand border border-brand text-xs font-bold inline-flex items-center gap-1.5 disabled:opacity-50"
+                        >
+                          {batchBusy && <Loader2 size={12} className="animate-spin" />}
+                          <span>Marcar destaque</span>
+                        </button>
+                        <button
+                          type="button"
+                          disabled={batchBusy || selectedProductIds.length === 0}
+                          onClick={() => handleBatchProducts('unfeature')}
+                          className="px-3 py-1.5 rounded-lg bg-surface text-muted border border-line text-xs font-bold inline-flex items-center gap-1.5 disabled:opacity-50"
+                        >
+                          {batchBusy && <Loader2 size={12} className="animate-spin" />}
+                          <span>Remover destaque</span>
+                        </button>
+                        <button
+                          type="button"
+                          disabled={batchBusy}
+                          onClick={() => {
+                            setSelectedProductIds([]);
+                            setBatchFeedback(null);
+                          }}
+                          className="px-2.5 py-1.5 rounded-lg bg-surface border border-line text-xs font-bold text-ink hover:border-brand"
+                        >
+                          Limpar seleção
+                        </button>
+                      </div>
+                    </div>
+
+                    {batchFeedback && (
+                      <div
+                        role="status"
+                        className="px-3 py-2 rounded-lg bg-surface border border-brand flex items-center gap-2 text-xs font-semibold text-ink"
+                      >
+                        <CheckCircle2 size={14} className="text-brand shrink-0" />
+                        <span>{batchFeedback}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="retail-table-wrap">
+                <table className="retail-table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: 42 }}>
+                        <input
+                          type="checkbox"
+                          checked={
+                            filteredProducts.length > 0 &&
+                            selectedProductIds.length === filteredProducts.length
+                          }
+                          onChange={(e) => {
+                            setBatchFeedback(null);
+                            setSelectedProductIds(
+                              e.target.checked
+                                ? filteredProducts.map((p) => p.id)
+                                : [],
+                            );
+                          }}
+                          className="rounded accent-brand"
+                        />
+                      </th>
+                      <th>Peça / Grupo</th>
+                      <th>Categoria</th>
+                      <th>Preço</th>
+                      <th>Saldo Disponível</th>
+                      <th>Visível na Loja (imediato)</th>
+                      <th>Destaque (imediato)</th>
+                      <th className="text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredProducts.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="py-12 text-center text-muted">
+                          Nenhuma peça encontrada com os filtros atuais.
                         </td>
-                        <td>
-                          <div className="flex items-center gap-3">
-                            <div className="w-11 h-13 rounded-xl overflow-hidden border border-line bg-page shrink-0">
-                              {p.imageUrl ? (
-                                <img
-                                  src={getFullUrl(p.imageUrl)}
+                      </tr>
+                    ) : (
+                      filteredProducts.map((p) => {
+                        const checked = selectedProductIds.includes(p.id);
+                        return (
+                          <tr key={p.id}>
+                            <td>
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={(e) => {
+                                  setBatchFeedback(null);
+                                  setSelectedProductIds((prev) =>
+                                    e.target.checked
+                                      ? [...prev, p.id]
+                                      : prev.filter((id) => id !== p.id),
+                                  );
+                                }}
+                                className="rounded accent-brand"
+                              />
+                            </td>
+                            <td>
+                              <div className="flex items-center gap-3">
+                                <StorefrontProductFrame
+                                  imageUrl={p.imageUrl}
                                   alt={p.name}
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <CategoryIconIllustration
                                   categoryName={p.categoryName}
                                   productName={p.name}
-                                  compact
+                                  padding="xs"
+                                  aspectClassName="w-11 h-13 shrink-0"
+                                  roundedClassName="rounded-xl border border-line"
                                 />
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <p className="font-bold text-ink truncate">
+                                      {p.displayTitle || p.name}
+                                    </p>
+                                    {p.badgeLabel && (
+                                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-support text-brand">
+                                        {p.badgeLabel}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-[11px] text-muted font-mono">
+                                    /{p.publicSlug}
+                                    {Array.isArray(p.galleryUrls) &&
+                                      p.galleryUrls.length > 0 &&
+                                      ` • +${p.galleryUrls.length} foto(s)`}
+                                  </p>
+                                </div>
+                              </div>
+                            </td>
+                            <td>
+                              {p.categoryName ? (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-page border border-line text-xs font-bold">
+                                  <CategoryIconBadge
+                                    categoryName={p.categoryName}
+                                    size={14}
+                                  />
+                                  <span>{p.categoryName}</span>
+                                </span>
+                              ) : (
+                                <span className="text-xs text-muted">
+                                  Sem categoria
+                                </span>
                               )}
-                            </div>
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <p className="font-bold text-ink truncate">
-                                  {p.displayTitle || p.name}
-                                </p>
-                                {p.badgeLabel && (
-                                  <span className="px-2 py-0.2 rounded-full text-[10px] font-extrabold bg-support text-brand">
-                                    {p.badgeLabel}
+                            </td>
+                            <td className="font-bold">{money(p.priceSale)}</td>
+                            <td>
+                              <div>
+                                <span
+                                  className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                                    Number(p.availableStock) > 0
+                                      ? 'bg-support text-brand'
+                                      : 'bg-page text-muted'
+                                  }`}
+                                >
+                                  {p.availableStock} disp.
+                                </span>
+                                {p.reservedStock > 0 && (
+                                  <span className="text-[11px] text-muted ml-1.5">
+                                    ({p.reservedStock} reserv.)
                                   </span>
                                 )}
                               </div>
-                              <p className="text-[11px] text-muted font-mono">
-                                /{p.publicSlug}
-                                {Array.isArray(p.galleryUrls) &&
-                                  p.galleryUrls.length > 0 &&
-                                  ` • +${p.galleryUrls.length} foto(s)`}
-                              </p>
-                            </div>
-                          </div>
-                        </td>
-                        <td>
-                          {p.categoryName ? (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-page border border-line text-xs font-bold">
-                              <CategoryIconBadge
-                                categoryName={p.categoryName}
-                                size={14}
+                            </td>
+                            <td>
+                              <RetailSwitch
+                                size="sm"
+                                checked={Boolean(p.isVisible)}
+                                onCheckedChange={() =>
+                                  handleQuickToggleProduct(p, 'isVisible')
+                                }
+                                label={p.isVisible ? 'Visível' : 'Oculto'}
                               />
-                              <span>{p.categoryName}</span>
-                            </span>
-                          ) : (
-                            <span className="text-xs text-muted">
-                              Sem categoria
-                            </span>
-                          )}
-                        </td>
-                        <td className="font-bold">{money(p.priceSale)}</td>
-                        <td>
-                          <div>
-                            <span
-                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                                Number(p.availableStock) > 0
-                                  ? 'bg-support text-brand'
-                                  : 'bg-page text-muted'
-                              }`}
-                            >
-                              {p.availableStock} disp.
-                            </span>
-                            {p.reservedStock > 0 && (
-                              <span className="text-[11px] text-muted ml-1.5">
-                                ({p.reservedStock} reserv.)
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td>
-                          <RetailSwitch
-                            size="sm"
-                            checked={Boolean(p.isVisible)}
-                            onCheckedChange={() =>
-                              handleQuickToggleProduct(p, 'isVisible')
-                            }
-                            label={p.isVisible ? 'Visível' : 'Oculto'}
-                          />
-                        </td>
-                        <td>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleQuickToggleProduct(p, 'featured')
-                            }
-                            className={`px-2.5 py-1 rounded-lg text-xs font-bold inline-flex items-center gap-1 border transition ${
-                              p.featured
-                                ? 'bg-brand text-on-brand border-brand'
-                                : 'bg-page text-muted border-line hover:text-ink'
-                            }`}
-                          >
-                            <Star size={12} />
-                            <span>{p.featured ? 'Destaque' : 'Normal'}</span>
-                          </button>
-                        </td>
-                        <td className="text-right">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setEditingProduct({
-                                ...p,
-                                galleryUrls: Array.isArray(p.galleryUrls)
-                                  ? p.galleryUrls
-                                  : [],
-                              })
-                            }
-                            className="retail-button retail-button-ghost"
-                            style={{
-                              minHeight: 32,
-                              padding: '4px 10px',
-                              fontSize: 12,
-                            }}
-                          >
-                            <Edit3 size={13} />
-                            <span>Personalizar</span>
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+                            </td>
+                            <td>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleQuickToggleProduct(p, 'featured')
+                                }
+                                className={`min-w-[96px] justify-center px-2.5 py-1 rounded-lg text-xs font-bold inline-flex items-center gap-1 border transition ${
+                                  p.featured
+                                    ? 'bg-brand text-on-brand border-brand'
+                                    : 'bg-page text-muted border-line hover:text-ink'
+                                }`}
+                              >
+                                <Star size={12} />
+                                <span>{p.featured ? 'Destaque' : 'Normal'}</span>
+                              </button>
+                            </td>
+                            <td className="text-right">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setEditingProduct({
+                                    ...p,
+                                    galleryUrls: Array.isArray(p.galleryUrls)
+                                      ? p.galleryUrls
+                                      : [],
+                                  })
+                                }
+                                className="retail-button retail-button-ghost"
+                                style={{
+                                  minHeight: 32,
+                                  padding: '4px 10px',
+                                  fontSize: 12,
+                                }}
+                              >
+                                <Edit3 size={13} />
+                                <span>Personalizar</span>
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -2756,9 +2910,9 @@ export function RetailStorefrontPage() {
       {/* ABA 4: CATEGORIAS DA VITRINE                                         */}
       {/* ==================================================================== */}
       {activeTab === 'categories' && (
-        <div className="retail-panel space-y-4">
+        <div className="retail-panel space-y-4 min-w-0">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-4">
-            <div>
+            <div className="min-w-0">
               <span className="retail-kicker">Navegação da Loja</span>
               <h2 className="text-base font-black">
                 Ordem e Visibilidade das Categorias
@@ -2767,9 +2921,17 @@ export function RetailStorefrontPage() {
                 Use as setas para definir a ordem em que as categorias aparecem
                 na vitrine pública.
               </p>
+              <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-page border border-line text-[11px] text-muted">
+                <AlertCircle size={13} className="text-brand shrink-0" />
+                <span>
+                  <strong className="text-ink">Efeito imediato:</strong> salvar
+                  categorias atualiza ordem, endereço e visibilidade imediatamente
+                  na loja publicada.
+                </span>
+              </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={() => setShowNewCategoryDialog(true)}
@@ -2781,12 +2943,16 @@ export function RetailStorefrontPage() {
               </button>
               <button
                 type="button"
-                disabled={saving}
+                disabled={savingCategories}
                 onClick={handleSaveCategories}
-                className="retail-button retail-button-primary"
+                className="retail-button retail-button-primary sm:min-w-[162px]"
                 style={{ minHeight: 38, fontSize: 12 }}
               >
-                <Save size={15} />
+                {savingCategories ? (
+                  <Loader2 size={15} className="animate-spin" />
+                ) : (
+                  <Save size={15} />
+                )}
                 <span>Salvar Categorias</span>
               </button>
             </div>
@@ -2796,10 +2962,10 @@ export function RetailStorefrontPage() {
             {categories.map((cat, idx) => (
               <div
                 key={cat.id}
-                className="p-3.5 rounded-xl border border-line bg-page grid grid-cols-1 md:grid-cols-12 items-center gap-3"
+                className="p-3.5 rounded-xl border border-line bg-page grid grid-cols-1 md:grid-cols-12 items-center gap-3 min-w-0"
               >
-                <div className="md:col-span-4 flex items-center gap-3">
-                  <div className="flex flex-col gap-1">
+                <div className="md:col-span-4 flex items-center gap-3 min-w-0">
+                  <div className="flex flex-col gap-1 shrink-0">
                     <button
                       type="button"
                       disabled={idx === 0}
@@ -2834,7 +3000,7 @@ export function RetailStorefrontPage() {
                   </div>
                 </div>
 
-                <div className="md:col-span-3">
+                <div className="md:col-span-3 min-w-0">
                   <label className="block text-[10px] font-bold uppercase text-muted mb-1">
                     Slug na URL
                   </label>
@@ -2850,7 +3016,7 @@ export function RetailStorefrontPage() {
                   />
                 </div>
 
-                <div className="md:col-span-3">
+                <div className="md:col-span-3 min-w-0">
                   <label className="block text-[10px] font-bold uppercase text-muted mb-1">
                     Descrição curta na vitrine
                   </label>
@@ -2886,704 +3052,39 @@ export function RetailStorefrontPage() {
       )}
 
       {/* ==================================================================== */}
-      {/* ABA 5: APARÊNCIA & PREVIEW INTERATIVO                                */}
+      {/* ABA 5: APARÊNCIA — ESTÚDIO VISUAL RESPONSIVO & PRÉVIA EM IFRAME      */}
       {/* ==================================================================== */}
       {activeTab === 'appearance' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-          {/* Coluna Esquerda: Editor Visual Completo */}
-          <div className="lg:col-span-5 space-y-4">
-            {/* Seleção de Template */}
-            <div className="retail-panel space-y-3">
-              <div>
-                <span className="retail-kicker">Estilo Visual</span>
-                <h2 className="text-base font-black">Modelo da Vitrine</h2>
-              </div>
-
-              <div className="space-y-2">
-                {TEMPLATE_OPTIONS.map((tpl) => {
-                  const selected = draftTheme.template === tpl.id;
-                  return (
-                    <button
-                      key={tpl.id}
-                      type="button"
-                      onClick={() =>
-                        setDraftTheme({ ...draftTheme, template: tpl.id })
-                      }
-                      className={`w-full p-3.5 rounded-xl border text-left transition flex items-center justify-between gap-3 ${
-                        selected
-                          ? 'border-brand bg-support/50'
-                          : 'border-line bg-page hover:border-brand'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div
-                          style={{
-                            backgroundColor: tpl.bgPreview,
-                            borderColor: '#E5E1ED',
-                          }}
-                          className="w-11 h-11 rounded-xl border flex items-center justify-center shrink-0 shadow-2xs"
-                        >
-                          <div
-                            style={{ backgroundColor: '#7C3AED' }}
-                            className="w-5 h-5 rounded-md"
-                          />
-                        </div>
-                        <div className="min-w-0">
-                          <span className="font-bold text-sm text-ink block">
-                            {tpl.name}
-                          </span>
-                          <p className="text-xs text-muted mt-0.5 line-clamp-2">
-                            {tpl.desc}
-                          </p>
-                        </div>
-                      </div>
-                      {selected && (
-                        <Check size={16} className="text-brand shrink-0" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-line">
-                <div>
-                  <label className="block text-[11px] font-bold text-muted mb-1.5">
-                    Cor Principal
-                  </label>
-                  <div className="flex gap-2">
-                    {['#7C3AED', '#6D28D9'].map((hex) => (
-                      <button
-                        key={hex}
-                        type="button"
-                        onClick={() =>
-                          setDraftTheme({ ...draftTheme, primaryColor: hex })
-                        }
-                        style={{ backgroundColor: hex }}
-                        className={`h-8 flex-1 rounded-lg border-2 flex items-center justify-center text-on-brand text-[10px] font-mono font-bold ${
-                          draftTheme.primaryColor === hex
-                            ? 'border-ink'
-                            : 'border-transparent opacity-75'
-                        }`}
-                      >
-                        {hex}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-muted mb-1.5">
-                    Cor de Acento
-                  </label>
-                  <div className="flex gap-2">
-                    {['#6D28D9', '#7C3AED'].map((hex) => (
-                      <button
-                        key={hex}
-                        type="button"
-                        onClick={() =>
-                          setDraftTheme({ ...draftTheme, accentColor: hex })
-                        }
-                        style={{ backgroundColor: hex }}
-                        className={`h-8 flex-1 rounded-lg border-2 flex items-center justify-center text-on-brand text-[10px] font-mono font-bold ${
-                          draftTheme.accentColor === hex
-                            ? 'border-ink'
-                            : 'border-transparent opacity-75'
-                        }`}
-                      >
-                        {hex}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Textos de Destaque e Imagens de Marca */}
-            <div className="retail-panel space-y-3">
-              <div>
-                <span className="retail-kicker">Cabeçalho & Capa</span>
-                <h2 className="text-base font-black">
-                  Mensagem Principal e Imagens
-                </h2>
-              </div>
-
-              <div className="space-y-3">
-                <label className="retail-field">
-                  <span>Faixa de aviso no topo (opcional)</span>
-                  <input
-                    type="text"
-                    value={draftTheme.announcementText || ''}
-                    onChange={(e) =>
-                      setDraftTheme({
-                        ...draftTheme,
-                        announcementText: e.target.value,
-                      })
-                    }
-                    placeholder="Ex: Retirada rápida na loja ou entrega no mesmo dia!"
-                  />
-                </label>
-
-                <label className="retail-field">
-                  <span>Título de boas-vindas (Hero)</span>
-                  <input
-                    type="text"
-                    value={draftTheme.heroTitle || ''}
-                    onChange={(e) =>
-                      setDraftTheme({
-                        ...draftTheme,
-                        heroTitle: e.target.value,
-                      })
-                    }
-                    placeholder={
-                      settingsForm.storeName || 'Nova Coleção Disponível'
-                    }
-                  />
-                </label>
-
-                <label className="retail-field">
-                  <span>Subtítulo da vitrine</span>
-                  <textarea
-                    rows={2}
-                    value={draftTheme.heroSubtitle || ''}
-                    onChange={(e) =>
-                      setDraftTheme({
-                        ...draftTheme,
-                        heroSubtitle: e.target.value,
-                      })
-                    }
-                    placeholder="Reserve suas peças online e confirme pelo WhatsApp."
-                  />
-                </label>
-
-                <label className="retail-field">
-                  <span>Texto do botão de chamada (CTA)</span>
-                  <input
-                    type="text"
-                    value={draftTheme.heroCtaLabel || ''}
-                    onChange={(e) =>
-                      setDraftTheme({
-                        ...draftTheme,
-                        heroCtaLabel: e.target.value,
-                      })
-                    }
-                    placeholder="Ver coleção"
-                  />
-                </label>
-
-                {/* Atalho rápido de Logo e Capa direto na Aparência */}
-                <div className="grid grid-cols-2 gap-2.5 pt-2 border-t border-line">
-                  <div className="p-2.5 rounded-xl border border-line bg-page space-y-2">
-                    <span className="text-[11px] font-bold block">
-                      Logotipo da Loja
-                    </span>
-                    {settingsForm.logoUrl ? (
-                      <div className="flex items-center gap-2">
-                        <img
-                          src={getFullUrl(settingsForm.logoUrl)}
-                          alt="Logo"
-                          className="w-10 h-10 rounded-lg object-cover border border-line bg-surface"
-                        />
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setSettingsForm({ ...settingsForm, logoUrl: '' })
-                          }
-                          className="text-[11px] font-bold text-muted hover:text-ink"
-                        >
-                          Remover
-                        </button>
-                      </div>
-                    ) : null}
-                    <label className="inline-flex items-center gap-1.5 text-xs font-bold text-brand cursor-pointer">
-                      <Upload size={13} />
-                      <span>Enviar logo</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => {
-                          const f = e.target.files?.[0];
-                          if (f) handleUploadMedia(f, 'logoUrl');
-                        }}
-                      />
-                    </label>
-                  </div>
-
-                  <div className="p-2.5 rounded-xl border border-line bg-page space-y-2">
-                    <span className="text-[11px] font-bold block">
-                      Foto de Capa (Hero)
-                    </span>
-                    {settingsForm.coverUrl ? (
-                      <div className="flex items-center gap-2">
-                        <img
-                          src={getFullUrl(settingsForm.coverUrl)}
-                          alt="Capa"
-                          className="w-14 h-10 rounded-lg object-cover border border-line bg-surface"
-                        />
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setSettingsForm({ ...settingsForm, coverUrl: '' })
-                          }
-                          className="text-[11px] font-bold text-muted hover:text-ink"
-                        >
-                          Remover
-                        </button>
-                      </div>
-                    ) : null}
-                    <label className="inline-flex items-center gap-1.5 text-xs font-bold text-brand cursor-pointer">
-                      <Upload size={13} />
-                      <span>Enviar capa</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => {
-                          const f = e.target.files?.[0];
-                          if (f) handleUploadMedia(f, 'coverUrl');
-                        }}
-                      />
-                    </label>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Ordem e Títulos das Seções */}
-            <div className="retail-panel space-y-3">
-              <div>
-                <span className="retail-kicker">Estrutura da Página</span>
-                <h2 className="text-base font-black">Seções da Vitrine</h2>
-              </div>
-
-              <div className="space-y-2">
-                {(draftTheme.sections || []).map((sec: any, idx: number) => {
-                  const defaultNames: Record<string, string> = {
-                    header: 'Cabeçalho da Loja',
-                    hero: 'Destaque Principal (Hero)',
-                    banner: 'Banners Promocionais',
-                    categories: 'Faixa de Categorias',
-                    featured: 'Seleção em Destaque',
-                    collection: 'Catálogo Completo',
-                    fulfillment_info: 'Bloco de Entrega & Retirada',
-                    footer: 'Rodapé Institucional',
-                  };
-                  const supportsCustomTitle =
-                    sec.type === 'featured' || sec.type === 'collection';
-
-                  return (
-                    <div
-                      key={sec.id}
-                      className="p-2.5 rounded-xl border border-line bg-page space-y-2"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div className="flex flex-col gap-0.5">
-                            <button
-                              type="button"
-                              disabled={idx === 0}
-                              onClick={() => {
-                                const list = [...draftTheme.sections];
-                                const [removed] = list.splice(idx, 1);
-                                list.splice(idx - 1, 0, removed);
-                                setDraftTheme({
-                                  ...draftTheme,
-                                  sections: list,
-                                });
-                              }}
-                              className="p-0.5 text-muted hover:text-ink disabled:opacity-30"
-                            >
-                              <ArrowUp size={12} />
-                            </button>
-                            <button
-                              type="button"
-                              disabled={
-                                idx === (draftTheme.sections || []).length - 1
-                              }
-                              onClick={() => {
-                                const list = [...draftTheme.sections];
-                                const [removed] = list.splice(idx, 1);
-                                list.splice(idx + 1, 0, removed);
-                                setDraftTheme({
-                                  ...draftTheme,
-                                  sections: list,
-                                });
-                              }}
-                              className="p-0.5 text-muted hover:text-ink disabled:opacity-30"
-                            >
-                              <ArrowDown size={12} />
-                            </button>
-                          </div>
-                          <span className="text-xs font-bold text-ink truncate">
-                            {defaultNames[sec.type] || sec.type}
-                          </span>
-                        </div>
-
-                        <RetailSwitch
-                          size="sm"
-                          checked={sec.enabled !== false}
-                          onCheckedChange={(checked) => {
-                            const list = [...draftTheme.sections];
-                            list[idx] = { ...sec, enabled: checked };
-                            setDraftTheme({ ...draftTheme, sections: list });
-                          }}
-                        />
-                      </div>
-
-                      {supportsCustomTitle && sec.enabled !== false && (
-                        <input
-                          type="text"
-                          value={sec.title || ''}
-                          onChange={(e) => {
-                            const list = [...draftTheme.sections];
-                            list[idx] = { ...sec, title: e.target.value };
-                            setDraftTheme({ ...draftTheme, sections: list });
-                          }}
-                          placeholder={`Título personalizado para ${defaultNames[sec.type]}...`}
-                          className="w-full px-2.5 py-1.5 rounded-lg border border-line bg-surface text-xs"
-                        />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Editor Completo de Banners Promocionais */}
-            <div className="retail-panel space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="retail-kicker">Campanhas</span>
-                  <h2 className="text-base font-black">
-                    Banners Promocionais
-                  </h2>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const nextBanners = [
-                      ...(draftTheme.banners || []),
-                      {
-                        id: `bn-${Date.now()}`,
-                        title: 'Semana de Novidades',
-                        subtitle: 'Confira as peças recém-chegadas na loja',
-                        ctaLabel: 'Ver novidades',
-                        imageUrl: null,
-                        targetType: 'all',
-                        targetValue: '',
-                        enabled: true,
-                      },
-                    ];
-                    const nextSections = (draftTheme.sections || []).map(
-                      (s: any) =>
-                        s.type === 'banner' ? { ...s, enabled: true } : s,
-                    );
-                    setDraftTheme({
-                      ...draftTheme,
-                      banners: nextBanners,
-                      sections: nextSections,
-                    });
-                  }}
-                  className="retail-button retail-button-secondary"
-                  style={{ minHeight: 32, padding: '4px 10px', fontSize: 12 }}
-                >
-                  <Plus size={14} /> Adicionar Banner
-                </button>
-              </div>
-
-              {(draftTheme.banners || []).length === 0 ? (
-                <p className="text-xs text-muted">
-                  Nenhum banner ativo. Clique em &ldquo;Adicionar Banner&rdquo;
-                  para divulgar uma categoria ou promoção.
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {(draftTheme.banners || []).map((b: any, idx: number) => (
-                    <div
-                      key={b.id}
-                      className="p-3.5 rounded-xl border border-line bg-page space-y-2.5"
-                    >
-                      <div className="flex items-center justify-between">
-                        <RetailSwitch
-                          size="sm"
-                          checked={b.enabled !== false}
-                          onCheckedChange={(checked) => {
-                            const list = [...draftTheme.banners];
-                            list[idx] = { ...b, enabled: checked };
-                            setDraftTheme({ ...draftTheme, banners: list });
-                          }}
-                          label={`Banner #${idx + 1}`}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const list = draftTheme.banners.filter(
-                              (_: any, i: number) => i !== idx,
-                            );
-                            setDraftTheme({ ...draftTheme, banners: list });
-                          }}
-                          className="text-muted hover:text-ink p-1"
-                          title="Excluir banner"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-
-                      <input
-                        type="text"
-                        value={b.title || ''}
-                        onChange={(e) => {
-                          const list = [...draftTheme.banners];
-                          list[idx] = { ...b, title: e.target.value };
-                          setDraftTheme({ ...draftTheme, banners: list });
-                        }}
-                        placeholder="Título do banner"
-                        className="w-full px-3 py-1.5 rounded-lg border border-line bg-surface text-xs font-bold"
-                      />
-
-                      <input
-                        type="text"
-                        value={b.subtitle || ''}
-                        onChange={(e) => {
-                          const list = [...draftTheme.banners];
-                          list[idx] = { ...b, subtitle: e.target.value };
-                          setDraftTheme({ ...draftTheme, banners: list });
-                        }}
-                        placeholder="Subtítulo explicativo"
-                        className="w-full px-3 py-1.5 rounded-lg border border-line bg-surface text-xs"
-                      />
-
-                      <div className="grid grid-cols-2 gap-2">
-                        <input
-                          type="text"
-                          value={b.ctaLabel || ''}
-                          onChange={(e) => {
-                            const list = [...draftTheme.banners];
-                            list[idx] = { ...b, ctaLabel: e.target.value };
-                            setDraftTheme({ ...draftTheme, banners: list });
-                          }}
-                          placeholder="Texto do botão (ex: Conferir)"
-                          className="w-full px-3 py-1.5 rounded-lg border border-line bg-surface text-xs"
-                        />
-
-                        <RetailSelect
-                          value={b.targetType || 'all'}
-                          onValueChange={(val) => {
-                            const list = [...draftTheme.banners];
-                            list[idx] = {
-                              ...b,
-                              targetType: val,
-                              targetValue: '',
-                            };
-                            setDraftTheme({ ...draftTheme, banners: list });
-                          }}
-                          options={[
-                            { value: 'all', label: 'Levar ao catálogo' },
-                            { value: 'featured', label: 'Levar aos destaques' },
-                            {
-                              value: 'category',
-                              label: 'Filtrar categoria...',
-                            },
-                            { value: 'product', label: 'Abrir produto...' },
-                          ]}
-                        />
-                      </div>
-
-                      {b.targetType === 'category' && (
-                        <RetailSelect
-                          value={b.targetValue || ''}
-                          onValueChange={(val) => {
-                            const list = [...draftTheme.banners];
-                            list[idx] = { ...b, targetValue: val };
-                            setDraftTheme({ ...draftTheme, banners: list });
-                          }}
-                          placeholder="Escolha a categoria de destino..."
-                          options={categories.map((c) => ({
-                            value: c.id,
-                            label: c.name,
-                          }))}
-                        />
-                      )}
-
-                      {b.targetType === 'product' && (
-                        <RetailSelect
-                          value={b.targetValue || ''}
-                          onValueChange={(val) => {
-                            const list = [...draftTheme.banners];
-                            list[idx] = { ...b, targetValue: val };
-                            setDraftTheme({ ...draftTheme, banners: list });
-                          }}
-                          placeholder="Escolha a peça de destino..."
-                          options={products
-                            .filter((p) => p.isVisible)
-                            .map((p) => ({
-                              value: p.publicSlug || p.id,
-                              label: p.displayTitle || p.name,
-                            }))}
-                        />
-                      )}
-
-                      <div className="flex items-center justify-between pt-1">
-                        {b.imageUrl ? (
-                          <div className="flex items-center gap-2">
-                            <img
-                              src={getFullUrl(b.imageUrl)}
-                              alt=""
-                              className="w-10 h-10 rounded-lg object-cover border border-line"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const list = [...draftTheme.banners];
-                                list[idx] = { ...b, imageUrl: null };
-                                setDraftTheme({ ...draftTheme, banners: list });
-                              }}
-                              className="text-[11px] font-bold text-muted hover:text-ink"
-                            >
-                              Remover imagem
-                            </button>
-                          </div>
-                        ) : (
-                          <span className="text-[11px] text-muted">
-                            Sem miniatura
-                          </span>
-                        )}
-
-                        <label className="inline-flex items-center gap-1 text-xs font-bold text-brand cursor-pointer">
-                          <Upload size={13} />
-                          <span>Imagem do banner</span>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => {
-                              const f = e.target.files?.[0];
-                              if (f) handleUploadBannerImage(f, idx);
-                            }}
-                          />
-                        </label>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Coluna Direita: Live Preview Interativo */}
-          <div className="lg:col-span-7 sticky top-4">
-            <div className="retail-panel p-0 overflow-hidden">
-              <div className="px-4 py-3 border-b border-line bg-page flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <Eye size={15} className="text-brand" />
-                  <span className="text-xs font-extrabold">
-                    Simulação Interativa em Tempo Real
-                  </span>
-                  <span className="text-[11px] text-muted hidden sm:inline">
-                    (Teste a busca e os filtros abaixo)
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-1 bg-surface p-1 rounded-xl border border-line">
-                  <button
-                    type="button"
-                    onClick={() => setPreviewDevice('desktop')}
-                    className={`relative px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors ${
-                      previewDevice === 'desktop'
-                        ? 'text-on-brand'
-                        : 'text-muted hover:text-ink'
-                    }`}
-                  >
-                    {previewDevice === 'desktop' && (
-                      <motion.span
-                        layoutId="sf-admin-preview-device"
-                        transition={SF_SPRING_PILL}
-                        className="absolute inset-0 rounded-lg bg-brand"
-                      />
-                    )}
-                    <span className="relative z-10 flex items-center gap-1">
-                      <Monitor size={13} /> Desktop
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPreviewDevice('mobile')}
-                    className={`relative px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors ${
-                      previewDevice === 'mobile'
-                        ? 'text-on-brand'
-                        : 'text-muted hover:text-ink'
-                    }`}
-                  >
-                    {previewDevice === 'mobile' && (
-                      <motion.span
-                        layoutId="sf-admin-preview-device"
-                        transition={SF_SPRING_PILL}
-                        className="absolute inset-0 rounded-lg bg-brand"
-                      />
-                    )}
-                    <span className="relative z-10 flex items-center gap-1">
-                      <Smartphone size={13} /> Celular
-                    </span>
-                  </button>
-                </div>
-              </div>
-
-              <div className="p-4 bg-page flex justify-center max-h-[760px] overflow-y-auto">
-                <motion.div
-                  layout
-                  transition={SF_SPRING_PILL}
-                  className={`border border-line rounded-2xl overflow-hidden shadow-md bg-surface ${
-                    previewDevice === 'mobile'
-                      ? 'w-[375px] shrink-0'
-                      : 'w-full'
-                  }`}
-                >
-                  <StorefrontHomeView
-                    storeData={livePreviewStoreData}
-                    products={livePreviewStoreData.previewProducts}
-                    search={previewSearch}
-                    setSearch={setPreviewSearch}
-                    selectedCategoryId={previewCategoryId}
-                    setSelectedCategoryId={setPreviewCategoryId}
-                    selectedSize={previewSize}
-                    setSelectedSize={setPreviewSize}
-                    selectedColor={previewColor}
-                    setSelectedColor={setPreviewColor}
-                    sortBy={previewSortBy}
-                    setSortBy={setPreviewSortBy}
-                    inStockOnly={previewInStockOnly}
-                    setInStockOnly={setPreviewInStockOnly}
-                    cartCount={previewCartCount}
-                    cartTotal={previewCartTotal}
-                    bagPulseKey={previewBagPulseKey}
-                    onSelectProduct={() => {}}
-                    onQuickAdd={(prod, variant, qty = 1) => {
-                      const unitPrice = Number(
-                        variant?.priceSell ?? prod?.priceSell ?? 0,
-                      );
-                      setPreviewCartCount((c) => c + qty);
-                      setPreviewCartTotal((t) => t + unitPrice * qty);
-                      setPreviewBagPulseKey((k) => k + 1);
-                      toast.success(
-                        `Prévia: "${prod.title}" simulado na sacola!`,
-                      );
-                    }}
-                    isPreview={true}
-                  />
-                </motion.div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <StorefrontVisualStudio
+          draftTheme={draftTheme}
+          setDraftTheme={setDraftTheme}
+          settingsForm={settingsForm}
+          setSettingsForm={setSettingsForm}
+          products={products}
+          categories={categories}
+          livePreviewStoreData={livePreviewStoreData}
+          previewDevice={previewDevice}
+          setPreviewDevice={setPreviewDevice}
+          selectedSectionId={selectedSectionId}
+          setSelectedSectionId={setSelectedSectionId}
+          onUploadFile={handleUploadMediaFile}
+          onNavigateTab={(tab, openCols) => {
+            if (tab === 'products' && openCols !== undefined) {
+              setProductsSubView(openCols ? 'collections' : 'catalog');
+            }
+            setTab(tab);
+          }}
+        />
       )}
 
       {/* ==================================================================== */}
       {/* ABA 6: CONFIGURAÇÕES GERAIS, WHATSAPP & LOGÍSTICA                    */}
       {/* ==================================================================== */}
       {activeTab === 'settings' && (
-        <form onSubmit={handleSaveSettings} className="space-y-5">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        <form onSubmit={handleSaveSettings} className="space-y-5 min-w-0">
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-5">
             {/* Identidade, URL e Imagens */}
-            <div className="lg:col-span-7 retail-panel space-y-4">
+            <div className="xl:col-span-7 min-w-0 retail-panel space-y-4">
               <div className="border-b border-line pb-3">
                 <span className="retail-kicker">Identidade Pública</span>
                 <h2 className="text-base font-black">
@@ -3624,7 +3125,7 @@ export function RetailStorefrontPage() {
                     }
                     placeholder="minha-loja"
                   />
-                  <small className="text-[11px] text-muted font-mono">
+                  <small className="text-[11px] text-muted font-mono break-all">
                     {window.location.origin}/loja/
                     {settingsForm.slug || 'minha-loja'}
                   </small>
@@ -3776,7 +3277,7 @@ export function RetailStorefrontPage() {
             </div>
 
             {/* Atendimento via WhatsApp & Localização */}
-            <div className="lg:col-span-5 retail-panel space-y-4">
+            <div className="xl:col-span-5 min-w-0 retail-panel space-y-4">
               <div className="border-b border-line pb-3">
                 <span className="retail-kicker">Canal de Atendimento</span>
                 <h2 className="text-base font-black">
@@ -3996,10 +3497,10 @@ export function RetailStorefrontPage() {
             <div className="flex justify-end pt-2 border-t border-line">
               <button
                 type="submit"
-                disabled={saving}
-                className="retail-button retail-button-primary"
+                disabled={savingSettings}
+                className="retail-button retail-button-primary sm:min-w-[180px]"
               >
-                {saving ? (
+                {savingSettings ? (
                   <Loader2 size={16} className="animate-spin" />
                 ) : (
                   <Save size={16} />
@@ -4193,12 +3694,15 @@ export function RetailStorefrontPage() {
                     (url: string, idx: number) => (
                       <div
                         key={`${url}-${idx}`}
-                        className="relative w-16 h-20 rounded-xl overflow-hidden border border-line bg-surface group"
+                        className="relative w-16 h-20 group"
                       >
-                        <img
-                          src={getFullUrl(url)}
+                        <StorefrontProductFrame
+                          imageUrl={url}
                           alt=""
-                          className="w-full h-full object-cover"
+                          productName={editingProduct.name}
+                          padding="xs"
+                          aspectClassName="w-16 h-20"
+                          roundedClassName="rounded-xl border border-line"
                         />
                         <button
                           type="button"
@@ -4246,6 +3750,14 @@ export function RetailStorefrontPage() {
               />
             </div>
 
+            <div className="px-3 py-2 rounded-xl border border-line bg-page flex items-center gap-2 text-xs text-muted">
+              <AlertCircle size={14} className="text-brand shrink-0" />
+              <span>
+                <strong className="text-ink">Efeito imediato:</strong> ao salvar,
+                estas informações entram no ar imediatamente na loja publicada.
+              </span>
+            </div>
+
             <div className="flex justify-end gap-2 pt-2">
               <button
                 type="button"
@@ -4257,9 +3769,13 @@ export function RetailStorefrontPage() {
               <button
                 type="submit"
                 disabled={saving}
-                className="retail-button retail-button-primary"
+                className="retail-button retail-button-primary sm:min-w-[136px]"
               >
-                <Save size={15} />
+                {saving ? (
+                  <Loader2 size={15} className="animate-spin" />
+                ) : (
+                  <Save size={15} />
+                )}
                 <span>Salvar Peça</span>
               </button>
             </div>
@@ -4519,6 +4035,174 @@ export function RetailStorefrontPage() {
               </button>
             </div>
           </form>
+        </RetailDialog>
+      )}
+
+      {/* ==================================================================== */}
+      {/* DIALOG 5: RESUMO DE ESTADO E MUDANÇAS ANTES DE PUBLICAR              */}
+      {/* ==================================================================== */}
+      {showPublishDialog && (
+        <RetailDialog
+          title="Publicar Loja Virtual — Estado atual e resumo das mudanças"
+          onClose={() => setShowPublishDialog(false)}
+          busy={publishing}
+          wide
+        >
+          {(() => {
+            const phoneDigits = String(settingsForm.whatsappPhone || '').replace(
+              /\D/g,
+              '',
+            );
+            const missingWhatsapp = phoneDigits.length < 10;
+            const missingFulfillment =
+              !settingsForm.pickupEnabled && !settingsForm.deliveryEnabled;
+            const hasBlocker = missingWhatsapp || missingFulfillment;
+
+            return (
+              <div className="space-y-4">
+                {/* Estado atual da vitrine */}
+                <div className="p-3.5 rounded-xl border border-line bg-page flex flex-wrap items-center justify-between gap-3">
+                  <div className="space-y-0.5 min-w-0">
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-muted block">
+                      Estado atual antes desta publicação
+                    </span>
+                    <p className="text-sm font-semibold text-ink">
+                      {isPublished
+                        ? `● Loja publicada no ar${publishedVersion > 0 ? ` (versão v${publishedVersion})` : ''}`
+                        : hasEverPublished
+                          ? `◐ Vitrine pausada (última versão v${publishedVersion})`
+                          : '○ Rascunho inicial — primeira publicação da vitrine'}
+                    </p>
+                    <p className="text-xs text-muted font-mono break-all">
+                      {publicStoreUrl}
+                    </p>
+                  </div>
+                  <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-support text-brand border border-brand shrink-0">
+                    {pendingPublishChanges.length > 0
+                      ? `${pendingPublishChanges.length} alteração(ões) detectada(s)`
+                      : 'Republicação sincronizada'}
+                  </span>
+                </div>
+
+                {/* Bloqueios operacionais obrigatórios */}
+                {hasBlocker && (
+                  <div className="p-3.5 rounded-xl border border-brand bg-support/60 space-y-2">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-brand">
+                      <AlertCircle size={15} className="shrink-0" />
+                      <span>
+                        Conclua os requisitos operacionais antes de publicar:
+                      </span>
+                    </div>
+                    <ul className="text-xs text-ink space-y-1 pl-5 list-disc">
+                      {missingWhatsapp && (
+                        <li>
+                          Informe o WhatsApp oficial de atendimento (com DDD) na
+                          aba Configurações.
+                        </li>
+                      )}
+                      {missingFulfillment && (
+                        <li>
+                          Habilite ao menos uma modalidade de recebimento
+                          (Retirada na loja ou Entrega local).
+                        </li>
+                      )}
+                    </ul>
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowPublishDialog(false);
+                          setTab('settings');
+                        }}
+                        className="retail-button retail-button-secondary text-xs"
+                      >
+                        Ir para Configurações
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Resumo claro das mudanças */}
+                <div className="p-3.5 rounded-xl border border-line bg-surface space-y-2">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-ink">
+                    <Sparkles size={14} className="text-brand shrink-0" />
+                    <span>Resumo das mudanças que entrarão no ar</span>
+                  </div>
+                  {pendingPublishChanges.length === 0 ? (
+                    <p className="text-xs text-muted">
+                      Nenhuma diferença estrutural pendente em relação à última
+                      versão publicada — confirmar atualizará o selo de
+                      publicação mantendo a vitrine ativa.
+                    </p>
+                  ) : (
+                    <ul className="text-xs text-ink space-y-1.5 pl-5 list-disc">
+                      {pendingPublishChanges.map((change, idx) => (
+                        <li key={idx}>{change}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                {/* Avisos de curadoria (destinos ocultos ou peças sem estoque) */}
+                {curatorialWarnings.length > 0 && (
+                  <div className="p-3.5 rounded-xl border border-brand bg-support/40 space-y-1.5">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-brand">
+                      <AlertCircle size={14} className="shrink-0" />
+                      <span>
+                        Atenção de curadoria ({curatorialWarnings.length}) — não
+                        impede a publicação, mas vale revisar:
+                      </span>
+                    </div>
+                    <ul className="text-xs text-ink space-y-1 pl-5 list-disc max-h-36 overflow-y-auto">
+                      {curatorialWarnings.map((w, idx) => (
+                        <li key={idx}>{w.message}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-line">
+                  <button
+                    type="button"
+                    disabled={savingDraft || publishing}
+                    onClick={handleSaveDraftOnly}
+                    className="retail-button retail-button-secondary sm:min-w-[168px]"
+                  >
+                    {savingDraft ? (
+                      <Loader2 size={15} className="animate-spin" />
+                    ) : (
+                      <Save size={15} />
+                    )}
+                    <span>Salvar apenas rascunho</span>
+                  </button>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={publishing}
+                      onClick={() => setShowPublishDialog(false)}
+                      className="retail-button retail-button-ghost"
+                    >
+                      Voltar
+                    </button>
+                    <button
+                      type="button"
+                      disabled={publishing || hasBlocker}
+                      onClick={handleConfirmPublish}
+                      className="retail-button retail-button-primary sm:min-w-[186px]"
+                    >
+                      {publishing ? (
+                        <Loader2 size={15} className="animate-spin" />
+                      ) : (
+                        <Send size={15} />
+                      )}
+                      <span>Confirmar e publicar</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </RetailDialog>
       )}
     </div>

@@ -92,6 +92,8 @@ export class StorefrontPublicController {
     @Query('search') search?: string,
     @Query('categoryId') categoryId?: string,
     @Query('categorySlug') categorySlug?: string,
+    @Query('collectionSlug') collectionSlug?: string,
+    @Query('selectionId') selectionId?: string,
     @Query('size') size?: string,
     @Query('color') color?: string,
     @Query('minPrice') minPrice?: string,
@@ -108,6 +110,8 @@ export class StorefrontPublicController {
       search,
       categoryId,
       categorySlug,
+      collectionSlug,
+      selectionId,
       size,
       color,
       minPrice: minPrice !== undefined && minPrice !== '' ? Number(minPrice) : undefined,
@@ -118,6 +122,18 @@ export class StorefrontPublicController {
       page: page ? Number(page) : 1,
       limit: limit ? Number(limit) : 24,
     });
+  }
+
+  @Get(':slug/collections/:collectionSlug')
+  async getCollectionDetail(
+    @Param('slug') slug: string,
+    @Param('collectionSlug') collectionSlug: string,
+    @Req() req: any,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    this.assertRateLimit(req, 'store-collection-detail', 120);
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    return this.publicService.getCollectionBySlug(slug, collectionSlug);
   }
 
   @Get(':slug/products/:productSlug')

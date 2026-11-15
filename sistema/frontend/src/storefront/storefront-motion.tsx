@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { ShoppingBag } from 'lucide-react';
@@ -39,58 +39,88 @@ export const SF_VIEW_TRANSITION = {
   ease: SF_EASE_OUT,
 };
 
-let activeScrollLocks = 0;
-let savedOverflow = '';
-let savedPaddingRight = '';
+/**
+ * Permite que a prévia interativa em iframe forneça seu próprio `contentWindow`
+ * para que breakpoints (`matchMedia`), portais de modais/gavetas e travas de
+ * rolagem respeitem o viewport real da prévia sem afetar o painel administrativo.
+ */
+export const StorefrontWindowContext = createContext<Window | null>(null);
+
+export function useStorefrontWindow(): Window | null {
+  const ctxWin = useContext(StorefrontWindowContext);
+  if (ctxWin) return ctxWin;
+  return typeof window !== 'undefined' ? window : null;
+}
+
+const scrollLockRegistry = new WeakMap<
+  Document,
+  { count: number; overflow: string; paddingRight: string }
+>();
 
 /**
  * Trava a rolagem do body em modais e gavetas compensando a largura da barra
  * de rolagem para evitar qualquer deslocamento horizontal ("carranco") no topo.
  */
 export function useBodyScrollLock(locked: boolean): void {
+  const win = useStorefrontWindow();
+
   useEffect(() => {
-    if (!locked || typeof document === 'undefined' || typeof window === 'undefined') {
+    const doc = win?.document;
+    if (!locked || !win || !doc?.body || !doc?.documentElement) {
       return;
     }
 
-    const body = document.body;
-    const docEl = document.documentElement;
+    const body = doc.body;
+    const docEl = doc.documentElement;
+    let entry = scrollLockRegistry.get(doc);
 
-    if (activeScrollLocks === 0) {
-      savedOverflow = body.style.overflow;
-      savedPaddingRight = body.style.paddingRight;
-      const scrollbarGap = Math.max(0, window.innerWidth - docEl.clientWidth);
+    if (!entry || entry.count === 0) {
+      entry = {
+        count: 0,
+        overflow: body.style.overflow,
+        paddingRight: body.style.paddingRight,
+      };
+      const scrollbarGap = Math.max(0, win.innerWidth - docEl.clientWidth);
       body.style.overflow = 'hidden';
       if (scrollbarGap > 0) {
         body.style.paddingRight = `${scrollbarGap}px`;
       }
+      scrollLockRegistry.set(doc, entry);
     }
-    activeScrollLocks += 1;
+
+    entry.count += 1;
 
     return () => {
-      activeScrollLocks = Math.max(0, activeScrollLocks - 1);
-      if (activeScrollLocks === 0) {
-        body.style.overflow = savedOverflow;
-        body.style.paddingRight = savedPaddingRight;
+      const current = scrollLockRegistry.get(doc);
+      if (!current) return;
+      current.count = Math.max(0, current.count - 1);
+      if (current.count === 0) {
+        body.style.overflow = current.overflow;
+        body.style.paddingRight = current.paddingRight;
       }
     };
-  }, [locked]);
+  }, [locked, win]);
 }
 
 export function useIsMobileViewport(breakpoint = 640): boolean {
+  const win = useStorefrontWindow();
   const [isMobile, setIsMobile] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    return window.innerWidth < breakpoint;
+    if (!win) return false;
+    return win.innerWidth < breakpoint;
   });
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return;
-    const mql = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
+    if (!win || !win.matchMedia) return;
+    const mql = win.matchMedia(`(max-width: ${breakpoint - 1}px)`);
     const update = () => setIsMobile(mql.matches);
     update();
     mql.addEventListener('change', update);
-    return () => mql.removeEventListener('change', update);
-  }, [breakpoint]);
+    win.addEventListener('resize', update);
+    return () => {
+      mql.removeEventListener('change', update);
+      win.removeEventListener('resize', update);
+    };
+  }, [breakpoint, win]);
 
   return isMobile;
 }
@@ -105,11 +135,15 @@ export interface FlyToBagToken {
   title?: string;
 }
 
-export function resolveBagTargetCoords(): { x: number; y: number } | null {
-  if (typeof document === 'undefined' || typeof window === 'undefined') return null;
+export function resolveBagTargetCoords(targetDoc?: Document | null): {
+  x: number;
+  y: number;
+} | null {
+  const doc =
+    targetDoc || (typeof document !== 'undefined' ? document : null);
+  if (!doc) return null;
 
-  // Em celulares, prioriza a barra flutuante inferior se estiver visível, senão o botão do topo
-  const mobileBar = document.querySelector<HTMLElement>(
+  const mobileBar = doc.querySelector<HTMLElement>(
     '[data-sf-mobile-bag-target="true"]',
   );
   if (mobileBar) {
@@ -119,7 +153,7 @@ export function resolveBagTargetCoords(): { x: number; y: number } | null {
     }
   }
 
-  const headerBag = document.querySelector<HTMLElement>(
+  const headerBag = doc.querySelector<HTMLElement>(
     '[data-sf-bag-target="true"]',
   );
   if (headerBag) {
@@ -140,6 +174,10 @@ export function FlyToBagOverlay({
   onCompleteToken: (id: number) => void;
 }) {
   const shouldReduceMotion = useReducedMotion();
+  const win = useStorefrontWindow();
+  const portalBody =
+    win?.document?.body ||
+    (typeof document !== 'undefined' ? document.body : null);
 
   useEffect(() => {
     if (!shouldReduceMotion || tokens.length === 0) return;
@@ -148,7 +186,7 @@ export function FlyToBagOverlay({
     }
   }, [shouldReduceMotion, tokens, onCompleteToken]);
 
-  if (typeof document === 'undefined' || shouldReduceMotion) return null;
+  if (!portalBody || shouldReduceMotion) return null;
 
   return createPortal(
     <div
@@ -168,7 +206,11 @@ export function FlyToBagOverlay({
                 opacity: 0.98,
               }}
               animate={{
-                x: [tk.startX - 22, (tk.startX + tk.targetX) / 2 - 20, tk.targetX - 16],
+                x: [
+                  tk.startX - 22,
+                  (tk.startX + tk.targetX) / 2 - 20,
+                  tk.targetX - 16,
+                ],
                 y: [tk.startY - 22, midY - 20, tk.targetY - 16],
                 scale: [1, 0.88, 0.34],
                 opacity: [1, 0.96, 0.18],
@@ -179,13 +221,13 @@ export function FlyToBagOverlay({
                 ease: [0.22, 1, 0.36, 1],
               }}
               onAnimationComplete={() => onCompleteToken(tk.id)}
-              className="fixed top-0 left-0 w-11 h-11 rounded-2xl bg-brand text-on-brand border-2 border-surface shadow-lg flex items-center justify-center overflow-hidden"
+              className="fixed top-0 left-0 w-11 h-11 rounded-2xl bg-brand text-on-brand border-2 border-surface shadow-lg flex items-center justify-center overflow-hidden p-1"
             >
               {tk.imageUrl ? (
                 <img
                   src={getFullUrl(tk.imageUrl)}
                   alt=""
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain"
                 />
               ) : (
                 <ShoppingBag size={18} />
@@ -195,6 +237,6 @@ export function FlyToBagOverlay({
         })}
       </AnimatePresence>
     </div>,
-    document.body,
+    portalBody,
   );
 }

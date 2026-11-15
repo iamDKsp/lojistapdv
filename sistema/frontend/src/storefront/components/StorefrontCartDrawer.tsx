@@ -1,10 +1,6 @@
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import {
-  AnimatePresence,
-  motion,
-  useDragControls,
-} from 'framer-motion';
+import { AnimatePresence, motion, useDragControls } from 'framer-motion';
 import {
   AlertCircle,
   ArrowRight,
@@ -15,8 +11,6 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import { getFullUrl } from '@/lib/getFullUrl';
-import { CategoryIconIllustration } from '@/components/CategoryIcons';
 import type { StorefrontCartItem } from '../storefront-cart';
 import {
   SF_EASE_OUT,
@@ -25,7 +19,9 @@ import {
   SF_SPRING_SNAPPY,
   useBodyScrollLock,
   useIsMobileViewport,
+  useStorefrontWindow,
 } from '../storefront-motion';
+import { StorefrontProductFrame } from './StorefrontProductFrame';
 
 const formatBrl = (v: number | string) =>
   Number(v || 0).toLocaleString('pt-BR', {
@@ -43,6 +39,7 @@ export function StorefrontCartDrawer({
   validatingCart,
   isOffline,
   isDark = false,
+  isPreviewSimulation = false,
   themeStyles,
   onUpdateQuantity,
   onClearCart,
@@ -59,27 +56,32 @@ export function StorefrontCartDrawer({
   validatingCart: boolean;
   isOffline: boolean;
   isDark?: boolean;
+  isPreviewSimulation?: boolean;
   themeStyles?: React.CSSProperties;
   onUpdateQuantity: (productId: string, nextQty: number) => void;
   onClearCart?: () => void;
   onNavigateProduct: (productSlug: string) => void;
   onProceedCheckout: () => void;
-  onOpenCartPage: () => void;
+  onOpenCartPage?: () => void;
 }) {
+  const win = useStorefrontWindow();
   const isMobile = useIsMobileViewport(640);
   const dragControls = useDragControls();
   useBodyScrollLock(open);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !win) return;
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [open, onClose]);
+    win.addEventListener('keydown', handleKey);
+    return () => win.removeEventListener('keydown', handleKey);
+  }, [open, onClose, win]);
 
-  if (typeof document === 'undefined') return null;
+  const portalBody =
+    win?.document?.body ||
+    (typeof document !== 'undefined' ? document.body : null);
+  if (!portalBody) return null;
 
   return createPortal(
     <AnimatePresence>
@@ -91,9 +93,8 @@ export function StorefrontCartDrawer({
           }`}
           role="dialog"
           aria-modal="true"
-          aria-label="Sua Sacola"
+          aria-label="Sua sacola"
         >
-          {/* Backdrop com blur progressivo */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -103,7 +104,6 @@ export function StorefrontCartDrawer({
             className="fixed inset-0 bg-ink/50 backdrop-blur-xs"
           />
 
-          {/* Painel da Sacola: Bottom-Sheet no celular, Slide-Over lateral no desktop */}
           <motion.div
             initial={isMobile ? { y: '100%' } : { x: '100%' }}
             animate={isMobile ? { y: 0 } : { x: 0 }}
@@ -129,14 +129,16 @@ export function StorefrontCartDrawer({
                 : 'bg-surface text-ink border-line'
             }`}
           >
-            {/* Cabeçalho arrastável no mobile */}
+            {/* Cabeçalho */}
             <div
               onPointerDown={(e) => {
                 if (isMobile) dragControls.start(e);
               }}
               className={`shrink-0 border-b ${
                 isDark ? 'border-muted/40' : 'border-line'
-              } ${isMobile ? 'touch-none cursor-grab active:cursor-grabbing' : ''}`}
+              } ${
+                isMobile ? 'touch-none cursor-grab active:cursor-grabbing' : ''
+              }`}
             >
               {isMobile && (
                 <div className="pt-3 pb-0.5 flex justify-center">
@@ -150,8 +152,8 @@ export function StorefrontCartDrawer({
                     <ShoppingBag size={18} />
                   </div>
                   <div className="min-w-0">
-                    <h2 className="font-extrabold text-sm sm:text-base truncate">
-                      Sua Sacola
+                    <h2 className="font-bold text-sm sm:text-base truncate">
+                      {isPreviewSimulation ? 'Sacola (simulação)' : 'Sua sacola'}
                     </h2>
                     <p className="text-[11px] text-muted">
                       {cartCount}{' '}
@@ -163,11 +165,11 @@ export function StorefrontCartDrawer({
                 </div>
 
                 <div className="flex items-center gap-1.5 shrink-0">
-                  {cartItems.length > 1 && onClearCart && (
+                  {cartItems.length > 0 && onClearCart && (
                     <button
                       type="button"
                       onClick={onClearCart}
-                      className="px-2.5 py-1.5 rounded-xl text-[11px] font-bold text-muted hover:text-brand hover:bg-support/50 transition cursor-pointer"
+                      className="px-2.5 py-1.5 rounded-xl text-[11px] font-semibold text-muted hover:text-brand hover:bg-support/50 transition cursor-pointer"
                     >
                       Limpar
                     </button>
@@ -187,6 +189,14 @@ export function StorefrontCartDrawer({
                   </motion.button>
                 </div>
               </div>
+
+              {isPreviewSimulation && (
+                <div className="px-4 pb-3">
+                  <div className="rounded-xl bg-support/70 border border-line px-3 py-2 text-[11px] text-ink">
+                    Simulação da prévia: nenhum pedido é gravado nem reserva estoque.
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Conteúdo da Sacola */}
@@ -200,16 +210,16 @@ export function StorefrontCartDrawer({
                   transition={{ duration: 0.18, ease: SF_EASE_OUT }}
                   className="flex-1 p-8 sm:p-10 flex flex-col items-center justify-center text-center space-y-3.5"
                 >
-                  <div className="w-16 h-16 rounded-3xl bg-support text-brand flex items-center justify-center shadow-2xs">
+                  <div className="w-16 h-16 rounded-3xl bg-support text-brand flex items-center justify-center">
                     <ShoppingBag size={26} />
                   </div>
                   <div className="space-y-1">
-                    <p className="font-extrabold text-sm sm:text-base">
+                    <p className="font-bold text-sm sm:text-base">
                       Sua sacola está vazia
                     </p>
                     <p className="text-xs text-muted max-w-xs leading-relaxed">
-                      Explore as categorias da loja, escolha tamanho e cor das
-                      suas peças favoritas e monte seu pedido.
+                      Abra uma peça, escolha tamanho e cor e adicione à sacola
+                      para montar seu pedido.
                     </p>
                   </div>
                   <motion.button
@@ -220,7 +230,7 @@ export function StorefrontCartDrawer({
                       backgroundColor: 'var(--sf-primary)',
                       color: '#FFFFFF',
                     }}
-                    className="mt-1 px-5 py-2.5 rounded-xl font-extrabold text-xs cursor-pointer shadow-xs"
+                    className="mt-1 px-5 py-2.5 rounded-xl font-bold text-xs cursor-pointer"
                   >
                     Explorar catálogo
                   </motion.button>
@@ -234,7 +244,6 @@ export function StorefrontCartDrawer({
                   transition={{ duration: 0.16 }}
                   className="flex-1 min-h-0 flex flex-col"
                 >
-                  {/* Lista de itens com inserção/remoção animada */}
                   <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-3">
                     <AnimatePresence initial={false}>
                       {cartItems.map((item) => {
@@ -266,27 +275,18 @@ export function StorefrontCartDrawer({
                               }`}
                             >
                               <div className="flex items-start gap-3 min-w-0">
-                                <button
-                                  type="button"
+                                <StorefrontProductFrame
+                                  imageUrl={item.imageUrl || valItem?.imageUrl}
+                                  alt={item.productName}
+                                  productName={item.productName}
+                                  padding="xs"
+                                  aspectClassName="w-14 h-18 shrink-0"
+                                  roundedClassName="rounded-xl"
                                   onClick={() => {
                                     onClose();
                                     onNavigateProduct(item.productSlug);
                                   }}
-                                  className="w-14 h-18 rounded-xl overflow-hidden border border-line bg-page shrink-0 cursor-pointer"
-                                >
-                                  {(item.imageUrl || valItem?.imageUrl) ? (
-                                    <img
-                                      src={getFullUrl(item.imageUrl || valItem?.imageUrl)}
-                                      alt={item.productName}
-                                      className="w-full h-full object-cover"
-                                    />
-                                  ) : (
-                                    <CategoryIconIllustration
-                                      productName={item.productName}
-                                      compact
-                                    />
-                                  )}
-                                </button>
+                                />
 
                                 <div className="min-w-0 space-y-0.5">
                                   <button
@@ -295,7 +295,7 @@ export function StorefrontCartDrawer({
                                       onClose();
                                       onNavigateProduct(item.productSlug);
                                     }}
-                                    className="font-bold text-xs sm:text-sm hover:text-brand truncate block text-left cursor-pointer transition-colors"
+                                    className="font-semibold text-xs sm:text-sm hover:text-brand truncate block text-left cursor-pointer transition-colors"
                                   >
                                     {item.productName}
                                   </button>
@@ -303,22 +303,22 @@ export function StorefrontCartDrawer({
                                   {(item.size || item.color) && (
                                     <div className="flex flex-wrap items-center gap-1 pt-0.5">
                                       {item.size && (
-                                        <span className="px-1.5 py-0.5 rounded-md bg-page border border-line text-[10px] font-bold text-muted">
+                                        <span className="px-1.5 py-0.5 rounded-md bg-page border border-line text-[10px] font-medium text-muted">
                                           Tam: {item.size}
                                         </span>
                                       )}
                                       {item.color && (
-                                        <span className="px-1.5 py-0.5 rounded-md bg-page border border-line text-[10px] font-bold text-muted">
+                                        <span className="px-1.5 py-0.5 rounded-md bg-page border border-line text-[10px] font-medium text-muted">
                                           {item.color}
                                         </span>
                                       )}
                                     </div>
                                   )}
 
-                                  <p className="text-xs sm:text-sm font-extrabold text-brand pt-1">
+                                  <p className="text-xs sm:text-sm font-bold text-brand pt-1 tabular-nums">
                                     {formatBrl(item.priceUnit * item.quantity)}
                                     {item.quantity > 1 && (
-                                      <span className="text-[10px] font-semibold text-muted ml-1.5">
+                                      <span className="text-[10px] font-medium text-muted ml-1.5">
                                         ({formatBrl(item.priceUnit)} cada)
                                       </span>
                                     )}
@@ -326,7 +326,7 @@ export function StorefrontCartDrawer({
 
                                   {outOfStock && (
                                     <div className="pt-1 flex flex-wrap items-center gap-2">
-                                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-brand">
+                                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand">
                                         <AlertCircle size={12} />
                                         Disponível: {maxStock} un.
                                       </span>
@@ -339,7 +339,7 @@ export function StorefrontCartDrawer({
                                               maxStock,
                                             )
                                           }
-                                          className="text-[11px] font-extrabold underline text-brand cursor-pointer"
+                                          className="text-[11px] font-bold underline text-brand cursor-pointer"
                                         >
                                           Ajustar
                                         </button>
@@ -349,7 +349,7 @@ export function StorefrontCartDrawer({
                                 </div>
                               </div>
 
-                              {/* Controles táteis de quantidade */}
+                              {/* Controles de quantidade */}
                               <div className="flex flex-col items-end gap-2 shrink-0">
                                 <div
                                   className={`inline-flex items-center gap-1 p-0.5 rounded-xl border ${
@@ -371,27 +371,15 @@ export function StorefrontCartDrawer({
                                     className={`w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer transition ${
                                       isDark
                                         ? 'hover:bg-surface/10 text-on-brand'
-                                        : 'bg-surface text-ink hover:text-brand shadow-2xs'
+                                        : 'bg-surface text-ink hover:text-brand'
                                     }`}
                                   >
                                     <Minus size={12} />
                                   </motion.button>
 
-                                  <AnimatePresence
-                                    mode="popLayout"
-                                    initial={false}
-                                  >
-                                    <motion.span
-                                      key={item.quantity}
-                                      initial={{ opacity: 0, y: -5 }}
-                                      animate={{ opacity: 1, y: 0 }}
-                                      exit={{ opacity: 0, y: 5 }}
-                                      transition={{ duration: 0.12 }}
-                                      className="w-6 text-center font-extrabold text-xs tabular-nums"
-                                    >
-                                      {item.quantity}
-                                    </motion.span>
-                                  </AnimatePresence>
+                                  <span className="w-6 text-center font-bold text-xs tabular-nums">
+                                    {item.quantity}
+                                  </span>
 
                                   <motion.button
                                     type="button"
@@ -407,7 +395,7 @@ export function StorefrontCartDrawer({
                                     className={`w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer transition disabled:opacity-35 ${
                                       isDark
                                         ? 'hover:bg-surface/10 text-on-brand'
-                                        : 'bg-surface text-ink hover:text-brand shadow-2xs'
+                                        : 'bg-surface text-ink hover:text-brand'
                                     }`}
                                   >
                                     <Plus size={12} />
@@ -419,7 +407,7 @@ export function StorefrontCartDrawer({
                                   onClick={() =>
                                     onUpdateQuantity(item.productId, 0)
                                   }
-                                  className="text-[11px] font-semibold text-muted hover:text-brand inline-flex items-center gap-1 cursor-pointer transition-colors"
+                                  className="text-[11px] font-medium text-muted hover:text-brand inline-flex items-center gap-1 cursor-pointer transition-colors"
                                 >
                                   <Trash2 size={11} />
                                   <span>Remover</span>
@@ -432,7 +420,7 @@ export function StorefrontCartDrawer({
                     </AnimatePresence>
                   </div>
 
-                  {/* Rodapé da Sacola */}
+                  {/* Rodapé */}
                   <div
                     className={`p-4 sm:p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] border-t space-y-3.5 shrink-0 ${
                       isDark
@@ -441,19 +429,13 @@ export function StorefrontCartDrawer({
                     }`}
                   >
                     <div className="flex items-baseline justify-between gap-2">
-                      <span className="text-xs font-extrabold text-muted uppercase tracking-wider">
+                      <span className="text-xs font-semibold text-muted uppercase tracking-wider">
                         Subtotal ({cartCount}{' '}
                         {cartCount === 1 ? 'peça' : 'peças'})
                       </span>
-                      <motion.span
-                        key={cartTotal}
-                        initial={{ scale: 1.06 }}
-                        animate={{ scale: 1 }}
-                        transition={SF_SPRING_SNAPPY}
-                        className="text-xl font-extrabold text-brand tabular-nums"
-                      >
+                      <span className="text-xl font-bold text-brand tabular-nums">
                         {formatBrl(cartTotal)}
-                      </motion.span>
+                      </span>
                     </div>
 
                     <div className="grid grid-cols-1 gap-2">
@@ -466,7 +448,7 @@ export function StorefrontCartDrawer({
                           backgroundColor: 'var(--sf-primary)',
                           color: '#FFFFFF',
                         }}
-                        className="w-full py-3.5 px-5 rounded-2xl font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer shadow-sm hover:opacity-95 disabled:opacity-50"
+                        className="w-full py-3.5 px-5 rounded-2xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer hover:opacity-95 disabled:opacity-50"
                       >
                         {validatingCart ? (
                           <>
@@ -475,23 +457,29 @@ export function StorefrontCartDrawer({
                           </>
                         ) : (
                           <>
-                            <span>Finalizar Pedido</span>
+                            <span>
+                              {isPreviewSimulation
+                                ? 'Simular finalização'
+                                : 'Finalizar pedido'}
+                            </span>
                             <ArrowRight size={16} />
                           </>
                         )}
                       </motion.button>
 
-                      <button
-                        type="button"
-                        onClick={onOpenCartPage}
-                        className={`w-full py-2.5 px-4 rounded-xl border font-bold text-xs transition cursor-pointer ${
-                          isDark
-                            ? 'bg-ink border-muted/50 text-on-brand hover:border-brand'
-                            : 'bg-surface border-line text-ink hover:border-brand'
-                        }`}
-                      >
-                        Ver sacola detalhada
-                      </button>
+                      {onOpenCartPage && (
+                        <button
+                          type="button"
+                          onClick={onOpenCartPage}
+                          className={`w-full py-2.5 px-4 rounded-xl border font-semibold text-xs transition cursor-pointer ${
+                            isDark
+                              ? 'bg-ink border-muted/50 text-on-brand hover:border-brand'
+                              : 'bg-surface border-line text-ink hover:border-brand'
+                          }`}
+                        >
+                          Ver sacola detalhada
+                        </button>
+                      )}
                     </div>
                   </div>
                 </motion.div>
@@ -501,7 +489,7 @@ export function StorefrontCartDrawer({
         </div>
       )}
     </AnimatePresence>,
-    document.body,
+    portalBody,
   );
 }
 
@@ -539,7 +527,7 @@ export function MobileFloatingCartBar({
             transition={SF_SPRING_SNAPPY}
             onClick={onOpenCart}
             style={{ backgroundColor: 'var(--sf-primary)', color: '#FFFFFF' }}
-            className="w-full py-3.5 px-5 rounded-2xl shadow-xl flex items-center justify-between font-extrabold text-xs cursor-pointer border border-surface/15"
+            className="w-full py-3.5 px-5 rounded-2xl shadow-xl flex items-center justify-between font-bold text-xs cursor-pointer border border-surface/15"
           >
             <span className="flex items-center gap-2.5">
               <span className="w-6 h-6 rounded-lg bg-surface/20 flex items-center justify-center font-mono text-[11px]">

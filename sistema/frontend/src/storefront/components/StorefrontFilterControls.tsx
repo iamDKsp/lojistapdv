@@ -24,6 +24,7 @@ import {
   SF_SPRING_PILL,
   SF_SPRING_SHEET,
   useBodyScrollLock,
+  useStorefrontWindow,
 } from '../storefront-motion';
 
 export interface SelectPopoverOption {
@@ -48,6 +49,7 @@ export function CategoryTabsRail({
   isMinimal?: boolean;
   layoutScope?: string;
 }) {
+  const win = useStorefrontWindow();
   const railRef = useRef<HTMLDivElement | null>(null);
   const pillRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const dragState = useRef<{
@@ -64,8 +66,8 @@ export function CategoryTabsRail({
     const el = railRef.current;
     if (!el) return;
     const maxScroll = el.scrollWidth - el.clientWidth;
-    setCanScrollLeft(el.scrollLeft > 6);
-    setCanScrollRight(maxScroll - el.scrollLeft > 6);
+    setCanScrollLeft(el.scrollLeft > 4);
+    setCanScrollRight(maxScroll - el.scrollLeft > 4);
   }, []);
 
   useEffect(() => {
@@ -78,13 +80,13 @@ export function CategoryTabsRail({
         ? new ResizeObserver(() => updateScrollEdges())
         : null;
     ro?.observe(el);
-    window.addEventListener('resize', updateScrollEdges);
+    win?.addEventListener('resize', updateScrollEdges);
 
     return () => {
       ro?.disconnect();
-      window.removeEventListener('resize', updateScrollEdges);
+      win?.removeEventListener('resize', updateScrollEdges);
     };
-  }, [categories.length, updateScrollEdges]);
+  }, [categories.length, updateScrollEdges, win]);
 
   const centerPillInRail = useCallback((key: string) => {
     const rail = railRef.current;
@@ -111,72 +113,80 @@ export function CategoryTabsRail({
     rail.scrollBy({ left: direction * distance, behavior: 'smooth' });
   };
 
-  const edgeFadeFromClass = isDark
-    ? 'from-ink'
-    : isMinimal
-      ? 'from-surface'
-      : 'from-page';
-
   return (
     <div className="space-y-2.5">
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="text-[11px] sm:text-xs font-extrabold uppercase tracking-wider text-muted flex items-center gap-1.5">
-          <Layers size={13} className="text-brand" />
+      <div className="flex items-center justify-between gap-2 min-h-[30px]">
+        <h3
+          className={`text-[11px] sm:text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 ${
+            isMinimal ? 'text-muted' : 'text-muted'
+          }`}
+        >
+          <Layers size={13} className="text-brand shrink-0" />
           <span>{title || 'Categorias'}</span>
         </h3>
-        <AnimatePresence initial={false}>
-          {selectedCategoryId && (
-            <motion.button
-              key="clear-cat"
+
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            type="button"
+            disabled={!selectedCategoryId}
+            onClick={() => onSelectCategory('')}
+            className={`text-xs font-semibold px-2 py-1 rounded-lg inline-flex items-center gap-1 transition ${
+              selectedCategoryId
+                ? 'text-brand hover:bg-support/60 cursor-pointer'
+                : 'text-muted opacity-45 cursor-default'
+            }`}
+          >
+            <span>Ver todas</span>
+            <X size={12} />
+          </button>
+
+          {/* Setas estáveis de trilho no desktop: sempre montadas no mesmo lugar, desabilitam no limite */}
+          <div className="hidden sm:inline-flex items-center gap-1">
+            <button
               type="button"
-              initial={{ opacity: 0, x: 8 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 8 }}
-              transition={{ duration: 0.16, ease: SF_EASE_OUT }}
-              onClick={() => onSelectCategory('')}
-              className="text-xs font-bold text-brand hover:underline cursor-pointer inline-flex items-center gap-1"
+              aria-label="Rolar categorias para a esquerda"
+              disabled={!canScrollLeft}
+              onClick={() => scrollByStep(-1)}
+              className={`w-7 h-7 rounded-lg border inline-flex items-center justify-center transition ${
+                isDark
+                  ? 'bg-ink border-muted/50 text-on-brand hover:border-brand disabled:opacity-35 disabled:hover:border-muted/50'
+                  : 'bg-surface border-line text-ink hover:border-brand hover:text-brand disabled:opacity-35 disabled:hover:border-line disabled:hover:text-ink'
+              }`}
             >
-              <span>Ver todas</span>
-              <X size={12} />
-            </motion.button>
-          )}
-        </AnimatePresence>
+              <ChevronLeft size={14} />
+            </button>
+            <button
+              type="button"
+              aria-label="Rolar categorias para a direita"
+              disabled={!canScrollRight}
+              onClick={() => scrollByStep(1)}
+              className={`w-7 h-7 rounded-lg border inline-flex items-center justify-center transition ${
+                isDark
+                  ? 'bg-ink border-muted/50 text-on-brand hover:border-brand disabled:opacity-35 disabled:hover:border-muted/50'
+                  : 'bg-surface border-line text-ink hover:border-brand hover:text-brand disabled:opacity-35 disabled:hover:border-line disabled:hover:text-ink'
+              }`}
+            >
+              <ChevronRight size={14} />
+            </button>
+          </div>
+        </div>
       </div>
 
-      <div className="relative group/rail">
-        {/* Máscara lateral esquerda + botão desktop */}
-        <AnimatePresence>
-          {canScrollLeft && (
-            <motion.div
-              key="edge-left"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.16 }}
-              className={`pointer-events-none absolute inset-y-0 left-0 z-10 w-12 bg-gradient-to-r ${edgeFadeFromClass} to-transparent flex items-center justify-start`}
-            >
-              <button
-                type="button"
-                aria-label="Rolar categorias para a esquerda"
-                onClick={() => scrollByStep(-1)}
-                className={`pointer-events-auto hidden md:inline-flex w-8 h-8 rounded-full border items-center justify-center shadow-sm cursor-pointer transition ${
-                  isDark
-                    ? 'bg-ink border-muted/60 text-on-brand hover:border-brand'
-                    : 'bg-surface border-line text-ink hover:border-brand hover:text-brand'
-                }`}
-              >
-                <ChevronLeft size={15} />
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Trilho horizontal com pílula deslizante por mola */}
+      <div className="relative">
         <LayoutGroup id={`${layoutScope}-categories`}>
           <motion.div
             ref={railRef}
             layoutScroll
             onScroll={updateScrollEdges}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                scrollByStep(-1);
+              } else if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                scrollByStep(1);
+              }
+            }}
             onMouseDown={(e) => {
               const rail = railRef.current;
               if (!rail) return;
@@ -203,7 +213,7 @@ export function CategoryTabsRail({
                 rail.scrollLeft = dragState.current.scrollLeft - walk;
               }
             }}
-            className="flex items-center gap-2 overflow-x-auto py-1 px-0.5 select-none"
+            className="flex items-center gap-2 overflow-x-auto py-1 px-0.5 select-none snap-x snap-mandatory"
           >
             {/* Aba: Todas as peças */}
             <motion.button
@@ -211,7 +221,7 @@ export function CategoryTabsRail({
                 pillRefs.current['__all__'] = el;
               }}
               type="button"
-              whileTap={{ scale: 0.96 }}
+              whileTap={{ scale: 0.97 }}
               onClick={() => {
                 if (dragState.current.moved) {
                   dragState.current.moved = false;
@@ -219,11 +229,11 @@ export function CategoryTabsRail({
                 }
                 onSelectCategory('');
               }}
-              className={`relative px-4 py-2.5 rounded-xl text-xs font-bold border whitespace-nowrap cursor-pointer transition-colors shrink-0 ${
+              className={`relative snap-start px-3.5 py-2 rounded-xl text-xs font-semibold border whitespace-nowrap cursor-pointer transition-colors shrink-0 ${
                 !selectedCategoryId
                   ? 'text-on-brand border-transparent'
                   : isDark
-                    ? 'bg-ink text-on-brand border-muted/50 hover:border-brand'
+                    ? 'bg-ink text-on-brand border-muted/45 hover:border-brand'
                     : 'bg-surface text-ink border-line hover:border-brand'
               }`}
             >
@@ -232,11 +242,11 @@ export function CategoryTabsRail({
                   layoutId={`${layoutScope}-active-cat-pill`}
                   transition={SF_SPRING_PILL}
                   style={{ backgroundColor: 'var(--sf-primary)' }}
-                  className="absolute inset-0 rounded-xl shadow-xs"
+                  className="absolute inset-0 rounded-xl"
                 />
               )}
               <span className="relative z-10 inline-flex items-center gap-1.5">
-                <Sparkles size={13} />
+                <Sparkles size={12} />
                 <span>Todas as peças</span>
               </span>
             </motion.button>
@@ -250,7 +260,7 @@ export function CategoryTabsRail({
                     pillRefs.current[cat.id] = el;
                   }}
                   type="button"
-                  whileTap={{ scale: 0.96 }}
+                  whileTap={{ scale: 0.97 }}
                   onClick={() => {
                     if (dragState.current.moved) {
                       dragState.current.moved = false;
@@ -258,11 +268,11 @@ export function CategoryTabsRail({
                     }
                     onSelectCategory(active ? '' : cat.id);
                   }}
-                  className={`relative inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold border whitespace-nowrap cursor-pointer transition-colors shrink-0 ${
+                  className={`relative snap-start inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold border whitespace-nowrap cursor-pointer transition-colors shrink-0 ${
                     active
                       ? 'text-on-brand border-transparent'
                       : isDark
-                        ? 'bg-ink text-on-brand border-muted/50 hover:border-brand'
+                        ? 'bg-ink text-on-brand border-muted/45 hover:border-brand'
                         : 'bg-surface text-ink border-line hover:border-brand'
                   }`}
                 >
@@ -271,13 +281,13 @@ export function CategoryTabsRail({
                       layoutId={`${layoutScope}-active-cat-pill`}
                       transition={SF_SPRING_PILL}
                       style={{ backgroundColor: 'var(--sf-primary)' }}
-                      className="absolute inset-0 rounded-xl shadow-xs"
+                      className="absolute inset-0 rounded-xl"
                     />
                   )}
                   <span
                     className={`relative z-10 w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-colors ${
                       active
-                        ? 'bg-surface shadow-2xs'
+                        ? 'bg-surface'
                         : isDark
                           ? 'bg-surface/90'
                           : 'bg-page'
@@ -287,7 +297,7 @@ export function CategoryTabsRail({
                       iconId={cat.icon}
                       categoryId={cat.id}
                       categoryName={cat.name}
-                      size={14}
+                      size={13}
                     />
                   </span>
                   <span className="relative z-10">{cat.name}</span>
@@ -296,33 +306,6 @@ export function CategoryTabsRail({
             })}
           </motion.div>
         </LayoutGroup>
-
-        {/* Máscara lateral direita + botão desktop */}
-        <AnimatePresence>
-          {canScrollRight && (
-            <motion.div
-              key="edge-right"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.16 }}
-              className={`pointer-events-none absolute inset-y-0 right-0 z-10 w-12 bg-gradient-to-l ${edgeFadeFromClass} to-transparent flex items-center justify-end`}
-            >
-              <button
-                type="button"
-                aria-label="Rolar categorias para a direita"
-                onClick={() => scrollByStep(1)}
-                className={`pointer-events-auto hidden md:inline-flex w-8 h-8 rounded-full border items-center justify-center shadow-sm cursor-pointer transition ${
-                  isDark
-                    ? 'bg-ink border-muted/60 text-on-brand hover:border-brand'
-                    : 'bg-surface border-line text-ink hover:border-brand hover:text-brand'
-                }`}
-              >
-                <ChevronRight size={15} />
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
     </div>
   );
@@ -345,6 +328,8 @@ export function StorefrontSelectPopover({
   highlightWhenSelected?: boolean;
   ariaLabel?: string;
 }) {
+  const win = useStorefrontWindow();
+  const doc = win?.document || (typeof document !== 'undefined' ? document : null);
   const listboxId = useId();
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const popoverRef = useRef<HTMLDivElement | null>(null);
@@ -363,10 +348,10 @@ export function StorefrontSelectPopover({
 
   const updateCoords = useCallback(() => {
     const btn = triggerRef.current;
-    if (!btn || typeof window === 'undefined') return;
+    if (!btn || !win) return;
     const rect = btn.getBoundingClientRect();
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
+    const vw = win.innerWidth;
+    const vh = win.innerHeight;
     const pad = 12;
     const gap = 6;
     const width = Math.min(Math.max(rect.width, 190), vw - pad * 2);
@@ -386,10 +371,10 @@ export function StorefrontSelectPopover({
       : rect.bottom + gap;
 
     setCoords({ top, left, width, maxHeight });
-  }, [options.length]);
+  }, [options.length, win]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !doc || !win) return;
     updateCoords();
 
     const handlePointerDown = (e: MouseEvent | TouchEvent) => {
@@ -407,20 +392,20 @@ export function StorefrontSelectPopover({
       }
     };
 
-    document.addEventListener('mousedown', handlePointerDown, true);
-    document.addEventListener('touchstart', handlePointerDown, true);
-    document.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('scroll', updateCoords, true);
-    window.addEventListener('resize', updateCoords);
+    doc.addEventListener('mousedown', handlePointerDown, true);
+    doc.addEventListener('touchstart', handlePointerDown, true);
+    doc.addEventListener('keydown', handleKeyDown);
+    win.addEventListener('scroll', updateCoords, true);
+    win.addEventListener('resize', updateCoords);
 
     return () => {
-      document.removeEventListener('mousedown', handlePointerDown, true);
-      document.removeEventListener('touchstart', handlePointerDown, true);
-      document.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('scroll', updateCoords, true);
-      window.removeEventListener('resize', updateCoords);
+      doc.removeEventListener('mousedown', handlePointerDown, true);
+      doc.removeEventListener('touchstart', handlePointerDown, true);
+      doc.removeEventListener('keydown', handleKeyDown);
+      win.removeEventListener('scroll', updateCoords, true);
+      win.removeEventListener('resize', updateCoords);
     };
-  }, [open, updateCoords]);
+  }, [open, updateCoords, doc, win]);
 
   const isHighlighted = highlightWhenSelected && Boolean(value);
 
@@ -435,13 +420,13 @@ export function StorefrontSelectPopover({
         aria-controls={open ? listboxId : undefined}
         aria-label={ariaLabel || placeholder}
         onClick={() => setOpen((prev) => !prev)}
-        className={`inline-flex items-center justify-between gap-2 px-3.5 py-2 rounded-xl border text-xs font-bold cursor-pointer transition shrink-0 ${
+        className={`inline-flex items-center justify-between gap-2 px-3.5 py-2 rounded-xl border text-xs font-semibold cursor-pointer transition shrink-0 ${
           isHighlighted
             ? 'border-brand bg-support text-brand'
             : open
               ? isDark
                 ? 'border-brand bg-ink text-on-brand'
-                : 'border-brand bg-surface text-ink shadow-2xs'
+                : 'border-brand bg-surface text-ink'
               : isDark
                 ? 'border-muted/50 bg-ink text-on-brand hover:border-brand'
                 : 'border-line bg-page text-ink hover:border-brand hover:bg-surface'
@@ -458,7 +443,7 @@ export function StorefrontSelectPopover({
         />
       </motion.button>
 
-      {typeof document !== 'undefined' &&
+      {doc?.body &&
         createPortal(
           <AnimatePresence>
             {open && (
@@ -496,23 +481,25 @@ export function StorefrontSelectPopover({
                         onChange(opt.value);
                         setOpen(false);
                       }}
-                      className={`w-full px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between gap-2 text-left cursor-pointer transition ${
+                      className={`w-full px-3 py-2 rounded-xl text-xs font-medium flex items-center justify-between gap-2 text-left cursor-pointer transition ${
                         selected
-                          ? 'bg-support text-brand font-bold'
+                          ? 'bg-support text-brand font-semibold'
                           : isDark
                             ? 'text-on-brand hover:bg-surface/10'
                             : 'text-ink hover:bg-page'
                       }`}
                     >
                       <span className="truncate">{opt.label}</span>
-                      {selected && <Check size={14} className="text-brand shrink-0" />}
+                      {selected && (
+                        <Check size={14} className="text-brand shrink-0" />
+                      )}
                     </button>
                   );
                 })}
               </motion.div>
             )}
           </AnimatePresence>,
-          document.body,
+          doc.body,
         )}
     </>
   );
@@ -553,18 +540,22 @@ export function MobileFilterSheet({
   onClearAll: () => void;
   isDark?: boolean;
 }) {
+  const win = useStorefrontWindow();
   useBodyScrollLock(open);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !win) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+    win.addEventListener('keydown', onKey);
+    return () => win.removeEventListener('keydown', onKey);
+  }, [open, onClose, win]);
 
-  if (typeof document === 'undefined') return null;
+  const portalBody =
+    win?.document?.body ||
+    (typeof document !== 'undefined' ? document.body : null);
+  if (!portalBody) return null;
 
   return createPortal(
     <AnimatePresence>
@@ -603,7 +594,6 @@ export function MobileFilterSheet({
                 : 'bg-surface border-line text-ink'
             }`}
           >
-            {/* Alça de arraste */}
             <div className="pt-3 pb-1 flex justify-center shrink-0">
               <span className="w-10 h-1.5 rounded-full bg-line" />
             </div>
@@ -611,13 +601,13 @@ export function MobileFilterSheet({
             <div className="px-5 py-3 border-b border-line/60 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <SlidersHorizontal size={16} className="text-brand" />
-                <h3 className="font-extrabold text-sm">Filtrar e Ordenar</h3>
+                <h3 className="font-bold text-sm">Filtrar e ordenar</h3>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={onClearAll}
-                  className="text-xs font-bold text-brand px-2 py-1 cursor-pointer"
+                  className="text-xs font-semibold text-brand px-2 py-1 cursor-pointer"
                 >
                   Limpar
                 </button>
@@ -635,13 +625,13 @@ export function MobileFilterSheet({
             <div className="flex-1 overflow-y-auto p-5 space-y-5">
               {/* Disponibilidade */}
               <div className="space-y-2">
-                <p className="text-[11px] font-extrabold uppercase tracking-wider text-muted">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">
                   Disponibilidade
                 </p>
                 <button
                   type="button"
                   onClick={() => setInStockOnly(!inStockOnly)}
-                  className={`w-full p-3.5 rounded-2xl border flex items-center justify-between text-xs font-bold cursor-pointer transition ${
+                  className={`w-full p-3.5 rounded-2xl border flex items-center justify-between text-xs font-semibold cursor-pointer transition ${
                     inStockOnly
                       ? 'border-brand bg-support text-brand'
                       : isDark
@@ -664,7 +654,7 @@ export function MobileFilterSheet({
 
               {/* Ordenação */}
               <div className="space-y-2">
-                <p className="text-[11px] font-extrabold uppercase tracking-wider text-muted">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">
                   Ordenar por
                 </p>
                 <div className="grid grid-cols-2 gap-2">
@@ -675,7 +665,7 @@ export function MobileFilterSheet({
                         key={opt.value}
                         type="button"
                         onClick={() => setSortBy(opt.value)}
-                        className={`px-3.5 py-2.5 rounded-xl border text-xs font-bold text-left flex items-center justify-between gap-1.5 cursor-pointer transition ${
+                        className={`px-3.5 py-2.5 rounded-xl border text-xs font-semibold text-left flex items-center justify-between gap-1.5 cursor-pointer transition ${
                           active
                             ? 'border-brand bg-support text-brand'
                             : isDark
@@ -694,14 +684,14 @@ export function MobileFilterSheet({
               {/* Tamanhos */}
               {sizes.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-[11px] font-extrabold uppercase tracking-wider text-muted">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">
                     Tamanho
                   </p>
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
                       onClick={() => setSelectedSize('')}
-                      className={`px-3.5 py-2 rounded-xl border text-xs font-bold cursor-pointer ${
+                      className={`px-3.5 py-2 rounded-xl border text-xs font-semibold cursor-pointer ${
                         !selectedSize
                           ? 'bg-brand text-on-brand border-brand'
                           : isDark
@@ -718,7 +708,7 @@ export function MobileFilterSheet({
                           key={sz}
                           type="button"
                           onClick={() => setSelectedSize(active ? '' : sz)}
-                          className={`px-3.5 py-2 rounded-xl border text-xs font-bold cursor-pointer ${
+                          className={`px-3.5 py-2 rounded-xl border text-xs font-semibold cursor-pointer ${
                             active
                               ? 'bg-brand text-on-brand border-brand'
                               : isDark
@@ -737,14 +727,14 @@ export function MobileFilterSheet({
               {/* Cores */}
               {colors.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-[11px] font-extrabold uppercase tracking-wider text-muted">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">
                     Cor
                   </p>
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
                       onClick={() => setSelectedColor('')}
-                      className={`px-3.5 py-2 rounded-xl border text-xs font-bold cursor-pointer ${
+                      className={`px-3.5 py-2 rounded-xl border text-xs font-semibold cursor-pointer ${
                         !selectedColor
                           ? 'bg-brand text-on-brand border-brand'
                           : isDark
@@ -761,7 +751,7 @@ export function MobileFilterSheet({
                           key={cl}
                           type="button"
                           onClick={() => setSelectedColor(active ? '' : cl)}
-                          className={`px-3.5 py-2 rounded-xl border text-xs font-bold cursor-pointer ${
+                          className={`px-3.5 py-2 rounded-xl border text-xs font-semibold cursor-pointer ${
                             active
                               ? 'bg-brand text-on-brand border-brand'
                               : isDark
@@ -784,7 +774,7 @@ export function MobileFilterSheet({
                 whileTap={{ scale: 0.97 }}
                 onClick={onClose}
                 style={{ backgroundColor: 'var(--sf-primary)', color: '#FFFFFF' }}
-                className="w-full py-3.5 px-5 rounded-2xl font-extrabold text-xs flex items-center justify-center gap-2 shadow-sm cursor-pointer"
+                className="w-full py-3.5 px-5 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 cursor-pointer"
               >
                 <span>
                   Ver {resultsCount} {resultsCount === 1 ? 'peça' : 'peças'}
@@ -795,6 +785,6 @@ export function MobileFilterSheet({
         </div>
       )}
     </AnimatePresence>,
-    document.body,
+    portalBody,
   );
 }

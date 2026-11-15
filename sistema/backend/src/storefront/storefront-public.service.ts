@@ -311,10 +311,60 @@ export class StorefrontPublicService {
       const allPublicProducts = storefrontProducts.map((sp: any) =>
         toPublicProductDto(sp, reservedMap),
       );
+      const productsByGroupId = new Map<string, any>(
+        allPublicProducts.map((p: any) => [p.retailGroupId, p]),
+      );
 
       const featuredProducts = allPublicProducts
         .filter((p: any) => p.featured)
-        .slice(0, 12);
+        .slice(0, 48);
+
+      const resolvedCollections = (publishedTheme.collections || [])
+        .filter((col) => col.enabled !== false)
+        .map((col) => {
+          const orderedProducts = (col.productIds || [])
+            .map((pid) => productsByGroupId.get(pid))
+            .filter(Boolean);
+          const availableCount = orderedProducts.filter(
+            (p: any) => p.inStock && Number(p.availableStock) > 0,
+          ).length;
+          return {
+            id: col.id,
+            slug: col.slug,
+            kind: col.kind,
+            title: col.title,
+            subtitle: col.subtitle || null,
+            description: col.description || null,
+            coverUrl: col.coverUrl || null,
+            focalX: col.focalX ?? 50,
+            focalY: col.focalY ?? 50,
+            productIds: col.productIds || [],
+            totalConfiguredCount: (col.productIds || []).length,
+            availableCount,
+            products: orderedProducts,
+          };
+        });
+
+      // Garante que qualquer produto referenciado manualmente por seções ou coleções ativas esteja disponível na home
+      const referencedIds = new Set<string>();
+      for (const sec of publishedTheme.sections || []) {
+        if (!sec.enabled) continue;
+        for (const pid of sec.productIds || []) referencedIds.add(pid);
+      }
+      for (const col of resolvedCollections) {
+        for (const pid of col.productIds || []) referencedIds.add(pid);
+      }
+      const initialSlice = allPublicProducts.slice(0, 120);
+      const initialIds = new Set(initialSlice.map((p: any) => p.retailGroupId));
+      for (const pid of referencedIds) {
+        if (!initialIds.has(pid)) {
+          const found = productsByGroupId.get(pid);
+          if (found) {
+            initialSlice.push(found);
+            initialIds.add(pid);
+          }
+        }
+      }
 
       const availableSizes = Array.from(
         new Set(allPublicProducts.flatMap((p: any) => p.sizes)),
@@ -350,8 +400,9 @@ export class StorefrontPublicService {
         expressDelivery,
         theme: publishedTheme,
         categories: categoriesRaw.map(toPublicCategoryDto),
+        collections: resolvedCollections,
         featuredProducts,
-        initialProducts: allPublicProducts.slice(0, 120),
+        initialProducts: initialSlice,
         facets: {
           sizes: availableSizes,
           colors: availableColors,
@@ -409,6 +460,8 @@ export class StorefrontPublicService {
       search?: string;
       categoryId?: string;
       categorySlug?: string;
+      collectionSlug?: string;
+      selectionId?: string;
       size?: string;
       color?: string;
       minPrice?: number;
@@ -420,7 +473,7 @@ export class StorefrontPublicService {
       limit?: number;
     },
   ) {
-    return this.runInPublicStoreContext(rawSlug, async ({ db }) => {
+    return this.runInPublicStoreContext(rawSlug, async ({ db, settings }) => {
       let targetCategoryId = query.categoryId?.trim() || undefined;
       if (!targetCategoryId && query.categorySlug?.trim()) {
         const sc = await db.storefrontCategory.findUnique({
@@ -429,10 +482,53 @@ export class StorefrontPublicService {
         if (sc) targetCategoryId = sc.categoryId;
       }
 
+      let manualOrderMap: Map<string, number> | null = null;
+      let forceFeaturedFilter = Boolean(query.featured);
+
+      if (query.collectionSlug?.trim() || query.selectionId?.trim()) {
+        const publishedTheme = validateAndSanitizeTheme(
+          settings.publishedThemeJson,
+          settings.storeName,
+        );
+        if (query.collectionSlug?.trim()) {
+          const cleanColSlug = normalizeStorefrontSlug(query.collectionSlug);
+          const col = (publishedTheme.collections || []).find(
+            (c) =>
+              c.enabled !== false &&
+              (c.slug === cleanColSlug || c.id === query.collectionSlug?.trim()),
+          );
+          manualOrderMap = new Map(
+            (col?.productIds || []).map((pid, idx) => [pid, idx]),
+          );
+        } else if (query.selectionId?.trim()) {
+          const sec = (publishedTheme.sections || []).find(
+            (s) => s.id === query.selectionId?.trim() && s.enabled !== false,
+          );
+          if (sec) {
+            if (sec.sourceType === 'collection' && sec.collectionId) {
+              const col = (publishedTheme.collections || []).find(
+                (c) => c.id === sec.collectionId && c.enabled !== false,
+              );
+              manualOrderMap = new Map(
+                (col?.productIds || []).map((pid, idx) => [pid, idx]),
+              );
+            } else if (sec.sourceType === 'featured' || (sec.type === 'featured' && !sec.sourceType)) {
+              forceFeaturedFilter = true;
+            } else if (sec.sourceType === 'category' && sec.categoryId) {
+              targetCategoryId = sec.categoryId;
+            } else {
+              manualOrderMap = new Map(
+                (sec.productIds || []).map((pid, idx) => [pid, idx]),
+              );
+            }
+          }
+        }
+      }
+
       const storefrontProducts = await db.storefrontProduct.findMany({
         where: {
           visible: true,
-          ...(query.featured ? { featured: true } : {}),
+          ...(forceFeaturedFilter ? { featured: true } : {}),
           retailGroup: {
             active: true,
             ...(targetCategoryId ? { categoryId: targetCategoryId } : {}),
@@ -460,6 +556,10 @@ export class StorefrontPublicService {
       let items = storefrontProducts.map((sp: any) =>
         toPublicProductDto(sp, reservedMap),
       );
+
+      if (manualOrderMap) {
+        items = items.filter((p: any) => manualOrderMap!.has(p.retailGroupId));
+      }
 
       if (query.search?.trim()) {
         const term = query.search.trim().toLowerCase();
@@ -520,13 +620,20 @@ export class StorefrontPublicService {
         items = items.filter((p: any) => p.inStock);
       }
 
-      const sort = String(query.sort || 'featured').toLowerCase();
+      const sort = String(
+        query.sort || (manualOrderMap ? 'manual' : 'featured'),
+      ).toLowerCase();
       items.sort((a: any, b: any) => {
-        // Produtos com estoque disponível têm prioridade visual quando empate
         if (sort === 'price_asc') return a.priceSell - b.priceSell;
         if (sort === 'price_desc') return b.priceSell - a.priceSell;
         if (sort === 'name_asc') return a.title.localeCompare(b.title);
         if (sort === 'newest') return 0;
+        if (manualOrderMap && (sort === 'manual' || sort === 'featured')) {
+          return (
+            (manualOrderMap.get(a.retailGroupId) ?? 9999) -
+            (manualOrderMap.get(b.retailGroupId) ?? 9999)
+          );
+        }
         // default: featured -> sortOrder -> title
         if (a.featured !== b.featured) return a.featured ? -1 : 1;
         if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
@@ -534,7 +641,7 @@ export class StorefrontPublicService {
       });
 
       const page = Math.max(1, Number(query.page || 1));
-      const limit = Math.min(48, Math.max(1, Number(query.limit || 24)));
+      const limit = Math.min(60, Math.max(1, Number(query.limit || 24)));
       const total = items.length;
       const start = (page - 1) * limit;
       const paginated = items.slice(start, start + limit);
@@ -549,6 +656,82 @@ export class StorefrontPublicService {
         },
       };
     });
+  }
+
+  async getCollectionBySlug(rawSlug: string, rawCollectionSlug: string) {
+    return this.runInPublicStoreContext(
+      rawSlug,
+      async ({ db, settings }) => {
+        const publishedTheme = validateAndSanitizeTheme(
+          settings.publishedThemeJson,
+          settings.storeName,
+        );
+        const cleanSlug = normalizeStorefrontSlug(rawCollectionSlug);
+        const col = (publishedTheme.collections || []).find(
+          (c) =>
+            c.enabled !== false &&
+            (c.slug === cleanSlug || c.id === rawCollectionSlug.trim()),
+        );
+        if (!col) {
+          throw new NotFoundException(
+            'Coleção não encontrada ou indisponível nesta loja.',
+          );
+        }
+
+        const storefrontProducts = await db.storefrontProduct.findMany({
+          where: {
+            visible: true,
+            retailGroup: { active: true },
+          },
+          include: {
+            retailGroup: {
+              include: {
+                category: true,
+                variants: {
+                  where: { active: true },
+                  orderBy: [{ size: 'asc' }, { color: 'asc' }],
+                },
+              },
+            },
+          },
+        });
+
+        const allVariantIds = storefrontProducts.flatMap((sp: any) =>
+          (sp.retailGroup?.variants || []).map((v: any) => v.id),
+        );
+        const reservedMap = await getActiveReservedQuantities(db, allVariantIds);
+        const byGroupId = new Map<string, any>(
+          storefrontProducts.map((sp: any) => {
+            const dto = toPublicProductDto(sp, reservedMap);
+            return [dto.retailGroupId, dto];
+          }),
+        );
+
+        const orderedProducts = (col.productIds || [])
+          .map((pid) => byGroupId.get(pid))
+          .filter(Boolean);
+
+        return {
+          collection: {
+            id: col.id,
+            slug: col.slug,
+            kind: col.kind,
+            title: col.title,
+            subtitle: col.subtitle || null,
+            description: col.description || null,
+            coverUrl: col.coverUrl || null,
+            focalX: col.focalX ?? 50,
+            focalY: col.focalY ?? 50,
+            productIds: col.productIds || [],
+            totalConfiguredCount: (col.productIds || []).length,
+            availableCount: orderedProducts.filter(
+              (p: any) => p.inStock && Number(p.availableStock) > 0,
+            ).length,
+          },
+          products: orderedProducts,
+        };
+      },
+    );
   }
 
   async getProductBySlug(rawSlug: string, rawProductSlug: string) {

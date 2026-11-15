@@ -99,6 +99,12 @@ export class StorefrontAdminController {
     return this.adminService.unpublishStorefront();
   }
 
+  @Post('appearance/reactivate')
+  async reactivateStorefront(@Req() req: any) {
+    assertStorefrontAdminRole(req);
+    return this.adminService.reactivateStorefront();
+  }
+
   @Post('media/upload')
   @UseInterceptors(
     FileInterceptor('file', {

@@ -10,6 +10,11 @@ import { SalesService } from '../sales/sales.service';
 import { StorefrontAdminService } from './storefront-admin.service';
 import { StorefrontOrdersService } from './storefront-orders.service';
 import { StorefrontPublicService } from './storefront-public.service';
+import {
+  summarizeThemeChanges,
+  validateAndSanitizeTheme,
+  validateThemeReferences,
+} from './storefront.rules';
 
 interface InMemoryTenantDb {
   tenantId: string;
@@ -2040,5 +2045,283 @@ describe('Módulo Loja Virtual (Storefront) - Isolamento, Reservas, Idempotênci
         expect(converted.order.commercialStatus).toBe('COMPLETED');
       },
     );
+  });
+
+  it('preserva compatibilidade com configurações legadas de banners e permite múltiplas seções de seleção, banners independentes, coleções e Monte o look', async () => {
+    const legacyTheme = {
+      template: 'editorial_roxo',
+      primaryColor: '#7C3AED',
+      accentColor: '#6D28D9',
+      surfaceColor: '#F8F7FC',
+      textColor: '#272321',
+      heroTitle: 'Loja Legada',
+      heroSubtitle: 'Subtítulo legado',
+      heroCtaLabel: 'Ver peças',
+      announcementText: 'Aviso legado',
+      banners: [
+        {
+          id: 'bnr-old-1',
+          title: 'Campanha Antiga',
+          subtitle: 'Desconto no balcão',
+          imageUrl: '/api/products/uploads/images/capa-legada',
+          ctaLabel: 'Aproveitar',
+          linkType: 'featured',
+          active: true,
+        },
+      ],
+      sections: [
+        { id: 'sec-header', type: 'header', enabled: true },
+        { id: 'sec-hero', type: 'hero', enabled: true },
+        { id: 'sec-categories', type: 'categories', enabled: true },
+        { id: 'sec-featured', type: 'featured', enabled: true },
+        { id: 'sec-collection', type: 'collection', enabled: true },
+        { id: 'sec-fulfillment', type: 'fulfillment_info', enabled: true },
+        { id: 'sec-footer', type: 'footer', enabled: true },
+      ],
+    };
+
+    const migrated = validateAndSanitizeTheme(legacyTheme, 'Loja Legada');
+    const bannerSections = migrated.sections.filter((s) => s.type === 'banner');
+    expect(bannerSections).toHaveLength(1);
+    expect(bannerSections[0].banner?.title).toBe('Campanha Antiga');
+    expect(bannerSections[0].banner?.targetType).toBe('featured');
+    expect(bannerSections[0].banner?.format).toBe('side_by_side');
+    expect(migrated.sections[2].type).toBe('banner');
+
+    // Múltiplas seleções de produtos, banners e looks com IDs estáveis sem deduplicar por tipo
+    const richTheme = validateAndSanitizeTheme(
+      {
+        schemaVersion: 2,
+        template: 'vitrine_escura',
+        primaryColor: '#7C3AED',
+        accentColor: '#6D28D9',
+        surfaceColor: '#272321',
+        textColor: '#FFFFFF',
+        heroTitle: 'Drop Urbano',
+        heroSubtitle: 'Curadoria autoral',
+        heroCtaLabel: 'Explorar',
+        collections: [
+          {
+            id: 'col-essenciais',
+            slug: 'essenciais-urbanos',
+            kind: 'collection',
+            enabled: true,
+            title: 'Essenciais Urbanos',
+            productIds: ['rg-2-tenant-a', 'rg-vis-tenant-a'],
+          },
+          {
+            id: 'look-street-1',
+            slug: 'look-noite',
+            kind: 'look',
+            enabled: true,
+            title: 'Monte o Look Noite',
+            productIds: ['rg-vis-tenant-a', 'rg-2-tenant-a'],
+          },
+        ],
+        sections: [
+          { id: 'sec-header', type: 'header', enabled: true },
+          { id: 'sec-hero', type: 'hero', enabled: true },
+          {
+            id: 'sec-bnr-1',
+            type: 'banner',
+            enabled: true,
+            banner: {
+              id: 'bnr-1',
+              title: 'Banner Campanha',
+              format: 'campaign',
+              height: 'lg',
+              focalX: 35,
+              focalY: 20,
+              imageUrl: '/api/products/uploads/images/campanha-desk',
+              mobileImageUrl: '/api/products/uploads/images/campanha-mob',
+              targetType: 'product',
+              targetValue: 'peca-secreta-tenant-a',
+              enabled: true,
+            },
+          },
+          {
+            id: 'sec-sel-carrossel',
+            type: 'product_selection',
+            enabled: true,
+            title: 'Carrossel 8 Peças',
+            presentation: 'carousel',
+            sourceType: 'manual',
+            productIds: ['rg-2-tenant-a', 'rg-vis-tenant-a'],
+            visibleCount: 8,
+            columnsDesktop: 4,
+          },
+          {
+            id: 'sec-sel-grade',
+            type: 'product_selection',
+            enabled: true,
+            title: 'Grade Essenciais',
+            presentation: 'grid',
+            sourceType: 'collection',
+            collectionId: 'col-essenciais',
+            visibleCount: 4,
+          },
+          {
+            id: 'sec-look-1',
+            type: 'look',
+            enabled: true,
+            title: 'Monte o Look Noite',
+            collectionId: 'look-street-1',
+          },
+          { id: 'sec-collection', type: 'collection', enabled: true },
+          { id: 'sec-footer', type: 'footer', enabled: true },
+        ],
+      },
+      'Loja Alfa',
+    );
+
+    const selectionSections = richTheme.sections.filter(
+      (s) => s.type === 'product_selection',
+    );
+    expect(selectionSections).toHaveLength(2);
+    expect(selectionSections[0].presentation).toBe('carousel');
+    expect(selectionSections[0].autoPlay).toBe(false);
+    expect(selectionSections[1].presentation).toBe('grid');
+    expect(richTheme.sections.find((s) => s.id === 'sec-bnr-1')?.banner?.focalX).toBe(35);
+    expect(
+      richTheme.sections.find((s) => s.id === 'sec-bnr-1')?.banner?.mobileImageUrl,
+    ).toBe('/api/products/uploads/images/campanha-mob');
+
+    // Validação de referências (destino oculto no banner e peça sem estoque no look)
+    const warnings = validateThemeReferences(richTheme, {
+      categories: [
+        {
+          categoryId: 'cat-tenant-a',
+          slug: 'camisetas',
+          name: 'Camisetas',
+          visible: true,
+        },
+      ],
+      products: [
+        {
+          retailGroupId: 'rg-vis-tenant-a',
+          publicSlug: 'camiseta-basica-tenant-a',
+          title: 'Camiseta Básica',
+          visible: true,
+          availableStock: 2,
+          imageUrl: '/api/products/uploads/images/foto1',
+        },
+        {
+          retailGroupId: 'rg-2-tenant-a',
+          publicSlug: 'calca-cargo-tenant-a',
+          title: 'Calça Cargo',
+          visible: true,
+          availableStock: 0,
+          imageUrl: null,
+        },
+        {
+          retailGroupId: 'rg-hid-tenant-a',
+          publicSlug: 'peca-secreta-tenant-a',
+          title: 'Peça Secreta',
+          visible: false,
+          availableStock: 5,
+          imageUrl: null,
+        },
+      ],
+    });
+
+    expect(warnings.some((w) => w.code === 'TARGET_PRODUCT_HIDDEN')).toBe(true);
+    expect(warnings.some((w) => w.code === 'LOOK_ITEM_UNAVAILABLE')).toBe(true);
+    expect(warnings.some((w) => w.code === 'PRODUCT_NO_PHOTO')).toBe(true);
+
+    // Resumo antes de publicar + pausar/reativar preservando rascunho separado do publicado
+    const h = createTestHarness();
+    h.storeA.retailGroups.push({
+      id: 'rg-2-tenant-a',
+      name: 'Calça Cargo Loja Alfa',
+      description: 'Sarja pesada',
+      categoryId: 'cat-tenant-a',
+      imageUrl: '/api/products/uploads/images/foto2',
+      priceSell: 159.9,
+      priceCost: 70,
+      ncm: '62034200',
+      cest: null,
+      origem: '0',
+      active: true,
+      version: 1,
+    });
+    h.storeA.products.push({
+      id: 'prod-calca-tenant-a',
+      retailGroupId: 'rg-2-tenant-a',
+      categoryId: 'cat-tenant-a',
+      name: 'Calça Cargo · G · Preta',
+      size: 'G',
+      color: 'Preta',
+      shortCode: 'CAL-G',
+      barcode: '7890009-tenant-a',
+      imageUrl: '/api/products/uploads/images/foto2',
+      priceSell: 159.9,
+      priceCost: 70,
+      stock: 4,
+      unit: 'UN',
+      active: true,
+    });
+    h.storeA.storefrontProducts.push({
+      id: 'sp-2-tenant-a',
+      retailGroupId: 'rg-2-tenant-a',
+      publicSlug: 'calca-cargo-tenant-a',
+      visible: true,
+      featured: true,
+      sortOrder: 30,
+      commercialTitle: 'Calça Cargo Loja Alfa',
+      commercialDescription: 'Modelagem ampla.',
+      badgeLabel: null,
+      galleryUrlsJson: [],
+    });
+
+    await h.tenantContext.run(
+      {
+        tenantId: 'tenant-a',
+        databaseUrl: 'postgresql://local/tenant_a',
+        userId: 'admin-a',
+        role: 'admin',
+      },
+      async () => {
+        const draftRes = await h.adminService.saveAppearanceDraft({
+          draftTheme: richTheme,
+        });
+        expect(draftRes.hasUnpublishedChanges).toBe(true);
+        expect(draftRes.pendingChanges.length).toBeGreaterThan(0);
+
+        // Pausar e reativar não deve publicar o rascunho não publicado
+        const paused = await h.adminService.unpublishStorefront();
+        expect(paused.isPublished).toBe(false);
+        expect(paused.status).toBe('PAUSED');
+
+        const reactivated = await h.adminService.reactivateStorefront();
+        expect(reactivated.isPublished).toBe(true);
+        expect(reactivated.publishedTheme.template).toBe('editorial_roxo');
+        expect(reactivated.draftTheme.template).toBe('vitrine_escura');
+
+        // Publicar rascunho e validar ordem manual da coleção na vitrine pública
+        const published = await h.adminService.publishStorefront({
+          userId: 'admin-a',
+          name: 'Admin',
+        });
+        expect(published.hasUnpublishedChanges).toBe(false);
+        expect(
+          summarizeThemeChanges(
+            published.draftTheme,
+            published.publishedTheme,
+            true,
+          ).hasChanges,
+        ).toBe(false);
+      },
+    );
+
+    const colPublic = await h.publicService.getCollectionBySlug(
+      'loja-alfa',
+      'essenciais-urbanos',
+    );
+    expect(colPublic.collection.title).toBe('Essenciais Urbanos');
+    // Ordem manual invertida em relação ao sortOrder padrão (rg-2 vem antes de rg-vis)
+    expect(colPublic.products.map((p: any) => p.retailGroupId)).toEqual([
+      'rg-2-tenant-a',
+      'rg-vis-tenant-a',
+    ]);
   });
 });

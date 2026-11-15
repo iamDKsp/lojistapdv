@@ -8,11 +8,8 @@ import {
   Minus,
   Plus,
   ShoppingBag,
-  Sparkles,
   X,
 } from 'lucide-react';
-import { getFullUrl } from '@/lib/getFullUrl';
-import { CategoryIconIllustration } from '@/components/CategoryIcons';
 import {
   SF_EASE_OUT,
   SF_SPRING_PILL,
@@ -20,7 +17,9 @@ import {
   SF_SPRING_SNAPPY,
   useBodyScrollLock,
   useIsMobileViewport,
+  useStorefrontWindow,
 } from '../storefront-motion';
+import { StorefrontProductFrame } from './StorefrontProductFrame';
 
 const formatBrl = (v: number | string) =>
   Number(v || 0).toLocaleString('pt-BR', {
@@ -37,6 +36,7 @@ export function StorefrontProductCard({
   product,
   index = 0,
   isDark = false,
+  template,
   onSelect,
   onQuickAdd,
   onOpenQuickVariant,
@@ -44,19 +44,19 @@ export function StorefrontProductCard({
   product: any;
   index?: number;
   isDark?: boolean;
+  template?: 'editorial_roxo' | 'minimal_branco' | 'vitrine_escura' | string;
   onSelect: () => void;
   onQuickAdd?: (product: any, variant: any, source?: AddSourceRect) => void;
   onOpenQuickVariant?: (product: any, initialSize?: string | null) => void;
 }) {
+  const win = useStorefrontWindow();
   const mediaRef = useRef<HTMLDivElement | null>(null);
-  const [primaryLoaded, setPrimaryLoaded] = useState(false);
-  const [primaryFailed, setPrimaryFailed] = useState(false);
   const [justAdded, setJustAdded] = useState(false);
 
-  useEffect(() => {
-    setPrimaryLoaded(false);
-    setPrimaryFailed(false);
-  }, [product.imageUrl]);
+  const resolvedTemplate =
+    template || (isDark ? 'vitrine_escura' : 'editorial_roxo');
+  const darkCard = resolvedTemplate === 'vitrine_escura' || isDark;
+  const minimalCard = resolvedTemplate === 'minimal_branco';
 
   useEffect(() => {
     if (!justAdded) return;
@@ -80,7 +80,8 @@ export function StorefrontProductCard({
     () =>
       Array.isArray(product.variants)
         ? product.variants.filter(
-            (v: any) => v && v.inStock !== false && Number(v.availableStock ?? 0) > 0,
+            (v: any) =>
+              v && v.inStock !== false && Number(v.availableStock ?? 0) > 0,
           )
         : [],
     [product.variants],
@@ -92,145 +93,120 @@ export function StorefrontProductCard({
       : null;
 
   const secondaryImageUrl = useMemo(() => {
-    const gallery = Array.isArray(product.galleryUrls) ? product.galleryUrls : [];
+    const gallery = Array.isArray(product.galleryUrls)
+      ? product.galleryUrls
+      : [];
     const alt = gallery.find((u: string) => u && u !== product.imageUrl);
     return alt || null;
   }, [product.galleryUrls, product.imageUrl]);
 
-  const captureSourceCoords = (fallbackEl?: HTMLElement | null): AddSourceRect => {
+  const captureSourceCoords = (
+    fallbackEl?: HTMLElement | null,
+  ): AddSourceRect => {
     const target = mediaRef.current || fallbackEl;
     if (target) {
       const r = target.getBoundingClientRect();
       return { x: r.left + r.width / 2, y: r.top + r.height * 0.42 };
     }
     return {
-      x: typeof window !== 'undefined' ? window.innerWidth / 2 : 200,
-      y: typeof window !== 'undefined' ? window.innerHeight / 2 : 200,
+      x: win ? win.innerWidth / 2 : 200,
+      y: win ? win.innerHeight / 2 : 200,
     };
   };
-
-  const hasPhoto = Boolean(product.imageUrl && !primaryFailed);
 
   return (
     <motion.article
       layout="position"
-      initial={{ opacity: 0, y: 12 }}
+      initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{
-        duration: 0.22,
-        delay: Math.min(index * 0.022, 0.16),
+        duration: 0.2,
+        delay: Math.min(index * 0.018, 0.14),
         ease: SF_EASE_OUT,
       }}
-      className={`group/card rounded-2xl sm:rounded-3xl border overflow-hidden flex flex-col transition-all duration-300 sm:hover:-translate-y-0.5 ${
-        isDark
-          ? 'bg-ink border-muted/40 text-on-brand hover:border-brand'
-          : 'bg-surface border-line text-ink hover:border-brand/70 shadow-2xs hover:shadow-md'
+      className={`group/card flex flex-col min-w-0 transition-colors duration-200 ${
+        minimalCard
+          ? 'bg-transparent text-ink gap-2.5'
+          : darkCard
+            ? 'rounded-2xl border border-muted/35 bg-ink text-on-brand overflow-hidden hover:border-brand/80'
+            : 'rounded-2xl border border-line bg-surface text-ink overflow-hidden hover:border-brand/60'
       }`}
     >
-      {/* Área visual 4:5 editorial */}
-      <div
-        ref={mediaRef}
-        onClick={onSelect}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            onSelect();
+      {/* Quadro consistente 4:5 com margem e preservação de transparência */}
+      <div ref={mediaRef}>
+        <StorefrontProductFrame
+          imageUrl={product.imageUrl}
+          secondaryImageUrl={secondaryImageUrl}
+          alt={product.title}
+          categoryId={product.categoryId}
+          categoryName={categoryLabel}
+          productName={product.title}
+          padding={minimalCard ? 'lg' : 'md'}
+          aspectClassName="aspect-[4/5]"
+          roundedClassName={minimalCard ? 'rounded-2xl' : 'rounded-none'}
+          bordered={minimalCard}
+          hoverScale
+          onClick={onSelect}
+          className={
+            !minimalCard
+              ? darkCard
+                ? 'border-b border-muted/30'
+                : 'border-b border-line/70'
+              : ''
           }
-        }}
-        className={`relative aspect-[4/5] cursor-pointer overflow-hidden flex items-center justify-center ${
-          isDark ? 'bg-ink' : 'bg-page'
-        }`}
-      >
-        {hasPhoto ? (
-          <>
-            {!primaryLoaded && (
-              <div
-                aria-hidden="true"
-                className="absolute inset-0 bg-support/45 animate-pulse"
-              />
-            )}
-            <img
-              src={getFullUrl(product.imageUrl)}
-              alt={product.title}
-              loading="lazy"
-              onLoad={() => setPrimaryLoaded(true)}
-              onError={() => setPrimaryFailed(true)}
-              className={`w-full h-full object-cover transition-all duration-500 ease-out group-hover/card:scale-[1.04] ${
-                primaryLoaded ? 'opacity-100' : 'opacity-0'
-              } ${secondaryImageUrl ? 'sm:group-hover/card:opacity-0' : ''}`}
-            />
-            {secondaryImageUrl && (
-              <img
-                src={getFullUrl(secondaryImageUrl)}
-                alt=""
-                loading="lazy"
-                aria-hidden="true"
-                className="hidden sm:block absolute inset-0 w-full h-full object-cover opacity-0 group-hover/card:opacity-100 group-hover/card:scale-[1.04] transition-all duration-500 ease-out"
-              />
-            )}
-          </>
-        ) : (
-          <div className="w-full h-full transition-transform duration-300 group-hover/card:scale-[1.03]">
-            <CategoryIconIllustration
-              categoryId={product.categoryId}
-              categoryName={categoryLabel}
-              productName={product.title}
-            />
-          </div>
-        )}
-
-        {/* Selo promocional */}
-        {product.badgeLabel && (
-          <span
-            style={{ backgroundColor: 'var(--sf-primary)', color: '#FFFFFF' }}
-            className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-xl text-[10px] font-extrabold tracking-wide shadow-xs inline-flex items-center gap-1"
-          >
-            <Sparkles size={10} />
-            <span>{product.badgeLabel}</span>
-          </span>
-        )}
-
-        {/* Indicador discreto de múltiplas fotos */}
-        {Array.isArray(product.galleryUrls) && product.galleryUrls.length > 1 && (
-          <span className="hidden sm:inline-flex absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-surface/90 text-ink border border-line/70 backdrop-blur-xs opacity-0 group-hover/card:opacity-100 transition-opacity">
-            +{product.galleryUrls.length - 1} foto
-            {product.galleryUrls.length > 2 ? 's' : ''}
-          </span>
-        )}
-
-        {/* Estado esgotado claro com ícone + texto */}
-        {!inStock && (
-          <span className="absolute inset-x-2.5 bottom-2.5 py-1.5 px-3 rounded-xl text-[11px] font-bold bg-surface/95 text-muted border border-line text-center inline-flex items-center justify-center gap-1.5 backdrop-blur-xs shadow-xs">
-            <AlertCircle size={12} className="text-brand shrink-0" />
-            <span>Esgotado</span>
-          </span>
-        )}
+        >
+          {/* Apenas um selo discreto quando relevante: Esgotado tem prioridade sobre rótulo promocional */}
+          {!inStock ? (
+            <span className="absolute inset-x-2.5 bottom-2.5 py-1.5 px-3 rounded-xl text-[11px] font-semibold bg-surface/95 text-muted border border-line text-center inline-flex items-center justify-center gap-1.5">
+              <AlertCircle size={12} className="text-brand shrink-0" />
+              <span>Esgotado</span>
+            </span>
+          ) : product.badgeLabel ? (
+            <span className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-lg text-[10px] font-semibold tracking-wide bg-surface/95 text-ink border border-line">
+              {product.badgeLabel}
+            </span>
+          ) : null}
+        </StorefrontProductFrame>
       </div>
 
-      {/* Corpo do card */}
-      <div className="p-3 sm:p-4 flex-1 flex flex-col justify-between gap-2.5">
-        <div className="space-y-1.5">
+      {/* Corpo do cartão com hierarquia limpa */}
+      <div
+        className={`flex-1 flex flex-col justify-between gap-2 min-w-0 ${
+          minimalCard ? 'px-0.5 pt-0.5 pb-1' : 'p-3 sm:p-3.5'
+        }`}
+      >
+        <div className="space-y-1.5 min-w-0">
           <div onClick={onSelect} className="cursor-pointer space-y-0.5">
-            {categoryLabel && (
-              <p className="text-[10px] font-extrabold uppercase tracking-wider text-muted truncate">
+            {categoryLabel && !minimalCard && (
+              <p
+                className={`text-[10px] font-medium uppercase tracking-wider truncate ${
+                  darkCard ? 'text-line/80' : 'text-muted'
+                }`}
+              >
                 {categoryLabel}
               </p>
             )}
-            <h4 className="font-bold text-xs sm:text-sm leading-snug line-clamp-2 group-hover/card:text-brand transition-colors">
+            <h4
+              className={`leading-snug line-clamp-2 group-hover/card:text-brand transition-colors ${
+                minimalCard
+                  ? 'font-medium text-xs sm:text-sm'
+                  : 'font-semibold text-xs sm:text-sm'
+              }`}
+            >
               {product.title}
             </h4>
           </div>
 
-          {/* Pílulas interativas de tamanho */}
+          {/* Tamanhos disponíveis sem excesso de bordas */}
           {product.sizes?.length > 0 && (
             <div className="flex flex-wrap gap-1 pt-0.5">
               {product.sizes.slice(0, 5).map((sz: string) => {
                 const sizeAvailable =
                   availableVariants.length === 0 ||
                   availableVariants.some((v: any) => v.size === sz);
-                const canQuickPick = Boolean(inStock && onOpenQuickVariant && !singleVariant);
+                const canQuickPick = Boolean(
+                  inStock && onOpenQuickVariant && !singleVariant,
+                );
 
                 return (
                   <button
@@ -249,12 +225,12 @@ export function StorefrontProductCard({
                         ? `Escolher tamanho ${sz}`
                         : `Ver tamanho ${sz}`
                     }
-                    className={`text-[10px] px-1.5 py-0.5 rounded-lg border font-bold transition cursor-pointer ${
+                    className={`text-[10px] px-1.5 py-0.5 rounded-md border font-medium transition cursor-pointer ${
                       !sizeAvailable
                         ? 'opacity-40 line-through border-line text-muted bg-page'
-                        : isDark
-                          ? 'bg-ink border-muted/50 text-line hover:border-brand hover:text-on-brand'
-                          : 'bg-page border-line text-muted hover:border-brand hover:text-brand hover:bg-support/50'
+                        : darkCard
+                          ? 'bg-ink border-muted/45 text-line hover:border-brand hover:text-on-brand'
+                          : 'bg-page border-line text-muted hover:border-brand hover:text-brand'
                     }`}
                   >
                     {sz}
@@ -262,7 +238,7 @@ export function StorefrontProductCard({
                 );
               })}
               {product.sizes.length > 5 && (
-                <span className="text-[10px] px-1 py-0.5 text-muted font-bold">
+                <span className="text-[10px] px-1 py-0.5 text-muted font-medium">
                   +{product.sizes.length - 5}
                 </span>
               )}
@@ -270,29 +246,39 @@ export function StorefrontProductCard({
           )}
         </div>
 
-        {/* Rodapé de preço e ação rápida */}
+        {/* Rodapé de preço e ação */}
         <div
-          className={`pt-2.5 border-t flex items-center justify-between gap-2 ${
-            isDark ? 'border-muted/30' : 'border-line'
+          className={`pt-2 flex items-center justify-between gap-2 ${
+            minimalCard
+              ? ''
+              : darkCard
+                ? 'border-t border-muted/25'
+                : 'border-t border-line/70'
           }`}
         >
           <div className="min-w-0">
-            <p className="text-sm sm:text-base font-extrabold text-brand truncate">
+            <p
+              className={`text-sm sm:text-base font-bold truncate tabular-nums ${
+                minimalCard
+                  ? 'text-ink'
+                  : darkCard
+                    ? 'text-on-brand'
+                    : 'text-ink'
+              }`}
+            >
               {formatBrl(unitPrice)}
             </p>
-            <p className="text-[10px] text-muted font-semibold truncate">
-              {!inStock
-                ? 'Sem saldo livre'
-                : totalAvailable <= 3
-                  ? `Últimas ${totalAvailable} un.`
-                  : 'Pronta entrega'}
-            </p>
+            {(!inStock || totalAvailable <= 3) && (
+              <p className="text-[10px] text-muted font-medium truncate">
+                {!inStock ? 'Sem saldo livre' : `Últimas ${totalAvailable} un.`}
+              </p>
+            )}
           </div>
 
           {inStock && singleVariant && onQuickAdd ? (
             <motion.button
               type="button"
-              whileTap={{ scale: 0.92 }}
+              whileTap={{ scale: 0.94 }}
               onClick={(e) => {
                 e.stopPropagation();
                 const coords = captureSourceCoords(e.currentTarget);
@@ -304,7 +290,7 @@ export function StorefrontProductCard({
                   ? undefined
                   : { backgroundColor: 'var(--sf-primary)', color: '#FFFFFF' }
               }
-              className={`px-3 py-2 rounded-xl text-xs font-extrabold inline-flex items-center gap-1.5 cursor-pointer shrink-0 transition shadow-2xs ${
+              className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer shrink-0 transition ${
                 justAdded
                   ? 'bg-support text-brand border border-brand'
                   : 'hover:opacity-95'
@@ -325,12 +311,16 @@ export function StorefrontProductCard({
           ) : inStock && onOpenQuickVariant ? (
             <motion.button
               type="button"
-              whileTap={{ scale: 0.93 }}
+              whileTap={{ scale: 0.94 }}
               onClick={(e) => {
                 e.stopPropagation();
                 onOpenQuickVariant(product, null);
               }}
-              className="px-3 py-2 rounded-xl bg-support text-brand hover:bg-brand hover:text-on-brand text-xs font-extrabold inline-flex items-center gap-1.5 transition cursor-pointer shrink-0"
+              className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 transition cursor-pointer shrink-0 ${
+                minimalCard
+                  ? 'bg-page text-ink border border-line hover:border-brand hover:text-brand'
+                  : 'bg-support text-brand hover:bg-brand hover:text-on-brand'
+              }`}
             >
               <ShoppingBag size={13} />
               <span>Escolher</span>
@@ -338,9 +328,9 @@ export function StorefrontProductCard({
           ) : (
             <motion.button
               type="button"
-              whileTap={{ scale: 0.94 }}
+              whileTap={{ scale: 0.95 }}
               onClick={onSelect}
-              className={`px-3 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-1 transition cursor-pointer shrink-0 ${
+              className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold inline-flex items-center gap-1 transition cursor-pointer shrink-0 ${
                 inStock
                   ? 'bg-support text-brand hover:bg-brand hover:text-on-brand'
                   : 'bg-page text-muted border border-line hover:border-brand hover:text-ink'
@@ -378,6 +368,7 @@ export function QuickVariantModal({
   ) => void;
   onOpenFullProduct: (slug: string) => void;
 }) {
+  const win = useStorefrontWindow();
   const isMobile = useIsMobileViewport(640);
   useBodyScrollLock(open && Boolean(product));
 
@@ -405,13 +396,13 @@ export function QuickVariantModal({
   }, [product, open, initialSize]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !win) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+    win.addEventListener('keydown', onKey);
+    return () => win.removeEventListener('keydown', onKey);
+  }, [open, onClose, win]);
 
   const selectedVariant = useMemo(() => {
     if (!variants.length) return null;
@@ -428,7 +419,9 @@ export function QuickVariantModal({
   }, [variants, sizes.length, colors.length, chosenSize, chosenColor]);
 
   const availableStock = Number(selectedVariant?.availableStock ?? 0);
-  const variantInStock = Boolean(selectedVariant?.inStock && availableStock > 0);
+  const variantInStock = Boolean(
+    selectedVariant?.inStock && availableStock > 0,
+  );
   const unitPrice = Number(
     selectedVariant?.priceSell ?? product?.priceSell ?? product?.price ?? 0,
   );
@@ -439,7 +432,10 @@ export function QuickVariantModal({
     }
   }, [availableStock, quantity]);
 
-  if (typeof document === 'undefined') return null;
+  const portalBody =
+    win?.document?.body ||
+    (typeof document !== 'undefined' ? document.body : null);
+  if (!portalBody) return null;
 
   return createPortal(
     <AnimatePresence>
@@ -463,19 +459,11 @@ export function QuickVariantModal({
 
           <motion.div
             initial={
-              isMobile
-                ? { y: '100%' }
-                : { opacity: 0, scale: 0.95, y: 14 }
+              isMobile ? { y: '100%' } : { opacity: 0, scale: 0.95, y: 14 }
             }
-            animate={
-              isMobile
-                ? { y: 0 }
-                : { opacity: 1, scale: 1, y: 0 }
-            }
+            animate={isMobile ? { y: 0 } : { opacity: 1, scale: 1, y: 0 }}
             exit={
-              isMobile
-                ? { y: '100%' }
-                : { opacity: 0, scale: 0.96, y: 10 }
+              isMobile ? { y: '100%' } : { opacity: 0, scale: 0.96, y: 10 }
             }
             transition={isMobile ? SF_SPRING_SHEET : SF_SPRING_SNAPPY}
             drag={isMobile ? 'y' : false}
@@ -500,35 +488,29 @@ export function QuickVariantModal({
               </div>
             )}
 
-            {/* Cabeçalho com resumo da peça */}
+            {/* Cabeçalho com resumo da peça e quadro unificado */}
             <div className="p-4 sm:p-5 border-b border-line/70 flex items-start justify-between gap-3">
               <div className="flex items-center gap-3.5 min-w-0">
-                <div className="w-16 h-20 rounded-2xl overflow-hidden border border-line bg-page shrink-0">
-                  {product.imageUrl ? (
-                    <img
-                      src={getFullUrl(product.imageUrl)}
-                      alt={product.title}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <CategoryIconIllustration
-                      categoryId={product.categoryId}
-                      categoryName={product.categoryName}
-                      productName={product.title}
-                      compact
-                    />
-                  )}
-                </div>
+                <StorefrontProductFrame
+                  imageUrl={product.imageUrl}
+                  alt={product.title}
+                  categoryId={product.categoryId}
+                  categoryName={product.categoryName}
+                  productName={product.title}
+                  padding="xs"
+                  aspectClassName="w-16 h-20 shrink-0"
+                  roundedClassName="rounded-2xl"
+                />
                 <div className="min-w-0 space-y-0.5">
                   {product.categoryName && (
-                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-brand block truncate">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-brand block truncate">
                       {product.categoryName}
                     </span>
                   )}
-                  <h3 className="font-extrabold text-sm sm:text-base line-clamp-2 leading-snug">
+                  <h3 className="font-bold text-sm sm:text-base line-clamp-2 leading-snug">
                     {product.title}
                   </h3>
-                  <p className="text-base sm:text-lg font-extrabold text-brand">
+                  <p className="text-base sm:text-lg font-bold text-brand tabular-nums">
                     {formatBrl(unitPrice)}
                   </p>
                   <button
@@ -537,7 +519,7 @@ export function QuickVariantModal({
                       onClose();
                       onOpenFullProduct(product.slug);
                     }}
-                    className="inline-flex items-center gap-1 text-[11px] font-bold text-muted hover:text-brand cursor-pointer pt-0.5"
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted hover:text-brand cursor-pointer pt-0.5"
                   >
                     <span>Ver detalhes completos</span>
                     <ArrowUpRight size={12} />
@@ -560,11 +542,11 @@ export function QuickVariantModal({
               {sizes.length > 0 && (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-extrabold uppercase tracking-wider text-muted text-[11px]">
+                    <span className="font-semibold uppercase tracking-wider text-muted text-[11px]">
                       Tamanho
                     </span>
                     {chosenSize && (
-                      <span className="font-bold text-brand">
+                      <span className="font-semibold text-brand">
                         Selecionado: {chosenSize}
                       </span>
                     )}
@@ -573,7 +555,8 @@ export function QuickVariantModal({
                     <div className="flex flex-wrap gap-2">
                       {sizes.map((sz) => {
                         const hasStockForSize = variants.some(
-                          (v) => v.size === sz && v.inStock && v.availableStock > 0,
+                          (v) =>
+                            v.size === sz && v.inStock && v.availableStock > 0,
                         );
                         const active = chosenSize === sz;
                         return (
@@ -598,7 +581,7 @@ export function QuickVariantModal({
                                 }
                               }
                             }}
-                            className={`relative px-4 py-2.5 rounded-xl text-xs font-bold border cursor-pointer transition-colors ${
+                            className={`relative px-4 py-2.5 rounded-xl text-xs font-semibold border cursor-pointer transition-colors ${
                               active
                                 ? 'text-on-brand border-transparent'
                                 : hasStockForSize
@@ -613,7 +596,7 @@ export function QuickVariantModal({
                                 layoutId="sf-quick-size-pill"
                                 transition={SF_SPRING_PILL}
                                 style={{ backgroundColor: 'var(--sf-primary)' }}
-                                className="absolute inset-0 rounded-xl shadow-2xs"
+                                className="absolute inset-0 rounded-xl"
                               />
                             )}
                             <span className="relative z-10">{sz}</span>
@@ -628,11 +611,11 @@ export function QuickVariantModal({
               {colors.length > 0 && (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-extrabold uppercase tracking-wider text-muted text-[11px]">
+                    <span className="font-semibold uppercase tracking-wider text-muted text-[11px]">
                       Cor
                     </span>
                     {chosenColor && (
-                      <span className="font-bold text-brand">
+                      <span className="font-semibold text-brand">
                         Selecionada: {chosenColor}
                       </span>
                     )}
@@ -646,7 +629,8 @@ export function QuickVariantModal({
                             v.color === cl,
                         );
                         const available = Boolean(
-                          matching?.inStock && Number(matching?.availableStock ?? 0) > 0,
+                          matching?.inStock &&
+                            Number(matching?.availableStock ?? 0) > 0,
                         );
                         const active = chosenColor === cl;
                         return (
@@ -655,7 +639,7 @@ export function QuickVariantModal({
                             type="button"
                             whileTap={{ scale: 0.95 }}
                             onClick={() => setChosenColor(cl)}
-                            className={`relative px-4 py-2.5 rounded-xl text-xs font-bold border cursor-pointer transition-colors ${
+                            className={`relative px-4 py-2.5 rounded-xl text-xs font-semibold border cursor-pointer transition-colors ${
                               active
                                 ? 'text-on-brand border-transparent'
                                 : available
@@ -670,7 +654,7 @@ export function QuickVariantModal({
                                 layoutId="sf-quick-color-pill"
                                 transition={SF_SPRING_PILL}
                                 style={{ backgroundColor: 'var(--sf-primary)' }}
-                                className="absolute inset-0 rounded-xl shadow-2xs"
+                                className="absolute inset-0 rounded-xl"
                               />
                             )}
                             <span className="relative z-10">{cl}</span>
@@ -685,13 +669,11 @@ export function QuickVariantModal({
               {/* Quantidade + Estoque */}
               <div
                 className={`p-3.5 rounded-2xl border flex items-center justify-between gap-3 ${
-                  isDark
-                    ? 'bg-ink border-muted/40'
-                    : 'bg-page border-line'
+                  isDark ? 'bg-ink border-muted/40' : 'bg-page border-line'
                 }`}
               >
                 <div>
-                  <p className="text-xs font-bold">
+                  <p className="text-xs font-semibold">
                     {variantInStock ? 'Pronta entrega' : 'Combinação sem saldo'}
                   </p>
                   <p className="text-[11px] text-muted">
@@ -708,21 +690,23 @@ export function QuickVariantModal({
                     <motion.button
                       type="button"
                       whileTap={{ scale: 0.88 }}
+                      disabled={quantity <= 1}
                       onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                      className="w-8 h-8 rounded-xl bg-surface border border-line text-ink flex items-center justify-center hover:border-brand cursor-pointer"
+                      className="w-8 h-8 rounded-xl bg-surface border border-line text-ink flex items-center justify-center hover:border-brand cursor-pointer disabled:opacity-40"
                     >
                       <Minus size={14} />
                     </motion.button>
-                    <span className="w-7 text-center font-extrabold text-sm">
+                    <span className="w-7 text-center font-bold text-sm tabular-nums">
                       {quantity}
                     </span>
                     <motion.button
                       type="button"
                       whileTap={{ scale: 0.88 }}
+                      disabled={quantity >= availableStock}
                       onClick={() =>
                         setQuantity((q) => Math.min(availableStock, q + 1))
                       }
-                      className="w-8 h-8 rounded-xl bg-surface border border-line text-ink flex items-center justify-center hover:border-brand cursor-pointer"
+                      className="w-8 h-8 rounded-xl bg-surface border border-line text-ink flex items-center justify-center hover:border-brand cursor-pointer disabled:opacity-40"
                     >
                       <Plus size={14} />
                     </motion.button>
@@ -751,7 +735,7 @@ export function QuickVariantModal({
                     ? { backgroundColor: 'var(--sf-primary)', color: '#FFFFFF' }
                     : undefined
                 }
-                className={`w-full py-3.5 px-5 rounded-2xl font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 transition shadow-sm ${
+                className={`w-full py-3.5 px-5 rounded-2xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition ${
                   variantInStock
                     ? 'cursor-pointer hover:opacity-95'
                     : 'bg-page text-muted border border-line opacity-60 cursor-not-allowed'
@@ -760,8 +744,8 @@ export function QuickVariantModal({
                 <ShoppingBag size={16} />
                 <span>
                   {variantInStock
-                    ? `Adicionar à Sacola • ${formatBrl(unitPrice * quantity)}`
-                    : 'Opção Indisponível'}
+                    ? `Adicionar à sacola • ${formatBrl(unitPrice * quantity)}`
+                    : 'Opção indisponível'}
                 </span>
               </motion.button>
             </div>
@@ -769,7 +753,7 @@ export function QuickVariantModal({
         </div>
       )}
     </AnimatePresence>,
-    document.body,
+    portalBody,
   );
 }
 
@@ -785,7 +769,7 @@ export function StorefrontGridSkeleton({
       {Array.from({ length: count }).map((_, idx) => (
         <div
           key={idx}
-          className={`rounded-2xl sm:rounded-3xl border overflow-hidden flex flex-col ${
+          className={`rounded-2xl border overflow-hidden flex flex-col ${
             isDark ? 'bg-ink border-muted/40' : 'bg-surface border-line'
           }`}
         >

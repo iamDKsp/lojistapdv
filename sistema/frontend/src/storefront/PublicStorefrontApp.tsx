@@ -79,6 +79,7 @@ import {
   SF_SPRING_SNAPPY,
   SF_VIEW_TRANSITION,
   useBodyScrollLock,
+  useStorefrontWindow,
   type FlyToBagToken,
 } from './storefront-motion';
 import {
@@ -98,6 +99,16 @@ import {
   StorefrontCartDrawer,
 } from './components/StorefrontCartDrawer';
 import {
+  StorefrontCampaignVisual,
+  StorefrontProductFrame,
+} from './components/StorefrontProductFrame';
+import {
+  StorefrontBannerSection,
+  StorefrontProductSelectionSection,
+  StorefrontShopTheLook,
+  type BannerTargetAction,
+} from './components/StorefrontSections';
+import {
   StorefrontCheckoutRouteCalculator,
   StorefrontOrderDeliveryScene,
   type PublicExpressQuoteResponse,
@@ -105,6 +116,132 @@ import {
 
 const SF_CONTAINER =
   'max-w-[1440px] mx-auto w-full px-4 sm:px-6 lg:px-8 xl:px-12';
+
+export function getTemplateComposition(template?: string) {
+  if (template === 'minimal_branco') {
+    return {
+      container: 'max-w-[1220px] mx-auto w-full px-4 sm:px-8 lg:px-12',
+      catalogGrid: 'grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-7',
+      heroTitleClass:
+        'text-2xl sm:text-4xl lg:text-[2.75rem] font-semibold tracking-tight leading-[1.1]',
+      headerNameClass:
+        'font-semibold text-sm sm:text-base lg:text-lg tracking-tight truncate group-hover:text-brand transition-colors',
+      sectionGap: 'py-5 sm:py-7',
+      defaultSelectionCols: 3,
+    };
+  }
+  if (template === 'vitrine_escura') {
+    return {
+      container: 'max-w-[1520px] mx-auto w-full px-4 sm:px-6 lg:px-8',
+      catalogGrid:
+        'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4',
+      heroTitleClass:
+        'text-2xl sm:text-3xl lg:text-4xl xl:text-[2.7rem] font-extrabold uppercase tracking-tight leading-[1.08]',
+      headerNameClass:
+        'font-extrabold uppercase text-sm sm:text-base lg:text-lg tracking-wide truncate group-hover:text-brand transition-colors',
+      sectionGap: 'py-3.5 sm:py-5',
+      defaultSelectionCols: 4,
+    };
+  }
+  return {
+    container: 'max-w-[1380px] mx-auto w-full px-4 sm:px-6 lg:px-8 xl:px-10',
+    catalogGrid:
+      'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3.5 sm:gap-5',
+    heroTitleClass:
+      'text-2xl sm:text-3xl lg:text-4xl xl:text-[2.55rem] font-extrabold tracking-tight leading-[1.12]',
+    headerNameClass:
+      'font-bold text-sm sm:text-base lg:text-lg tracking-tight truncate group-hover:text-brand transition-colors',
+    sectionGap: 'py-4 sm:py-5',
+    defaultSelectionCols: 4,
+  };
+}
+
+export function resolveCollectionsWithProducts(
+  storeData: any,
+  catalogPool: any[],
+): any[] {
+  const byId = new Map<string, any>();
+  for (const p of catalogPool) {
+    if (!p) continue;
+    if (p.id) byId.set(String(p.id), p);
+    if (p.retailGroupId) byId.set(String(p.retailGroupId), p);
+    if (p.slug) byId.set(String(p.slug), p);
+  }
+
+  const rawList = Array.isArray(storeData?.collections)
+    ? storeData.collections
+    : Array.isArray(storeData?.theme?.collections)
+      ? storeData.theme.collections
+      : [];
+
+  return rawList
+    .filter((col: any) => col && col.enabled !== false)
+    .map((col: any) => {
+      if (Array.isArray(col.products) && col.products.length > 0) {
+        const refreshed = col.products
+          .map(
+            (cp: any) =>
+              byId.get(String(cp.id || cp.retailGroupId || cp.slug)) || cp,
+          )
+          .filter(Boolean);
+        return { ...col, products: refreshed };
+      }
+      const ids: string[] = Array.isArray(col.productIds) ? col.productIds : [];
+      const resolved = ids
+        .map((id) => byId.get(String(id)))
+        .filter(Boolean);
+      return { ...col, products: resolved };
+    });
+}
+
+export function resolveSelectionProducts(
+  section: any,
+  catalogPool: any[],
+  featuredProducts: any[],
+  resolvedCollections: any[],
+): { items: any[]; linkedCollection: any | null } {
+  const byId = new Map<string, any>();
+  for (const p of [...catalogPool, ...featuredProducts]) {
+    if (!p) continue;
+    if (p.id) byId.set(String(p.id), p);
+    if (p.retailGroupId) byId.set(String(p.retailGroupId), p);
+    if (p.slug) byId.set(String(p.slug), p);
+  }
+
+  const sourceType =
+    section?.sourceType ||
+    (section?.collectionId
+      ? 'collection'
+      : Array.isArray(section?.productIds) && section.productIds.length > 0
+        ? 'manual'
+        : 'featured');
+
+  if (sourceType === 'collection' && section?.collectionId) {
+    const col =
+      resolvedCollections.find(
+        (c) =>
+          c.id === section.collectionId || c.slug === section.collectionId,
+      ) || null;
+    return {
+      items: Array.isArray(col?.products) ? col.products : [],
+      linkedCollection: col,
+    };
+  }
+
+  if (sourceType === 'manual') {
+    const ids: string[] = Array.isArray(section?.productIds)
+      ? section.productIds
+      : [];
+    const items = ids.map((id) => byId.get(String(id))).filter(Boolean);
+    return { items, linkedCollection: null };
+  }
+
+  const feat =
+    featuredProducts.length > 0
+      ? featuredProducts
+      : catalogPool.filter((p) => p?.featured);
+  return { items: feat, linkedCollection: null };
+}
 
 const SORT_OPTIONS: SelectPopoverOption[] = [
   { value: 'featured', label: 'Relevância' },
@@ -323,6 +460,7 @@ function StorefrontBagButton({
 export function StorefrontHomeView({
   storeData,
   products,
+  allCatalogProducts,
   loadingProducts,
   syncingProducts = false,
   search,
@@ -342,13 +480,20 @@ export function StorefrontHomeView({
   bagPulseKey = 0,
   onSelectProduct,
   onQuickAdd,
+  onAddLookItems,
   onOpenCart,
+  onOpenCollection,
   recentOrders = [],
   onSelectOrder,
   isPreview = false,
+  selectedSectionId = null,
+  onSelectEditorSection,
+  activeSelectionFilterId = null,
+  onSelectSelectionFilter,
 }: {
   storeData: any;
   products: any[];
+  allCatalogProducts?: any[];
   loadingProducts?: boolean;
   syncingProducts?: boolean;
   search: string;
@@ -373,15 +518,26 @@ export function StorefrontHomeView({
     qty?: number,
     source?: AddSourceRect,
   ) => void;
+  onAddLookItems?: (
+    entries: Array<{ product: any; variant: any; quantity: number }>,
+  ) => void;
   onOpenCart?: () => void;
+  onOpenCollection?: (collectionSlug: string) => void;
   recentOrders?: RecentStorefrontOrder[];
   onSelectOrder?: (reference: string, accessToken?: string) => void;
   isPreview?: boolean;
+  selectedSectionId?: string | null;
+  onSelectEditorSection?: (sectionId: string) => void;
+  activeSelectionFilterId?: string | null;
+  onSelectSelectionFilter?: (sectionId: string | null) => void;
 }) {
+  const win = useStorefrontWindow();
   const theme = storeData?.theme || {};
   const template = theme.template || 'editorial_roxo';
   const isDark = template === 'vitrine_escura';
   const isMinimal = template === 'minimal_branco';
+  const composition = getTemplateComposition(template);
+  const containerClass = composition.container;
   const layoutScope = isPreview ? 'sf-preview' : 'sf-public';
 
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
@@ -389,6 +545,40 @@ export function StorefrontHomeView({
     product: any | null;
     initialSize: string | null;
   }>({ product: null, initialSize: null });
+  const [internalSelectionId, setInternalSelectionId] = useState<string | null>(
+    null,
+  );
+  const lastClickedSectionRef = useRef<string | null>(null);
+
+  const effectiveSelectionId =
+    onSelectSelectionFilter !== undefined
+      ? activeSelectionFilterId
+      : internalSelectionId;
+  const setEffectiveSelectionId = useCallback(
+    (nextId: string | null) => {
+      if (onSelectSelectionFilter) {
+        onSelectSelectionFilter(nextId);
+      } else {
+        setInternalSelectionId(nextId);
+      }
+    },
+    [onSelectSelectionFilter],
+  );
+
+  // Quando o lojista clica numa seção na lista lateral do editor, rola suavemente até ela na prévia
+  useEffect(() => {
+    if (!isPreview || !selectedSectionId || !win?.document) return;
+    if (lastClickedSectionRef.current === selectedSectionId) {
+      lastClickedSectionRef.current = null;
+      return;
+    }
+    const el = win.document.querySelector<HTMLElement>(
+      `[data-sf-section-id="${selectedSectionId}"]`,
+    );
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [isPreview, selectedSectionId, win]);
 
   const defaultSections = [
     { id: 'sec-header', type: 'header', enabled: true },
@@ -399,11 +589,61 @@ export function StorefrontHomeView({
     { id: 'sec-fulfillment', type: 'fulfillment_info', enabled: true },
     { id: 'sec-footer', type: 'footer', enabled: true },
   ];
-  const rawSections =
-    Array.isArray(theme.sections) && theme.sections.length > 0
-      ? theme.sections
-      : defaultSections;
-  const sections: any[] = rawSections.filter((s: any) => s.enabled !== false);
+
+  const sections: any[] = useMemo(() => {
+    const rawSections =
+      Array.isArray(theme.sections) && theme.sections.length > 0
+        ? theme.sections
+        : defaultSections;
+    const hasExplicitBannerSection = rawSections.some(
+      (s: any) => s && s.type === 'banner',
+    );
+    const legacyBanners =
+      !hasExplicitBannerSection && Array.isArray(theme.banners)
+        ? theme.banners.filter((b: any) => b && b.enabled !== false)
+        : [];
+
+    if (legacyBanners.length === 0) {
+      return rawSections.filter((s: any) => s && s.enabled !== false);
+    }
+
+    // Compatibilidade automática com configurações legadas onde banners ficavam acoplados à capa
+    const expanded: any[] = [];
+    let inserted = false;
+    for (const sec of rawSections) {
+      if (!sec || sec.enabled === false) continue;
+      expanded.push(sec);
+      if (sec.type === 'hero' && !inserted) {
+        for (let i = 0; i < legacyBanners.length; i += 1) {
+          const b = legacyBanners[i];
+          expanded.push({
+            id: b.id ? `sec-banner-${b.id}` : `sec-banner-${i + 1}`,
+            type: 'banner',
+            bannerId: b.id,
+            title: b.title || `Banner ${i + 1}`,
+            enabled: true,
+          });
+        }
+        inserted = true;
+      }
+    }
+    if (!inserted) {
+      const headerIdx = expanded.findIndex((s) => s.type === 'header');
+      const insertAt = headerIdx >= 0 ? headerIdx + 1 : 0;
+      expanded.splice(
+        insertAt,
+        0,
+        ...legacyBanners.map((b: any, i: number) => ({
+          id: b.id ? `sec-banner-${b.id}` : `sec-banner-${i + 1}`,
+          type: 'banner',
+          bannerId: b.id,
+          title: b.title || `Banner ${i + 1}`,
+          enabled: true,
+        })),
+      );
+    }
+    return expanded;
+  }, [theme.sections, theme.banners]);
 
   const pickupEnabled = Boolean(
     storeData?.pickupEnabled ?? storeData?.fulfillment?.pickupEnabled ?? true,
@@ -429,8 +669,90 @@ export function StorefrontHomeView({
   const featuredProducts = storeData?.featuredProducts || [];
   const facets = storeData?.facets || { sizes: [], colors: [] };
 
+  const catalogPool = useMemo(() => {
+    if (Array.isArray(allCatalogProducts) && allCatalogProducts.length > 0) {
+      return allCatalogProducts;
+    }
+    if (
+      Array.isArray(storeData?.initialProducts) &&
+      storeData.initialProducts.length > 0
+    ) {
+      return storeData.initialProducts;
+    }
+    return products;
+  }, [allCatalogProducts, storeData?.initialProducts, products]);
+
+  const resolvedCollections = useMemo(
+    () => resolveCollectionsWithProducts(storeData, catalogPool),
+    [storeData, catalogPool],
+  );
+
+  // Se o visitante clicou em "Ver seleção completa" de uma seção manual/destaque, resolve a lista completa
+  const activeSelectionContext = useMemo(() => {
+    if (!effectiveSelectionId) return null;
+    const rawSections = Array.isArray(theme.sections) ? theme.sections : sections;
+    const targetSec = rawSections.find(
+      (s: any) => s && s.id === effectiveSelectionId,
+    );
+    if (!targetSec) return null;
+    const { items } = resolveSelectionProducts(
+      targetSec,
+      catalogPool,
+      featuredProducts,
+      resolvedCollections,
+    );
+    return {
+      id: targetSec.id,
+      title:
+        targetSec.title ||
+        (targetSec.type === 'featured'
+          ? 'Seleção em destaque'
+          : 'Seleção completa'),
+      items,
+    };
+  }, [
+    effectiveSelectionId,
+    theme.sections,
+    sections,
+    catalogPool,
+    featuredProducts,
+    resolvedCollections,
+  ]);
+
+  const catalogGridProducts = useMemo(() => {
+    if (!activeSelectionContext) return products;
+    const allowedIds = new Set(
+      activeSelectionContext.items.map((p: any) =>
+        String(p.id || p.retailGroupId || p.slug),
+      ),
+    );
+    const hasNarrowFilter = Boolean(
+      search || selectedCategoryId || selectedSize || selectedColor || inStockOnly,
+    );
+    if (!hasNarrowFilter && sortBy === 'featured') {
+      return activeSelectionContext.items;
+    }
+    return products.filter((p: any) =>
+      allowedIds.has(String(p.id || p.retailGroupId || p.slug)),
+    );
+  }, [
+    activeSelectionContext,
+    products,
+    search,
+    selectedCategoryId,
+    selectedSize,
+    selectedColor,
+    inStockOnly,
+    sortBy,
+  ]);
+
   const hasActiveFilters = Boolean(
-    search || selectedCategoryId || selectedSize || selectedColor || inStockOnly,
+    search ||
+      selectedCategoryId ||
+      selectedSize ||
+      selectedColor ||
+      inStockOnly ||
+      effectiveSelectionId,
   );
 
   const activeFilterPillsCount = useMemo(
@@ -468,28 +790,105 @@ export function StorefrontHomeView({
     setSelectedSize('');
     setSelectedColor('');
     setInStockOnly(false);
+    setEffectiveSelectionId(null);
   }, [
     setSearch,
     setSelectedCategoryId,
     setSelectedSize,
     setSelectedColor,
     setInStockOnly,
+    setEffectiveSelectionId,
   ]);
 
-  const scrollToCatalog = () => {
-    const el = document.getElementById(
+  const scrollToCatalog = useCallback(() => {
+    const doc = win?.document || (typeof document !== 'undefined' ? document : null);
+    const el = doc?.getElementById(
       isPreview ? 'catalogo-loja-preview' : 'catalogo-loja',
     );
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
+  }, [isPreview, win]);
+
+  const handleBannerTargetAction = useCallback(
+    (action: BannerTargetAction) => {
+      const { targetType, targetValue } = action;
+      if (targetType === 'category' && targetValue) {
+        const matchedCat = categories.find(
+          (c: any) => c.id === targetValue || c.slug === targetValue,
+        );
+        if (matchedCat) {
+          setEffectiveSelectionId(null);
+          setSelectedCategoryId(matchedCat.id);
+          scrollToCatalog();
+        }
+        return;
+      }
+      if (targetType === 'product' && targetValue) {
+        const matchedProd = catalogPool.find(
+          (p: any) =>
+            p.id === targetValue ||
+            p.retailGroupId === targetValue ||
+            p.slug === targetValue,
+        );
+        if (matchedProd) {
+          onSelectProduct(matchedProd.slug, matchedProd);
+        }
+        return;
+      }
+      if (targetType === 'collection' && targetValue) {
+        const matchedCol = resolvedCollections.find(
+          (col: any) => col.id === targetValue || col.slug === targetValue,
+        );
+        if (matchedCol && onOpenCollection) {
+          onOpenCollection(matchedCol.slug);
+        }
+        return;
+      }
+      if (targetType === 'featured') {
+        setEffectiveSelectionId(null);
+        setSortBy('featured');
+        scrollToCatalog();
+        return;
+      }
+      setEffectiveSelectionId(null);
+      scrollToCatalog();
+    },
+    [
+      categories,
+      catalogPool,
+      resolvedCollections,
+      setEffectiveSelectionId,
+      setSelectedCategoryId,
+      scrollToCatalog,
+      onSelectProduct,
+      onOpenCollection,
+      setSortBy,
+    ],
+  );
+
+  const handleSectionSurfaceClick = useCallback(
+    (sectionId: string) => {
+      if (!onSelectEditorSection) return;
+      lastClickedSectionRef.current = sectionId;
+      onSelectEditorSection(sectionId);
+    },
+    [onSelectEditorSection],
+  );
+
+  const editorOutlineClass = (sectionId: string) => {
+    if (!onSelectEditorSection) return '';
+    const isSelected = selectedSectionId === sectionId;
+    return isSelected
+      ? 'ring-2 ring-brand ring-inset transition-shadow'
+      : 'hover:ring-1 hover:ring-brand/45 hover:ring-inset transition-shadow';
   };
 
   return (
     <div
       style={getStoreThemeStyles(theme)}
       className={`min-h-screen flex flex-col selection:bg-brand selection:text-on-brand ${
-        !isPreview && cartCount > 0 ? 'pb-22 sm:pb-0' : ''
+        cartCount > 0 ? 'pb-22 sm:pb-0' : ''
       } ${
         isDark
           ? 'bg-ink text-on-brand'
@@ -501,8 +900,11 @@ export function StorefrontHomeView({
       {/* Faixa superior de comunicado */}
       {theme.announcementText && (
         <div
+          onClick={() => handleSectionSurfaceClick('sec-header')}
           style={{ backgroundColor: 'var(--sf-primary)', color: '#FFFFFF' }}
-          className="text-[11px] sm:text-xs font-bold py-2 px-4 text-center tracking-wide border-b border-surface/15"
+          className={`text-[11px] sm:text-xs font-semibold py-2 px-4 text-center tracking-wide border-b border-surface/15 ${
+            onSelectEditorSection ? 'cursor-pointer' : ''
+          }`}
         >
           {theme.announcementText}
         </div>
@@ -512,9 +914,9 @@ export function StorefrontHomeView({
       {!isPreview && recentOrders.length > 0 && onSelectOrder && (
         <div className="bg-support border-b border-line py-1.5 text-xs text-ink">
           <div
-            className={`${SF_CONTAINER} flex items-center justify-between gap-2 overflow-x-auto`}
+            className={`${containerClass} flex items-center justify-between gap-2 overflow-x-auto`}
           >
-            <span className="font-bold text-muted flex items-center gap-1.5 shrink-0">
+            <span className="font-semibold text-muted flex items-center gap-1.5 shrink-0">
               <Receipt size={13} className="text-brand" />
               <span>Seus pedidos recentes:</span>
             </span>
@@ -525,7 +927,7 @@ export function StorefrontHomeView({
                   type="button"
                   whileTap={{ scale: 0.96 }}
                   onClick={() => onSelectOrder(ord.reference, ord.accessToken)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface border border-line text-[11px] font-bold text-ink hover:border-brand transition cursor-pointer shrink-0 shadow-2xs"
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface border border-line text-[11px] font-semibold text-ink hover:border-brand transition cursor-pointer shrink-0"
                 >
                   <span className="font-mono text-brand">{ord.reference}</span>
                   <span className="text-muted">•</span>
@@ -543,23 +945,23 @@ export function StorefrontHomeView({
           return (
             <header
               key={section.id}
+              data-sf-section-id={section.id}
+              onClick={() => handleSectionSurfaceClick(section.id)}
               className={`sticky top-0 z-30 border-b backdrop-blur-md transition-colors ${
                 isDark
-                  ? 'bg-ink/92 border-muted/40'
-                  : 'bg-surface/92 border-line'
-              }`}
+                  ? 'bg-ink/94 border-muted/35'
+                  : 'bg-surface/94 border-line'
+              } ${editorOutlineClass(section.id)}`}
             >
               <div
-                className={`${SF_CONTAINER} py-3 sm:py-3.5 flex items-center justify-between gap-3 sm:gap-4`}
+                className={`${containerClass} py-3 sm:py-3.5 flex items-center justify-between gap-3 sm:gap-4`}
               >
                 {/* Identidade da loja */}
                 <button
                   type="button"
                   onClick={() => {
                     clearAllFilters();
-                    if (!isPreview && typeof window !== 'undefined') {
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }
+                    win?.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
                   className="flex items-center gap-3 min-w-0 text-left group cursor-pointer"
                 >
@@ -567,7 +969,7 @@ export function StorefrontHomeView({
                     <img
                       src={getFullUrl(storeData.logoUrl)}
                       alt={storeData.storeName}
-                      className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl object-cover border border-line shrink-0 bg-surface shadow-2xs group-hover:scale-[1.03] transition-transform"
+                      className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl object-contain p-1 border border-line shrink-0 bg-surface group-hover:scale-[1.03] transition-transform"
                     />
                   ) : (
                     <div
@@ -575,7 +977,7 @@ export function StorefrontHomeView({
                         backgroundColor: 'var(--sf-primary)',
                         color: '#FFFFFF',
                       }}
-                      className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl flex items-center justify-center font-extrabold text-base shrink-0 shadow-xs group-hover:scale-[1.03] transition-transform"
+                      className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl flex items-center justify-center font-bold text-base shrink-0 group-hover:scale-[1.03] transition-transform"
                     >
                       {String(storeData.storeName || 'L')
                         .charAt(0)
@@ -583,7 +985,7 @@ export function StorefrontHomeView({
                     </div>
                   )}
                   <div className="min-w-0">
-                    <h1 className="font-extrabold text-sm sm:text-base lg:text-lg tracking-tight truncate group-hover:text-brand transition-colors">
+                    <h1 className={composition.headerNameClass}>
                       {storeData.storeName || 'Loja Virtual'}
                     </h1>
                     {storeData.tagline && (
@@ -611,8 +1013,8 @@ export function StorefrontHomeView({
                     placeholder="Buscar peça, modelo, cor ou referência..."
                     className={`w-full pl-10 pr-9 py-2.5 rounded-2xl text-xs sm:text-sm border outline-none transition ${
                       isDark
-                        ? 'bg-ink border-muted/60 text-on-brand placeholder:text-line/60 focus:border-brand'
-                        : 'bg-page border-line text-ink placeholder:text-muted focus:border-brand focus:bg-surface focus:shadow-2xs'
+                        ? 'bg-ink border-muted/55 text-on-brand placeholder:text-line/60 focus:border-brand'
+                        : 'bg-page border-line text-ink placeholder:text-muted focus:border-brand focus:bg-surface'
                     }`}
                   />
                   {search && (
@@ -627,32 +1029,19 @@ export function StorefrontHomeView({
                   )}
                 </div>
 
-                {/* Ações do cabeçalho */}
+                {/* Ações do cabeçalho — Sacola sempre interativa (inclusive na simulação da prévia) */}
                 <div className="flex items-center gap-2 shrink-0">
-                  {!isPreview ? (
-                    <StorefrontBagButton
-                      cartCount={cartCount}
-                      cartTotal={cartTotal}
-                      pulseKey={bagPulseKey}
-                      onClick={onOpenCart}
-                      to={
-                        onOpenCart
-                          ? undefined
-                          : `/loja/${storeData.slug}/carrinho`
-                      }
-                    />
-                  ) : (
-                    <div
-                      style={{
-                        backgroundColor: 'var(--sf-primary)',
-                        color: '#FFFFFF',
-                      }}
-                      className="flex items-center gap-2 px-3.5 py-2 rounded-2xl font-extrabold text-xs shadow-xs"
-                    >
-                      <ShoppingBag size={15} />
-                      <span>Sacola ({cartCount})</span>
-                    </div>
-                  )}
+                  <StorefrontBagButton
+                    cartCount={cartCount}
+                    cartTotal={cartTotal}
+                    pulseKey={bagPulseKey}
+                    onClick={onOpenCart}
+                    to={
+                      onOpenCart
+                        ? undefined
+                        : `/loja/${storeData.slug}/carrinho`
+                    }
+                  />
                 </div>
               </div>
             </header>
@@ -660,225 +1049,334 @@ export function StorefrontHomeView({
         }
 
         if (section.type === 'hero') {
-          const banners = Array.isArray(theme.banners)
-            ? theme.banners.filter((b: any) => b.enabled !== false)
-            : [];
-          const hasCover = Boolean(storeData.coverUrl);
+          const hasCover = Boolean(
+            storeData.coverUrl || theme.heroMobileCoverUrl,
+          );
+          const heroHeight: 'sm' | 'md' | 'lg' =
+            theme.heroHeight === 'sm' || theme.heroHeight === 'lg'
+              ? theme.heroHeight
+              : 'md';
+
+          const coverAspectClass =
+            heroHeight === 'sm'
+              ? 'aspect-[16/9] sm:aspect-[16/8] max-h-[260px]'
+              : heroHeight === 'lg'
+                ? 'aspect-[4/3] sm:aspect-[16/10] lg:aspect-[5/4] max-h-[430px]'
+                : 'aspect-[16/10] sm:aspect-[16/9] lg:aspect-[5/4] max-h-[340px]';
+
+          const darkHeroHeightClass =
+            heroHeight === 'sm'
+              ? 'min-h-[240px] sm:min-h-[290px]'
+              : heroHeight === 'lg'
+                ? 'min-h-[340px] sm:min-h-[460px]'
+                : 'min-h-[290px] sm:min-h-[380px]';
 
           return (
             <section
               key={section.id}
-              className={`${SF_CONTAINER} pt-4 sm:pt-6 pb-2`}
+              data-sf-section-id={section.id}
+              onClick={() => handleSectionSurfaceClick(section.id)}
+              className={`${containerClass} pt-4 sm:pt-6 pb-2 ${editorOutlineClass(section.id)}`}
             >
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.28, ease: SF_EASE_OUT }}
-                style={
-                  isMinimal
-                    ? {
-                        backgroundColor: '#F8F7FC',
-                        color: '#272321',
-                      }
-                    : isDark
-                      ? {
-                          backgroundColor: '#272321',
+              {/* Composição 3: Vitrine Escura com capa em sangria total e sobreposição de lookbook */}
+              {isDark && hasCover ? (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.25, ease: SF_EASE_OUT }}
+                  className={`relative rounded-3xl border border-muted/40 bg-ink overflow-hidden flex items-end ${darkHeroHeightClass}`}
+                >
+                  <div className="absolute inset-0">
+                    <StorefrontCampaignVisual
+                      imageUrl={storeData.coverUrl}
+                      mobileImageUrl={theme.heroMobileCoverUrl}
+                      alt={storeData.storeName}
+                      focalX={theme.heroFocalX}
+                      focalY={theme.heroFocalY}
+                      eager
+                    />
+                    <div
+                      aria-hidden="true"
+                      className="absolute inset-0 bg-gradient-to-t from-ink via-ink/70 to-ink/20 sm:bg-gradient-to-r sm:from-ink/95 sm:via-ink/72 sm:to-ink/20"
+                    />
+                  </div>
+
+                  <div className="relative z-10 w-full p-6 sm:p-9 lg:p-12 max-w-2xl space-y-4 text-on-brand">
+                    {(pickupEnabled || deliveryEnabled) && (
+                      <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold text-line">
+                        {pickupEnabled && (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface/12 border border-surface/15">
+                            <Store size={12} />
+                            <span>Retirada na loja</span>
+                          </span>
+                        )}
+                        {deliveryEnabled && (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface/12 border border-surface/15">
+                            <Truck size={12} />
+                            <span>Entrega</span>
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    <h2 className={composition.heroTitleClass}>
+                      {theme.heroTitle ||
+                        `Coleção ${storeData.storeName || 'Oficial'}`}
+                    </h2>
+
+                    <p className="text-xs sm:text-sm lg:text-base text-line/95 leading-relaxed max-w-xl">
+                      {theme.heroSubtitle ||
+                        storeData.description ||
+                        'Confira disponibilidade por tamanho e cor, monte sua sacola e finalize seu pedido.'}
+                    </p>
+
+                    <div className="pt-1">
+                      <motion.button
+                        type="button"
+                        whileTap={{ scale: 0.96 }}
+                        onClick={scrollToCatalog}
+                        style={{
+                          backgroundColor: 'var(--sf-primary)',
                           color: '#FFFFFF',
-                        }
+                        }}
+                        className="inline-flex items-center gap-2 px-5 sm:px-6 py-3 rounded-2xl font-bold text-xs sm:text-sm cursor-pointer hover:opacity-95 transition"
+                      >
+                        <span>{theme.heroCtaLabel || 'Explorar catálogo'}</span>
+                        <ArrowRight size={15} />
+                      </motion.button>
+                    </div>
+                  </div>
+                </motion.div>
+              ) : isMinimal ? (
+                /* Composição 2: Minimalista Branco — Galeria arejada 6/6, sem sombras ou excesso de selos */
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.25, ease: SF_EASE_OUT }}
+                  className="rounded-3xl border border-line bg-page overflow-hidden"
+                >
+                  <div
+                    className={`grid grid-cols-1 ${
+                      hasCover ? 'lg:grid-cols-12' : ''
+                    } items-center`}
+                  >
+                    <div
+                      className={`p-6 sm:p-10 lg:p-14 space-y-4 sm:space-y-5 ${
+                        hasCover
+                          ? 'lg:col-span-6'
+                          : 'max-w-2xl mx-auto text-center items-center flex flex-col'
+                      }`}
+                    >
+                      {(pickupEnabled || deliveryEnabled) && (
+                        <p className="text-[11px] font-medium uppercase tracking-widest text-muted">
+                          {[
+                            pickupEnabled && 'Retirada na loja',
+                            deliveryEnabled && 'Entrega disponível',
+                          ]
+                            .filter(Boolean)
+                            .join(' • ')}
+                        </p>
+                      )}
+
+                      <h2 className={composition.heroTitleClass}>
+                        {theme.heroTitle ||
+                          `Coleção ${storeData.storeName || 'Oficial'}`}
+                      </h2>
+
+                      <p className="text-sm sm:text-base text-muted leading-relaxed max-w-lg">
+                        {theme.heroSubtitle ||
+                          storeData.description ||
+                          'Peças selecionadas com disponibilidade sincronizada por tamanho e cor.'}
+                      </p>
+
+                      <div className="pt-1">
+                        <motion.button
+                          type="button"
+                          whileTap={{ scale: 0.97 }}
+                          onClick={scrollToCatalog}
+                          style={{
+                            backgroundColor: 'var(--sf-primary)',
+                            color: '#FFFFFF',
+                          }}
+                          className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl font-semibold text-xs sm:text-sm cursor-pointer hover:opacity-95 transition"
+                        >
+                          <span>
+                            {theme.heroCtaLabel || 'Explorar catálogo'}
+                          </span>
+                          <ArrowRight size={15} />
+                        </motion.button>
+                      </div>
+                    </div>
+
+                    {hasCover && (
+                      <div className="lg:col-span-6 p-4 pt-0 sm:p-6 lg:p-6 lg:pl-0">
+                        <div
+                          className={`w-full ${coverAspectClass} rounded-2xl overflow-hidden border border-line bg-surface`}
+                        >
+                          <StorefrontCampaignVisual
+                            imageUrl={storeData.coverUrl}
+                            mobileImageUrl={theme.heroMobileCoverUrl}
+                            alt={storeData.storeName}
+                            focalX={theme.heroFocalX}
+                            focalY={theme.heroFocalY}
+                            eager
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              ) : (
+                /* Composição 1: Editorial Roxo (ou Vitrine Escura sem foto de capa) — Split 7/5 */
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.26, ease: SF_EASE_OUT }}
+                  style={
+                    isDark
+                      ? { backgroundColor: '#272321', color: '#FFFFFF' }
                       : {
                           background:
                             'linear-gradient(135deg, var(--sf-primary) 0%, var(--sf-accent) 100%)',
                           color: '#FFFFFF',
                         }
-                }
-                className={`relative rounded-3xl border overflow-hidden ${
-                  isMinimal
-                    ? 'border-line shadow-xs'
-                    : isDark
-                      ? 'border-muted/40 shadow-sm'
-                      : 'border-brand/20 shadow-md'
-                }`}
-              >
-                {/* Brilho sutil ambiente dentro da paleta oficial */}
-                {!isMinimal && (
-                  <div
-                    aria-hidden="true"
-                    className="pointer-events-none absolute -top-24 -left-24 w-72 h-72 rounded-full bg-surface/10 blur-3xl"
-                  />
-                )}
-
-                <div
-                  className={`relative z-10 grid grid-cols-1 ${
-                    hasCover ? 'lg:grid-cols-12' : ''
-                  } items-center`}
+                  }
+                  className={`relative rounded-3xl border overflow-hidden ${
+                    isDark ? 'border-muted/40' : 'border-brand/20'
+                  }`}
                 >
                   <div
-                    className={`p-6 sm:p-8 lg:p-11 xl:p-12 space-y-4 sm:space-y-5 ${
-                      hasCover ? 'lg:col-span-7' : 'max-w-3xl'
-                    }`}
+                    className={`relative z-10 grid grid-cols-1 ${
+                      hasCover ? 'lg:grid-cols-12' : ''
+                    } items-center`}
                   >
-                    <div className="flex flex-wrap items-center gap-2">
-                      {pickupEnabled && (
-                        <span
-                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold ${
-                            isMinimal
-                              ? 'bg-support text-brand border border-brand/20'
-                              : 'bg-surface/15 text-on-brand backdrop-blur-xs'
-                          }`}
-                        >
-                          <Store size={12} />
-                          <span>Retirada na loja</span>
-                        </span>
-                      )}
-                      {deliveryEnabled && (
-                        <span
-                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold ${
-                            isMinimal
-                              ? 'bg-support text-brand border border-brand/20'
-                              : 'bg-surface/15 text-on-brand backdrop-blur-xs'
-                          }`}
-                        >
-                          <Truck size={12} />
-                          <span>Entrega a combinar</span>
-                        </span>
-                      )}
-                    </div>
-
-                    <h2 className="text-2xl sm:text-3xl lg:text-4xl xl:text-[2.6rem] font-extrabold tracking-tight leading-[1.12]">
-                      {theme.heroTitle ||
-                        `Coleção ${storeData.storeName || 'Oficial'}`}
-                    </h2>
-
-                    <p
-                      className={`text-sm sm:text-base leading-relaxed max-w-xl ${
-                        isMinimal ? 'text-muted' : 'opacity-92'
+                    <div
+                      className={`p-6 sm:p-8 lg:p-11 space-y-4 ${
+                        hasCover ? 'lg:col-span-7' : 'max-w-3xl'
                       }`}
                     >
-                      {theme.heroSubtitle ||
-                        storeData.description ||
-                        'Confira a disponibilidade real por tamanho e cor, monte sua sacola e finalize seu pedido pelo WhatsApp.'}
-                    </p>
+                      {(pickupEnabled || deliveryEnabled) && (
+                        <div className="flex flex-wrap items-center gap-2">
+                          {pickupEnabled && (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-surface/15 text-on-brand">
+                              <Store size={12} />
+                              <span>Retirada na loja</span>
+                            </span>
+                          )}
+                          {deliveryEnabled && (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-surface/15 text-on-brand">
+                              <Truck size={12} />
+                              <span>Entrega</span>
+                            </span>
+                          )}
+                        </div>
+                      )}
 
-                    <div className="pt-1 flex flex-wrap items-center gap-3">
-                      <motion.button
-                        type="button"
-                        whileTap={{ scale: 0.96 }}
-                        onClick={scrollToCatalog}
-                        className={`group/cta inline-flex items-center gap-2.5 px-5 sm:px-6 py-3 rounded-2xl font-extrabold text-xs sm:text-sm transition cursor-pointer shadow-xs ${
-                          isMinimal
-                            ? 'bg-brand text-on-brand hover:bg-brand-hover'
-                            : 'bg-surface text-ink hover:bg-support'
-                        }`}
-                      >
-                        <span>{theme.heroCtaLabel || 'Explorar catálogo'}</span>
-                        <ArrowRight
-                          size={15}
-                          className="transition-transform duration-200 group-hover/cta:translate-x-1"
-                        />
-                      </motion.button>
-                    </div>
-                  </div>
+                      <h2 className={composition.heroTitleClass}>
+                        {theme.heroTitle ||
+                          `Coleção ${storeData.storeName || 'Oficial'}`}
+                      </h2>
 
-                  {/* Moldura editorial responsiva para foto de capa ou logo da loja */}
-                  {hasCover && (
-                    <div className="lg:col-span-5 px-4 pb-5 sm:px-8 sm:pb-8 lg:p-6 lg:pl-2 flex items-center justify-center">
-                      <div
-                        className={`w-full aspect-[16/10] sm:aspect-[16/9] lg:aspect-[5/4] max-h-[340px] rounded-2xl overflow-hidden border shadow-lg ${
-                          isMinimal
-                            ? 'border-line bg-surface'
-                            : 'border-surface/20 bg-ink/30'
-                        }`}
-                      >
-                        <img
-                          src={getFullUrl(storeData.coverUrl)}
-                          alt={storeData.storeName}
-                          loading="eager"
-                          className="w-full h-full object-cover transition-transform duration-700 hover:scale-[1.02]"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </motion.div>
+                      <p className="text-sm sm:text-base leading-relaxed max-w-xl opacity-92">
+                        {theme.heroSubtitle ||
+                          storeData.description ||
+                          'Confira disponibilidade por tamanho e cor, monte sua sacola e finalize seu pedido pelo WhatsApp.'}
+                      </p>
 
-              {/* Banners secundários */}
-              {banners.length > 0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4 mt-4">
-                  {banners.map((banner: any) => (
-                    <motion.button
-                      type="button"
-                      key={banner.id}
-                      whileHover={{ y: -2 }}
-                      whileTap={{ scale: 0.99 }}
-                      onClick={() => {
-                        if (
-                          banner.targetType === 'category' &&
-                          banner.targetValue
-                        ) {
-                          setSelectedCategoryId(banner.targetValue);
-                          scrollToCatalog();
-                        } else if (
-                          banner.targetType === 'product' &&
-                          banner.targetValue
-                        ) {
-                          onSelectProduct(banner.targetValue);
-                        } else if (banner.targetType === 'featured') {
-                          setSortBy('featured');
-                          scrollToCatalog();
-                        } else {
-                          scrollToCatalog();
-                        }
-                      }}
-                      className={`rounded-2xl sm:rounded-3xl border p-4 sm:p-5 flex items-center justify-between gap-4 text-left transition cursor-pointer group ${
-                        isDark
-                          ? 'border-muted/40 bg-ink hover:border-brand'
-                          : 'border-line bg-surface text-ink hover:border-brand shadow-2xs hover:shadow-sm'
-                      }`}
-                    >
-                      <div className="space-y-1 min-w-0">
-                        <span className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider text-brand">
-                          <Sparkles size={11} />
-                          <span>Destaque</span>
-                        </span>
-                        <h3 className="font-extrabold text-sm sm:text-base truncate group-hover:text-brand transition-colors">
-                          {banner.title}
-                        </h3>
-                        {banner.subtitle && (
-                          <p className="text-xs text-muted line-clamp-2">
-                            {banner.subtitle}
-                          </p>
-                        )}
-                        <span className="inline-flex items-center gap-1 text-xs font-extrabold text-brand pt-1">
-                          <span>{banner.ctaLabel || 'Conferir'}</span>
-                          <ChevronRight
-                            size={14}
-                            className="transition-transform group-hover:translate-x-0.5"
+                      <div className="pt-1 flex flex-wrap items-center gap-3">
+                        <motion.button
+                          type="button"
+                          whileTap={{ scale: 0.96 }}
+                          onClick={scrollToCatalog}
+                          className="group/cta inline-flex items-center gap-2 px-5 sm:px-6 py-3 rounded-2xl font-bold text-xs sm:text-sm bg-surface text-ink hover:bg-support transition cursor-pointer"
+                        >
+                          <span>
+                            {theme.heroCtaLabel || 'Explorar catálogo'}
+                          </span>
+                          <ArrowRight
+                            size={15}
+                            className="transition-transform duration-200 group-hover/cta:translate-x-1"
                           />
-                        </span>
+                        </motion.button>
                       </div>
-                      {banner.imageUrl && (
-                        <img
-                          src={getFullUrl(banner.imageUrl)}
-                          alt={banner.title}
-                          loading="lazy"
-                          className="w-20 h-20 sm:w-22 sm:h-22 rounded-2xl object-cover border border-line shrink-0 bg-page"
-                        />
-                      )}
-                    </motion.button>
-                  ))}
-                </div>
+                    </div>
+
+                    {hasCover && (
+                      <div className="lg:col-span-5 px-4 pb-5 sm:px-8 sm:pb-8 lg:p-6 lg:pl-2 flex items-center justify-center">
+                        <div
+                          className={`w-full ${coverAspectClass} rounded-2xl overflow-hidden border border-surface/20 bg-ink/25`}
+                        >
+                          <StorefrontCampaignVisual
+                            imageUrl={storeData.coverUrl}
+                            mobileImageUrl={theme.heroMobileCoverUrl}
+                            alt={storeData.storeName}
+                            focalX={theme.heroFocalX}
+                            focalY={theme.heroFocalY}
+                            eager
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
               )}
+            </section>
+          );
+        }
+
+        if (section.type === 'banner') {
+          const allBanners: any[] = Array.isArray(theme.banners)
+            ? theme.banners
+            : [];
+          const matchedBanner =
+            allBanners.find(
+              (b) => b && (b.id === section.bannerId || b.id === section.id),
+            ) || null;
+          const resolvedBanner = matchedBanner
+            ? {
+                ...section,
+                ...matchedBanner,
+                enabled:
+                  section.enabled !== false && matchedBanner.enabled !== false,
+              }
+            : section;
+
+          if (resolvedBanner.enabled === false) return null;
+
+          return (
+            <section
+              key={section.id}
+              data-sf-section-id={section.id}
+              onClick={() => handleSectionSurfaceClick(section.id)}
+              className={`${containerClass} ${composition.sectionGap} ${editorOutlineClass(section.id)}`}
+            >
+              <StorefrontBannerSection
+                banner={resolvedBanner}
+                template={template}
+                categories={categories}
+                products={catalogPool}
+                collections={resolvedCollections}
+                onActivateTarget={handleBannerTargetAction}
+              />
             </section>
           );
         }
 
         if (section.type === 'categories' && categories.length > 0) {
           return (
-            <section key={section.id} className={`${SF_CONTAINER} py-3 sm:py-4`}>
+            <section
+              key={section.id}
+              data-sf-section-id={section.id}
+              onClick={() => handleSectionSurfaceClick(section.id)}
+              className={`${containerClass} py-3 sm:py-4 ${editorOutlineClass(section.id)}`}
+            >
               <CategoryTabsRail
                 categories={categories}
                 selectedCategoryId={selectedCategoryId}
-                onSelectCategory={setSelectedCategoryId}
+                onSelectCategory={(catId) => {
+                  setEffectiveSelectionId(null);
+                  setSelectedCategoryId(catId);
+                }}
                 title={section.title || 'Categorias'}
                 isDark={isDark}
                 isMinimal={isMinimal}
@@ -888,61 +1386,153 @@ export function StorefrontHomeView({
           );
         }
 
-        if (section.type === 'featured' && featuredProducts.length > 0) {
+        if (
+          section.type === 'featured' ||
+          section.type === 'product_selection'
+        ) {
+          const { items: selectionItems, linkedCollection } =
+            resolveSelectionProducts(
+              section,
+              catalogPool,
+              featuredProducts,
+              resolvedCollections,
+            );
+
+          if (selectionItems.length === 0) {
+            if (!onSelectEditorSection) return null;
+            return (
+              <section
+                key={section.id}
+                data-sf-section-id={section.id}
+                onClick={() => handleSectionSurfaceClick(section.id)}
+                className={`${containerClass} py-3 ${editorOutlineClass(section.id)}`}
+              >
+                <div className="rounded-2xl border border-dashed border-line p-5 text-center text-xs text-muted bg-surface/60">
+                  <strong className="text-ink block mb-0.5">
+                    {section.title || 'Seleção de produtos'}
+                  </strong>
+                  Escolha mercadorias visíveis no painel da direita para exibir
+                  esta seleção na página.
+                </div>
+              </section>
+            );
+          }
+
           return (
-            <AnimatePresence key={section.id} initial={false}>
-              {!hasActiveFilters && (
-                <motion.section
-                  key="featured-section"
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.24, ease: SF_EASE_OUT }}
-                  className="overflow-hidden"
-                >
-                  <div className={`${SF_CONTAINER} py-3 sm:py-4`}>
-                    <div className="flex items-center justify-between mb-3.5 sm:mb-4">
-                      <div>
-                        <h3 className="text-base sm:text-lg lg:text-xl font-extrabold tracking-tight flex items-center gap-2">
-                          <Sparkles size={17} className="text-brand" />
-                          <span>{section.title || 'Seleção em Destaque'}</span>
-                        </h3>
-                        {section.subtitle && (
-                          <p className="text-xs text-muted mt-0.5">
-                            {section.subtitle}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-5">
-                      {featuredProducts.slice(0, 4).map((prod: any, idx: number) => (
-                        <StorefrontProductCard
-                          key={prod.id}
-                          product={prod}
-                          index={idx}
-                          isDark={isDark}
-                          onSelect={() => onSelectProduct(prod.slug, prod)}
-                          onQuickAdd={
-                            onQuickAdd
-                              ? (p, v, src) => onQuickAdd(p, v, 1, src)
-                              : undefined
-                          }
-                          onOpenQuickVariant={
-                            onQuickAdd
-                              ? (p, sz) =>
-                                  setQuickVariantState({
-                                    product: p,
-                                    initialSize: sz || null,
-                                  })
-                              : undefined
-                          }
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </motion.section>
-              )}
-            </AnimatePresence>
+            <section
+              key={section.id}
+              data-sf-section-id={section.id}
+              onClick={() => handleSectionSurfaceClick(section.id)}
+              className={`${containerClass} ${composition.sectionGap} ${editorOutlineClass(section.id)}`}
+            >
+              <StorefrontProductSelectionSection
+                section={{
+                  ...section,
+                  columnsDesktop:
+                    section.columnsDesktop || composition.defaultSelectionCols,
+                }}
+                resolvedProducts={selectionItems}
+                template={template}
+                onSelectProduct={onSelectProduct}
+                onQuickAdd={
+                  onQuickAdd
+                    ? (p, v, src) => onQuickAdd(p, v, 1, src)
+                    : undefined
+                }
+                onOpenQuickVariant={
+                  onQuickAdd
+                    ? (p, sz) =>
+                        setQuickVariantState({
+                          product: p,
+                          initialSize: sz || null,
+                        })
+                    : undefined
+                }
+                onViewFullSelection={() => {
+                  if (linkedCollection?.slug && onOpenCollection) {
+                    onOpenCollection(linkedCollection.slug);
+                    return;
+                  }
+                  setSearch('');
+                  setSelectedCategoryId('');
+                  setSelectedSize('');
+                  setSelectedColor('');
+                  setInStockOnly(false);
+                  setEffectiveSelectionId(section.id);
+                  scrollToCatalog();
+                }}
+              />
+            </section>
+          );
+        }
+
+        if (section.type === 'look') {
+          const lookCol =
+            resolvedCollections.find(
+              (c: any) =>
+                c.id === section.collectionId ||
+                c.slug === section.collectionId,
+            ) ||
+            resolvedCollections.find((c: any) => c.kind === 'look') ||
+            null;
+          const lookPieces: any[] = Array.isArray(lookCol?.products)
+            ? lookCol.products
+            : [];
+
+          if (!lookCol || lookPieces.length === 0) {
+            if (!onSelectEditorSection) return null;
+            return (
+              <section
+                key={section.id}
+                data-sf-section-id={section.id}
+                onClick={() => handleSectionSurfaceClick(section.id)}
+                className={`${containerClass} py-3 ${editorOutlineClass(section.id)}`}
+              >
+                <div className="rounded-2xl border border-dashed border-line p-5 text-center text-xs text-muted bg-surface/60">
+                  <strong className="text-ink block mb-0.5">
+                    {section.title || 'Monte o look'}
+                  </strong>
+                  Vincule um conjunto “Monte o look” com peças visíveis para
+                  apresentá-lo aqui.
+                </div>
+              </section>
+            );
+          }
+
+          return (
+            <section
+              key={section.id}
+              data-sf-section-id={section.id}
+              onClick={() => handleSectionSurfaceClick(section.id)}
+              className={`${containerClass} ${composition.sectionGap} ${editorOutlineClass(section.id)}`}
+            >
+              <StorefrontShopTheLook
+                look={lookCol}
+                pieces={lookPieces}
+                template={template}
+                sectionTitle={section.title}
+                sectionSubtitle={section.subtitle}
+                onSelectProduct={onSelectProduct}
+                onAddLookItems={(entries) => {
+                  if (onAddLookItems) {
+                    onAddLookItems(entries);
+                  } else if (onQuickAdd) {
+                    for (const entry of entries) {
+                      onQuickAdd(
+                        entry.product,
+                        entry.variant,
+                        entry.quantity,
+                      );
+                    }
+                  }
+                }}
+                onOpenCollectionPage={
+                  lookCol.slug && onOpenCollection
+                    ? () => onOpenCollection(lookCol.slug)
+                    : undefined
+                }
+              />
+            </section>
           );
         }
 
@@ -951,14 +1541,43 @@ export function StorefrontHomeView({
             <section
               id={isPreview ? 'catalogo-loja-preview' : 'catalogo-loja'}
               key={section.id}
-              className={`${SF_CONTAINER} py-4 flex-1`}
+              data-sf-section-id={section.id}
+              onClick={() => handleSectionSurfaceClick(section.id)}
+              className={`${containerClass} py-4 flex-1 ${editorOutlineClass(section.id)}`}
             >
+              {activeSelectionContext && (
+                <div className="mb-3.5 rounded-2xl border border-brand/40 bg-support/60 px-4 py-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Sparkles size={14} className="text-brand shrink-0" />
+                    <span className="text-ink truncate">
+                      Exibindo seleção completa:{' '}
+                      <strong>{activeSelectionContext.title}</strong> (
+                      {activeSelectionContext.items.length}{' '}
+                      {activeSelectionContext.items.length === 1
+                        ? 'item'
+                        : 'itens'}
+                      )
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEffectiveSelectionId(null)}
+                    className="inline-flex items-center gap-1 font-semibold text-brand hover:underline cursor-pointer shrink-0"
+                  >
+                    <X size={13} />
+                    <span>Ver todo o catálogo</span>
+                  </button>
+                </div>
+              )}
+
               {/* Barra de busca mobile + filtros customizados fluidos */}
               <div
                 className={`rounded-2xl sm:rounded-3xl border p-3 sm:p-4 mb-5 transition-colors ${
                   isDark
                     ? 'bg-ink border-muted/40 text-on-brand'
-                    : 'bg-surface border-line text-ink shadow-2xs'
+                    : isMinimal
+                      ? 'bg-page border-line text-ink'
+                      : 'bg-surface border-line text-ink'
                 }`}
               >
                 <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5 sm:gap-3">
@@ -997,7 +1616,7 @@ export function StorefrontHomeView({
                       type="button"
                       whileTap={{ scale: 0.96 }}
                       onClick={() => setMobileFilterOpen(true)}
-                      className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border text-xs font-extrabold cursor-pointer ${
+                      className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border text-xs font-semibold cursor-pointer ${
                         activeFilterPillsCount > 0
                           ? 'border-brand bg-support text-brand'
                           : isDark
@@ -1019,21 +1638,21 @@ export function StorefrontHomeView({
                         <button
                           type="button"
                           onClick={clearAllFilters}
-                          className="text-xs font-bold text-brand underline cursor-pointer"
+                          className="text-xs font-semibold text-brand underline cursor-pointer"
                         >
                           Limpar
                         </button>
                       )}
-                      <span className="text-[11px] font-bold text-muted tabular-nums">
-                        {products.length}{' '}
-                        {products.length === 1 ? 'peça' : 'peças'}
+                      <span className="text-[11px] font-semibold text-muted tabular-nums">
+                        {catalogGridProducts.length}{' '}
+                        {catalogGridProducts.length === 1 ? 'peça' : 'peças'}
                       </span>
                     </div>
                   </div>
 
                   {/* Controles completos Desktop / Tablet (sm:+) com Popovers animados */}
                   <div className="hidden sm:flex flex-wrap items-center gap-2 flex-1">
-                    <span className="text-xs font-extrabold text-muted inline-flex items-center gap-1.5 mr-1">
+                    <span className="text-xs font-semibold text-muted inline-flex items-center gap-1.5 mr-1">
                       <SlidersHorizontal size={13} className="text-brand" />
                       <span>Filtrar:</span>
                     </span>
@@ -1064,7 +1683,7 @@ export function StorefrontHomeView({
                       type="button"
                       whileTap={{ scale: 0.96 }}
                       onClick={() => setInStockOnly(!inStockOnly)}
-                      className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border text-xs font-bold transition cursor-pointer ${
+                      className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border text-xs font-semibold transition cursor-pointer ${
                         inStockOnly
                           ? 'border-brand bg-support text-brand'
                           : isDark
@@ -1089,7 +1708,7 @@ export function StorefrontHomeView({
                           exit={{ opacity: 0, scale: 0.92 }}
                           transition={{ duration: 0.14 }}
                           onClick={clearAllFilters}
-                          className="text-xs font-extrabold text-brand hover:underline px-2 py-1 cursor-pointer inline-flex items-center gap-1"
+                          className="text-xs font-semibold text-brand hover:underline px-2 py-1 cursor-pointer inline-flex items-center gap-1"
                         >
                           <X size={12} />
                           <span>Limpar filtros</span>
@@ -1099,7 +1718,7 @@ export function StorefrontHomeView({
                   </div>
 
                   <div className="hidden sm:flex items-center justify-end gap-2.5 shrink-0">
-                    <span className="text-xs font-bold text-muted inline-flex items-center gap-1.5 tabular-nums">
+                    <span className="text-xs font-semibold text-muted inline-flex items-center gap-1.5 tabular-nums">
                       {syncingProducts && (
                         <Loader2
                           size={12}
@@ -1107,8 +1726,8 @@ export function StorefrontHomeView({
                         />
                       )}
                       <span>
-                        {products.length}{' '}
-                        {products.length === 1 ? 'peça' : 'peças'}
+                        {catalogGridProducts.length}{' '}
+                        {catalogGridProducts.length === 1 ? 'peça' : 'peças'}
                       </span>
                     </span>
 
@@ -1126,9 +1745,9 @@ export function StorefrontHomeView({
               </div>
 
               {/* Grade de produtos sem desmontagem destrutiva */}
-              {loadingProducts && products.length === 0 ? (
+              {loadingProducts && catalogGridProducts.length === 0 ? (
                 <StorefrontGridSkeleton count={8} isDark={isDark} />
-              ) : products.length === 0 ? (
+              ) : catalogGridProducts.length === 0 ? (
                 <motion.div
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -1142,7 +1761,7 @@ export function StorefrontHomeView({
                   <div className="w-14 h-14 rounded-2xl bg-support text-brand flex items-center justify-center mx-auto">
                     <Package size={26} />
                   </div>
-                  <p className="font-extrabold text-sm sm:text-base">
+                  <p className="font-bold text-sm sm:text-base">
                     Nenhuma peça encontrada com os filtros selecionados
                   </p>
                   <p className="text-xs text-muted max-w-sm mx-auto leading-relaxed">
@@ -1158,7 +1777,7 @@ export function StorefrontHomeView({
                         backgroundColor: 'var(--sf-primary)',
                         color: '#FFFFFF',
                       }}
-                      className="mt-2 inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-extrabold cursor-pointer shadow-xs"
+                      className="mt-2 inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-bold cursor-pointer"
                     >
                       <span>Ver catálogo completo</span>
                     </motion.button>
@@ -1167,14 +1786,15 @@ export function StorefrontHomeView({
               ) : (
                 <motion.div
                   layout="position"
-                  className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-5 xl:gap-6"
+                  className={`grid ${composition.catalogGrid}`}
                 >
-                  {products.map((prod: any, idx: number) => (
+                  {catalogGridProducts.map((prod: any, idx: number) => (
                     <StorefrontProductCard
-                      key={prod.id}
+                      key={prod.id || prod.retailGroupId || idx}
                       product={prod}
                       index={idx}
                       isDark={isDark}
+                      template={template}
                       onSelect={() => onSelectProduct(prod.slug, prod)}
                       onQuickAdd={
                         onQuickAdd
@@ -1203,21 +1823,26 @@ export function StorefrontHomeView({
             return null;
           }
           return (
-            <section key={section.id} className={`${SF_CONTAINER} py-5`}>
+            <section
+              key={section.id}
+              data-sf-section-id={section.id}
+              onClick={() => handleSectionSurfaceClick(section.id)}
+              className={`${containerClass} py-5 ${editorOutlineClass(section.id)}`}
+            >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4">
                 {pickupEnabled && (
                   <div
                     className={`border rounded-3xl p-4 sm:p-5 flex items-start gap-3.5 ${
                       isDark
                         ? 'bg-ink border-muted/40 text-on-brand'
-                        : 'bg-surface border-line text-ink shadow-2xs'
+                        : 'bg-surface border-line text-ink'
                     }`}
                   >
                     <div className="p-3 rounded-2xl bg-support text-brand shrink-0">
                       <Store size={19} />
                     </div>
                     <div className="min-w-0">
-                      <h4 className="font-extrabold text-xs sm:text-sm">
+                      <h4 className="font-bold text-xs sm:text-sm">
                         Retirada na Loja
                       </h4>
                       <p
@@ -1236,7 +1861,7 @@ export function StorefrontHomeView({
                     className={`border rounded-3xl p-4 sm:p-5 flex items-start gap-3.5 ${
                       isDark
                         ? 'bg-ink border-muted/40 text-on-brand'
-                        : 'bg-surface border-line text-ink shadow-2xs'
+                        : 'bg-surface border-line text-ink'
                     }`}
                   >
                     <div className="p-3 rounded-2xl bg-support text-brand shrink-0">
@@ -1244,11 +1869,11 @@ export function StorefrontHomeView({
                     </div>
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <h4 className="font-extrabold text-xs sm:text-sm">
+                        <h4 className="font-bold text-xs sm:text-sm">
                           Entrega a Combinar
                         </h4>
                         {deliveryFeeNote && (
-                          <span className="px-2 py-0.5 rounded-lg bg-support text-brand text-[10px] font-extrabold">
+                          <span className="px-2 py-0.5 rounded-lg bg-support text-brand text-[10px] font-semibold">
                             {deliveryFeeNote}
                           </span>
                         )}
@@ -1273,18 +1898,20 @@ export function StorefrontHomeView({
           return (
             <footer
               key={section.id}
+              data-sf-section-id={section.id}
+              onClick={() => handleSectionSurfaceClick(section.id)}
               className={`border-t mt-auto py-7 text-xs ${
                 isDark
                   ? 'border-muted/40 text-line bg-ink'
                   : 'border-line text-muted bg-surface'
-              }`}
+              } ${editorOutlineClass(section.id)}`}
             >
               <div
-                className={`${SF_CONTAINER} flex flex-col sm:flex-row items-center justify-between gap-3`}
+                className={`${containerClass} flex flex-col sm:flex-row items-center justify-between gap-3`}
               >
                 <div className="text-center sm:text-left">
                   <p
-                    className={`font-extrabold text-sm ${
+                    className={`font-bold text-sm ${
                       isDark ? 'text-on-brand' : 'text-ink'
                     }`}
                   >
@@ -1296,7 +1923,7 @@ export function StorefrontHomeView({
                     </p>
                   )}
                 </div>
-                <div className="flex items-center gap-2 opacity-85 font-semibold">
+                <div className="flex items-center gap-2 opacity-85 font-medium">
                   <ShieldCheck size={15} className="text-brand shrink-0" />
                   <span>Estoque sincronizado em tempo real • PDV Lojista</span>
                 </div>
@@ -1308,27 +1935,25 @@ export function StorefrontHomeView({
         return null;
       })}
 
-      {/* Bottom-Sheet Mobile de Filtros */}
-      {!isPreview && (
-        <MobileFilterSheet
-          open={mobileFilterOpen}
-          onClose={() => setMobileFilterOpen(false)}
-          sizes={facets.sizes || []}
-          colors={facets.colors || []}
-          selectedSize={selectedSize}
-          setSelectedSize={setSelectedSize}
-          selectedColor={selectedColor}
-          setSelectedColor={setSelectedColor}
-          inStockOnly={inStockOnly}
-          setInStockOnly={setInStockOnly}
-          sortBy={sortBy}
-          setSortBy={setSortBy}
-          sortOptions={SORT_OPTIONS}
-          resultsCount={products.length}
-          onClearAll={clearAllFilters}
-          isDark={isDark}
-        />
-      )}
+      {/* Bottom-Sheet Mobile de Filtros (funciona tanto na loja pública quanto no iframe da prévia) */}
+      <MobileFilterSheet
+        open={mobileFilterOpen}
+        onClose={() => setMobileFilterOpen(false)}
+        sizes={facets.sizes || []}
+        colors={facets.colors || []}
+        selectedSize={selectedSize}
+        setSelectedSize={setSelectedSize}
+        selectedColor={selectedColor}
+        setSelectedColor={setSelectedColor}
+        inStockOnly={inStockOnly}
+        setInStockOnly={setInStockOnly}
+        sortBy={sortBy}
+        setSortBy={setSortBy}
+        sortOptions={SORT_OPTIONS}
+        resultsCount={catalogGridProducts.length}
+        onClearAll={clearAllFilters}
+        isDark={isDark}
+      />
 
       {/* Modal / Bottom-Sheet de Escolha Rápida de Tamanho & Cor no Catálogo */}
       {onQuickAdd && (
@@ -1442,15 +2067,18 @@ export function PublicStorefrontApp() {
 
   // Resolução das sub-rotas dentro do Shell persistente (/loja/:slug/*)
   const productMatch = useMatch('/loja/:slug/produto/:produtoSlug');
+  const collectionMatch = useMatch('/loja/:slug/colecao/:colecaoSlug');
   const orderMatch = useMatch('/loja/:slug/pedido/:referencia');
   const cartMatch = useMatch('/loja/:slug/carrinho');
   const checkoutMatch = useMatch('/loja/:slug/finalizar');
 
   const produtoSlug = productMatch?.params?.produtoSlug;
+  const colecaoSlug = collectionMatch?.params?.colecaoSlug;
   const referencia = orderMatch?.params?.referencia;
   const isCartPage = Boolean(cartMatch);
   const isCheckoutPage = Boolean(checkoutMatch);
   const isProductPage = Boolean(produtoSlug);
+  const isCollectionPage = Boolean(colecaoSlug);
   const isOrderPage = Boolean(referencia);
 
   const [storeData, setStoreData] = useState<any>(null);
@@ -1528,6 +2156,18 @@ export function PublicStorefrontApp() {
     null,
   );
 
+  // Coleção curada / Monte o look (/loja/:slug/colecao/:colecaoSlug) e filtro de seleção
+  const [collectionDetail, setCollectionDetail] = useState<any>(null);
+  const [loadingCollectionDetail, setLoadingCollectionDetail] = useState(false);
+  const [activeSelectionFilterId, setActiveSelectionFilterId] = useState<
+    string | null
+  >(() => searchParams.get('selecao') || null);
+
+  useEffect(() => {
+    const qSel = searchParams.get('selecao');
+    if (qSel) setActiveSelectionFilterId(qSel);
+  }, [searchParams]);
+
   // Consulta de pedido + relógio de contagem regressiva
   const [orderDetail, setOrderDetail] = useState<any>(null);
   const [loadingOrder, setLoadingOrder] = useState(false);
@@ -1541,11 +2181,13 @@ export function PublicStorefrontApp() {
     ? 'order'
     : isProductPage
       ? 'product'
-      : isCheckoutPage
-        ? 'checkout'
-        : isCartPage
-          ? 'cart'
-          : 'home';
+      : isCollectionPage
+        ? 'collection'
+        : isCheckoutPage
+          ? 'checkout'
+          : isCartPage
+            ? 'cart'
+            : 'home';
 
   useEffect(() => {
     const prev = prevViewTypeRef.current;
@@ -1560,7 +2202,7 @@ export function PublicStorefrontApp() {
       }
       prevViewTypeRef.current = currentViewType;
     }
-  }, [currentViewType, produtoSlug, referencia]);
+  }, [currentViewType, produtoSlug, colecaoSlug, referencia]);
 
   // Monitorar conectividade
   useEffect(() => {
@@ -1953,6 +2595,54 @@ export function PublicStorefrontApp() {
     };
   }, [slug, produtoSlug]);
 
+  // Carregar coleção curada ou "Monte o look" (/loja/:slug/colecao/:colecaoSlug)
+  useEffect(() => {
+    if (!slug || !colecaoSlug) return;
+    let active = true;
+
+    const localResolved = resolveCollectionsWithProducts(
+      storeData,
+      masterProducts,
+    );
+    const cachedCol =
+      localResolved.find(
+        (c: any) => c.slug === colecaoSlug || c.id === colecaoSlug,
+      ) || null;
+    if (cachedCol) {
+      setCollectionDetail(cachedCol);
+    }
+    setLoadingCollectionDetail(!cachedCol);
+
+    storefrontApi
+      .get(`/storefront/public/${slug}/collections/${colecaoSlug}`)
+      .then(({ data }) => {
+        if (!active) return;
+        const col = data?.collection || data;
+        setCollectionDetail({
+          ...col,
+          products: Array.isArray(data?.products)
+            ? data.products
+            : Array.isArray(col?.products)
+              ? col.products
+              : cachedCol?.products || [],
+        });
+      })
+      .catch((err) => {
+        if (!active || cachedCol) return;
+        toast.error(
+          err.response?.data?.message || 'Coleção não encontrada na vitrine.',
+        );
+        navigate(`/loja/${slug}`);
+      })
+      .finally(() => {
+        if (active) setLoadingCollectionDetail(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [slug, colecaoSlug, storeData, masterProducts, navigate]);
+
   // Revalidar carrinho no servidor (ao abrir carrinho/gaveta/checkout)
   const revalidateCartOnServer = useCallback(
     async (silent = false) => {
@@ -2277,6 +2967,40 @@ export function PublicStorefrontApp() {
     }
   };
 
+  const handleAddLookItemsToCart = (
+    entries: Array<{ product: any; variant: any; quantity: number }>,
+  ) => {
+    if (!storeData?.publicId || entries.length === 0) return;
+    let addedCount = 0;
+    for (const entry of entries) {
+      const { product, variant, quantity } = entry;
+      if (!variant || !variant.inStock || Number(variant.availableStock ?? 0) <= 0) {
+        continue;
+      }
+      addOrUpdateCartItem(storeData.publicId, storeData.slug, {
+        productId: variant.id,
+        retailGroupId: product.id,
+        productSlug: product.slug,
+        productName: product.title,
+        size: variant.size || null,
+        color: variant.color || null,
+        imageUrl: product.imageUrl || null,
+        unit: variant.unit || 'UN',
+        quantity: Math.max(
+          1,
+          Math.min(Number(variant.availableStock), Number(quantity || 1)),
+        ),
+        priceUnit: Number(variant.priceSell ?? product.priceSell ?? 0),
+        maxAvailableStock: Number(variant.availableStock),
+      });
+      addedCount += 1;
+    }
+    if (addedCount > 0) {
+      setBagPulseKey((k) => k + 1);
+      setCartDrawerOpen(true);
+    }
+  };
+
   const handleNavigateToProduct = useCallback(
     (prodSlug: string, seedProduct?: any) => {
       if (currentViewType === 'home' && typeof window !== 'undefined') {
@@ -2498,13 +3222,152 @@ export function PublicStorefrontApp() {
     ? `order-${referencia}`
     : isProductPage
       ? `product-${produtoSlug}`
-      : isCheckoutPage
-        ? 'checkout'
-        : isCartPage
-          ? 'cart'
-          : 'home';
+      : isCollectionPage
+        ? `collection-${colecaoSlug}`
+        : isCheckoutPage
+          ? 'checkout'
+          : isCartPage
+            ? 'cart'
+            : 'home';
 
   const renderActiveRouteView = () => {
+    // ── ROTA: /loja/:slug/colecao/:colecaoSlug ───────────────────────────────
+    if (isCollectionPage) {
+      const template = storeData?.theme?.template || 'editorial_roxo';
+      const composition = getTemplateComposition(template);
+      const colProducts: any[] = Array.isArray(collectionDetail?.products)
+        ? collectionDetail.products
+        : [];
+
+      return (
+        <div
+          style={themeStyles}
+          className={`min-h-screen pb-20 ${
+            isDarkTheme ? 'bg-ink text-on-brand' : 'bg-page text-ink'
+          }`}
+        >
+          <StorefrontSubpageHeader
+            slug={slug}
+            storeData={storeData}
+            backTo={`/loja/${slug}`}
+            backLabel="Voltar à vitrine"
+            stepLabel={
+              collectionDetail?.kind === 'look' ? 'Monte o look' : 'Coleção'
+            }
+            cartCount={cartCount}
+            cartTotal={cartTotal}
+            bagPulseKey={bagPulseKey}
+            onOpenCart={() => setCartDrawerOpen(true)}
+          />
+
+          <div className={`${composition.container} pt-6 sm:pt-8 space-y-6`}>
+            {loadingCollectionDetail && !collectionDetail ? (
+              <StorefrontGridSkeleton count={4} isDark={isDarkTheme} />
+            ) : collectionDetail ? (
+              collectionDetail.kind === 'look' ? (
+                <StorefrontShopTheLook
+                  look={collectionDetail}
+                  pieces={colProducts}
+                  template={template}
+                  onSelectProduct={handleNavigateToProduct}
+                  onAddLookItems={handleAddLookItemsToCart}
+                />
+              ) : (
+                <>
+                  <div
+                    className={`rounded-3xl border overflow-hidden ${
+                      isDarkTheme
+                        ? 'bg-ink border-muted/40 text-on-brand'
+                        : 'bg-surface border-line text-ink'
+                    }`}
+                  >
+                    <div
+                      className={`grid grid-cols-1 ${
+                        collectionDetail.coverUrl ? 'md:grid-cols-12' : ''
+                      } items-center`}
+                    >
+                      <div
+                        className={`p-6 sm:p-8 lg:p-10 space-y-2.5 ${
+                          collectionDetail.coverUrl
+                            ? 'md:col-span-7'
+                            : 'max-w-3xl'
+                        }`}
+                      >
+                        <span className="text-[11px] font-semibold uppercase tracking-wider text-brand">
+                          Coleção curada • {colProducts.length}{' '}
+                          {colProducts.length === 1 ? 'peça' : 'peças'}
+                        </span>
+                        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+                          {collectionDetail.title}
+                        </h1>
+                        {(collectionDetail.subtitle ||
+                          collectionDetail.description) && (
+                          <p
+                            className={`text-xs sm:text-sm leading-relaxed max-w-xl ${
+                              isDarkTheme ? 'text-line' : 'text-muted'
+                            }`}
+                          >
+                            {collectionDetail.description ||
+                              collectionDetail.subtitle}
+                          </p>
+                        )}
+                      </div>
+                      {collectionDetail.coverUrl && (
+                        <div className="md:col-span-5 aspect-[16/10] md:min-h-[220px] w-full">
+                          <StorefrontCampaignVisual
+                            imageUrl={collectionDetail.coverUrl}
+                            alt={collectionDetail.title}
+                            focalX={collectionDetail.focalX}
+                            focalY={collectionDetail.focalY}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {colProducts.length === 0 ? (
+                    <div className="rounded-3xl border border-line bg-surface p-10 text-center space-y-2">
+                      <p className="font-bold text-sm text-ink">
+                        Nenhuma peça disponível nesta coleção no momento
+                      </p>
+                      <Link
+                        to={`/loja/${slug}`}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand hover:underline"
+                      >
+                        <span>Explorar catálogo completo</span>
+                        <ArrowRight size={13} />
+                      </Link>
+                    </div>
+                  ) : (
+                    <div className={`grid ${composition.catalogGrid}`}>
+                      {colProducts.map((prod: any, idx: number) => (
+                        <StorefrontProductCard
+                          key={prod.id || prod.retailGroupId || idx}
+                          product={prod}
+                          index={idx}
+                          isDark={isDarkTheme}
+                          template={template}
+                          onSelect={() =>
+                            handleNavigateToProduct(prod.slug, prod)
+                          }
+                          onQuickAdd={(p, v, src) =>
+                            handleAddVariantToCart(p, v, 1, {
+                              openDrawer: false,
+                              source: src,
+                            })
+                          }
+                        />
+                      ))}
+                    </div>
+                  )}
+                </>
+              )
+            ) : null}
+          </div>
+        </div>
+      );
+    }
+
     // ── ROTA: /loja/:slug/pedido/:referencia ──────────────────────────────────
     if (isOrderPage) {
       const commInfo =
@@ -2964,7 +3827,7 @@ export function PublicStorefrontApp() {
                 >
                   {/* Galeria de fotos com Crossfade + Navegação + Zoom */}
                   <div className="lg:col-span-6 space-y-3">
-                    <div className="relative aspect-[4/5] rounded-2xl sm:rounded-3xl bg-page border border-line overflow-hidden flex items-center justify-center group/gallery">
+                    <div className="relative aspect-[4/5] rounded-2xl sm:rounded-3xl bg-page border border-line overflow-hidden flex items-center justify-center group/gallery p-4 sm:p-6">
                       {currentPhoto ? (
                         <>
                           <AnimatePresence mode="wait" initial={false}>
@@ -2972,12 +3835,12 @@ export function PublicStorefrontApp() {
                               key={currentPhoto}
                               src={getFullUrl(currentPhoto)}
                               alt={productDetail.title}
-                              initial={{ opacity: 0, scale: 1.015 }}
+                              initial={{ opacity: 0, scale: 1.01 }}
                               animate={{ opacity: 1, scale: 1 }}
                               exit={{ opacity: 0 }}
                               transition={{ duration: 0.2, ease: SF_EASE_OUT }}
                               onClick={() => setLightboxOpen(true)}
-                              className="w-full h-full object-cover cursor-zoom-in"
+                              className="w-full h-full object-contain object-center cursor-zoom-in select-none"
                             />
                           </AnimatePresence>
 
@@ -3039,16 +3902,16 @@ export function PublicStorefrontApp() {
                               key={url}
                               whileTap={{ scale: 0.95 }}
                               onClick={() => setActivePhotoUrl(url)}
-                              className={`w-16 h-20 rounded-2xl overflow-hidden border-2 shrink-0 cursor-pointer transition ${
+                              className={`w-16 h-20 rounded-2xl overflow-hidden border-2 bg-page p-1.5 shrink-0 cursor-pointer transition ${
                                 active
-                                  ? 'border-brand shadow-xs'
-                                  : 'border-line opacity-70 hover:opacity-100'
+                                  ? 'border-brand'
+                                  : 'border-line opacity-75 hover:opacity-100'
                               }`}
                             >
                               <img
                                 src={getFullUrl(url)}
                                 alt=""
-                                className="w-full h-full object-cover"
+                                className="w-full h-full object-contain object-center"
                               />
                             </motion.button>
                           );
@@ -3538,20 +4401,16 @@ export function PublicStorefrontApp() {
                             <div className="flex items-center gap-3.5 min-w-0">
                               <Link
                                 to={`/loja/${slug}/produto/${item.productSlug}`}
-                                className="w-16 h-20 rounded-2xl overflow-hidden border border-line bg-page shrink-0"
+                                className="shrink-0"
                               >
-                                {(item.imageUrl || valItem?.imageUrl) ? (
-                                  <img
-                                    src={getFullUrl(item.imageUrl || valItem?.imageUrl)}
-                                    alt={item.productName}
-                                    className="w-full h-full object-cover"
-                                  />
-                                ) : (
-                                  <CategoryIconIllustration
-                                    productName={item.productName}
-                                    compact
-                                  />
-                                )}
+                                <StorefrontProductFrame
+                                  imageUrl={item.imageUrl || valItem?.imageUrl}
+                                  alt={item.productName}
+                                  productName={item.productName}
+                                  padding="xs"
+                                  aspectClassName="w-16 h-20"
+                                  roundedClassName="rounded-2xl"
+                                />
                               </Link>
                               <div className="min-w-0">
                                 <Link
@@ -4166,6 +5025,7 @@ export function PublicStorefrontApp() {
       <StorefrontHomeView
         storeData={storeData}
         products={displayedProducts}
+        allCatalogProducts={masterProducts}
         loadingProducts={loadingInitialCatalog}
         syncingProducts={syncingCatalog}
         search={search}
@@ -4190,7 +5050,16 @@ export function PublicStorefrontApp() {
             source,
           })
         }
+        onAddLookItems={handleAddLookItemsToCart}
         onOpenCart={() => setCartDrawerOpen(true)}
+        onOpenCollection={(colSlug) => {
+          if (typeof window !== 'undefined') {
+            catalogScrollYRef.current = window.scrollY;
+          }
+          navigate(`/loja/${slug}/colecao/${colSlug}`);
+        }}
+        activeSelectionFilterId={activeSelectionFilterId}
+        onSelectSelectionFilter={setActiveSelectionFilterId}
         recentOrders={recentOrders}
         onSelectOrder={(ref, token) => {
           if (typeof window !== 'undefined') {
@@ -4273,6 +5142,1167 @@ export function PublicStorefrontApp() {
         onCompleteToken={handleCompleteFlyToken}
       />
     </MotionConfig>
+  );
+}
+
+/**
+ * Simulador interativo isolado para o editor visual de Aparência (dentro de iframe):
+ * - Começa sempre com a sacola vazia (0 itens).
+ * - Permite abrir qualquer mercadoria, escolher variantes (tamanho, cor, quantidade),
+ *   explorar coleções / "Monte o look" e simular a sacola e a finalização.
+ * - Nunca grava pedidos reais no servidor, não reserva estoque e não usa localStorage.
+ */
+export function StorefrontInteractivePreview({
+  storeData,
+  products,
+  selectedSectionId = null,
+  onSelectEditorSection,
+  resetSignal = 0,
+  onSimulationCartChange,
+}: {
+  storeData: any;
+  products: any[];
+  selectedSectionId?: string | null;
+  onSelectEditorSection?: (sectionId: string) => void;
+  resetSignal?: number;
+  onSimulationCartChange?: (count: number) => void;
+}) {
+  const win = useStorefrontWindow();
+  const theme = storeData?.theme || {};
+  const template = theme.template || 'editorial_roxo';
+  const isDark = template === 'vitrine_escura';
+  const composition = getTemplateComposition(template);
+  const themeStyles = getStoreThemeStyles(theme);
+
+  const [simView, setSimView] = useState<
+    'home' | 'product' | 'collection' | 'checkout' | 'checkout_done'
+  >('home');
+  const [simCartItems, setSimCartItems] = useState<StorefrontCartItem[]>([]);
+  const [simDrawerOpen, setSimDrawerOpen] = useState(false);
+  const [simBagPulseKey, setSimBagPulseKey] = useState(0);
+  const [simFlyTokens, setSimFlyTokens] = useState<FlyToBagToken[]>([]);
+  const flySeqRef = useRef(1);
+  const homeScrollYRef = useRef(0);
+
+  // Filtros locais na prévia
+  const [search, setSearch] = useState('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState('');
+  const [selectedSize, setSelectedSize] = useState('');
+  const [selectedColor, setSelectedColor] = useState('');
+  const [sortBy, setSortBy] = useState('featured');
+  const [inStockOnly, setInStockOnly] = useState(false);
+  const [simSelectionFilterId, setSimSelectionFilterId] = useState<
+    string | null
+  >(null);
+
+  // Produto aberto na simulação
+  const [activeProductSlug, setActiveProductSlug] = useState<string | null>(
+    null,
+  );
+  const [chosenSize, setChosenSize] = useState<string | null>(null);
+  const [chosenColor, setChosenColor] = useState<string | null>(null);
+  const [chosenQuantity, setChosenQuantity] = useState(1);
+  const [activePhotoUrl, setActivePhotoUrl] = useState<string | null>(null);
+
+  // Coleção aberta na simulação
+  const [activeCollectionSlug, setActiveCollectionSlug] = useState<
+    string | null
+  >(null);
+
+  // Campos de checkout simulado
+  const [simCustomerName, setSimCustomerName] = useState('Cliente Exemplo');
+  const [simCustomerPhone, setSimCustomerPhone] = useState('(11) 99999-0000');
+  const [simFulfillment, setSimFulfillment] = useState<'PICKUP' | 'DELIVERY'>(
+    storeData?.pickupEnabled === false && storeData?.deliveryEnabled
+      ? 'DELIVERY'
+      : 'PICKUP',
+  );
+  const [simAddress, setSimAddress] = useState('');
+  const [simNotes, setSimNotes] = useState('');
+  const [simOrderSummary, setSimOrderSummary] = useState<{
+    reference: string;
+    total: number;
+    itemsCount: number;
+    messagePreview: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (resetSignal === 0) return;
+    setSimCartItems([]);
+    setSimDrawerOpen(false);
+    setSimView('home');
+    setActiveProductSlug(null);
+    setActiveCollectionSlug(null);
+    setSimSelectionFilterId(null);
+    setSimOrderSummary(null);
+    win?.scrollTo({ top: 0, behavior: 'auto' });
+  }, [resetSignal, win]);
+
+  // Se o usuário seleciona uma seção no editor enquanto está em outra sub-tela da prévia, volta à home
+  useEffect(() => {
+    if (!selectedSectionId) return;
+    setSimView((curr) => (curr !== 'home' ? 'home' : curr));
+  }, [selectedSectionId]);
+
+  const simCartCount = useMemo(
+    () => simCartItems.reduce((sum, i) => sum + Number(i.quantity || 0), 0),
+    [simCartItems],
+  );
+  const simCartTotal = useMemo(
+    () =>
+      simCartItems.reduce(
+        (sum, i) => sum + Number(i.priceUnit || 0) * Number(i.quantity || 0),
+        0,
+      ),
+    [simCartItems],
+  );
+
+  useEffect(() => {
+    onSimulationCartChange?.(simCartCount);
+  }, [simCartCount, onSimulationCartChange]);
+
+  const filteredProducts = useMemo(() => {
+    const normSearch = normalizeSearchText(search);
+    const list = products.filter((prod) => {
+      if (
+        selectedCategoryId &&
+        prod.categoryId !== selectedCategoryId &&
+        prod.category?.id !== selectedCategoryId
+      ) {
+        return false;
+      }
+      if (selectedSize) {
+        if (!Array.isArray(prod.sizes) || !prod.sizes.includes(selectedSize)) {
+          return false;
+        }
+      }
+      if (selectedColor) {
+        if (
+          !Array.isArray(prod.colors) ||
+          !prod.colors.includes(selectedColor)
+        ) {
+          return false;
+        }
+      }
+      if (inStockOnly) {
+        const avail = Number(
+          prod.totalAvailableStock ?? prod.availableStock ?? 0,
+        );
+        if (!prod.inStock || avail <= 0) return false;
+      }
+      if (normSearch) {
+        const hay = normalizeSearchText(
+          `${prod.title || ''} ${prod.categoryName || ''} ${(prod.colors || []).join(' ')}`,
+        );
+        if (!hay.includes(normSearch)) return false;
+      }
+      return true;
+    });
+
+    const sorted = [...list];
+    if (sortBy === 'price_asc') {
+      sorted.sort((a, b) => Number(a.priceSell || 0) - Number(b.priceSell || 0));
+    } else if (sortBy === 'price_desc') {
+      sorted.sort((a, b) => Number(b.priceSell || 0) - Number(a.priceSell || 0));
+    } else if (sortBy === 'name_asc') {
+      sorted.sort((a, b) =>
+        String(a.title || '').localeCompare(String(b.title || ''), 'pt-BR'),
+      );
+    } else {
+      sorted.sort(
+        (a, b) =>
+          Number(Boolean(b.featured)) - Number(Boolean(a.featured)) ||
+          Number(a.sortOrder ?? 0) - Number(b.sortOrder ?? 0),
+      );
+    }
+    return sorted;
+  }, [
+    products,
+    selectedCategoryId,
+    selectedSize,
+    selectedColor,
+    inStockOnly,
+    search,
+    sortBy,
+  ]);
+
+  const resolvedCollections = useMemo(
+    () => resolveCollectionsWithProducts(storeData, products),
+    [storeData, products],
+  );
+
+  const activeProduct = useMemo(() => {
+    if (!activeProductSlug) return null;
+    return (
+      products.find(
+        (p) =>
+          p.slug === activeProductSlug ||
+          p.id === activeProductSlug ||
+          p.retailGroupId === activeProductSlug,
+      ) || null
+    );
+  }, [products, activeProductSlug]);
+
+  const activeCollection = useMemo(() => {
+    if (!activeCollectionSlug) return null;
+    return (
+      resolvedCollections.find(
+        (c) => c.slug === activeCollectionSlug || c.id === activeCollectionSlug,
+      ) || null
+    );
+  }, [resolvedCollections, activeCollectionSlug]);
+
+  const goBackHome = useCallback(() => {
+    setSimView('home');
+    const restoreY = homeScrollYRef.current;
+    win?.requestAnimationFrame(() => {
+      win.scrollTo({ top: restoreY, behavior: 'auto' });
+    });
+  }, [win]);
+
+  const openProductInPreview = useCallback(
+    (prodSlug: string, seed?: any) => {
+      const target =
+        seed ||
+        products.find(
+          (p) =>
+            p.slug === prodSlug ||
+            p.id === prodSlug ||
+            p.retailGroupId === prodSlug,
+        );
+      if (!target) return;
+      if (simView === 'home' && win) {
+        homeScrollYRef.current = win.scrollY;
+      }
+      setActiveProductSlug(target.slug || target.id);
+      setActivePhotoUrl(target.imageUrl || target.galleryUrls?.[0] || null);
+      const firstAvail =
+        (target.variants || []).find(
+          (v: any) => v.inStock && Number(v.availableStock ?? 0) > 0,
+        ) || target.variants?.[0];
+      setChosenSize(firstAvail?.size || target.sizes?.[0] || null);
+      setChosenColor(firstAvail?.color || target.colors?.[0] || null);
+      setChosenQuantity(1);
+      setSimView('product');
+      win?.scrollTo({ top: 0, behavior: 'auto' });
+    },
+    [products, simView, win],
+  );
+
+  const openCollectionInPreview = useCallback(
+    (colSlug: string) => {
+      if (simView === 'home' && win) {
+        homeScrollYRef.current = win.scrollY;
+      }
+      setActiveCollectionSlug(colSlug);
+      setSimView('collection');
+      win?.scrollTo({ top: 0, behavior: 'auto' });
+    },
+    [simView, win],
+  );
+
+  const addSimulatedItem = useCallback(
+    (
+      product: any,
+      variant: any,
+      qty = 1,
+      opts?: { openDrawer?: boolean; source?: AddSourceRect },
+    ) => {
+      if (!variant || !variant.inStock || Number(variant.availableStock ?? 0) <= 0) {
+        return;
+      }
+      const maxStock = Math.max(1, Number(variant.availableStock ?? 1));
+      const unitPrice = Number(variant.priceSell ?? product.priceSell ?? 0);
+
+      setSimCartItems((prev) => {
+        const idx = prev.findIndex((item) => item.productId === variant.id);
+        if (idx >= 0) {
+          const next = [...prev];
+          const updatedQty = Math.min(maxStock, next[idx].quantity + qty);
+          next[idx] = {
+            ...next[idx],
+            quantity: updatedQty,
+            priceUnit: unitPrice,
+            maxAvailableStock: maxStock,
+          };
+          return next;
+        }
+        return [
+          ...prev,
+          {
+            productId: variant.id,
+            retailGroupId: product.id,
+            productSlug: product.slug,
+            productName: product.title,
+            size: variant.size || null,
+            color: variant.color || null,
+            imageUrl: product.imageUrl || null,
+            unit: variant.unit || 'UN',
+            quantity: Math.min(maxStock, Math.max(1, qty)),
+            priceUnit: unitPrice,
+            maxAvailableStock: maxStock,
+          },
+        ];
+      });
+
+      if (opts?.openDrawer) {
+        setSimBagPulseKey((k) => k + 1);
+        setSimDrawerOpen(true);
+      } else {
+        const target = resolveBagTargetCoords(win?.document);
+        if (opts?.source && target) {
+          const id = flySeqRef.current++;
+          setSimFlyTokens((prev) => [
+            ...prev,
+            {
+              id,
+              startX: opts.source!.x,
+              startY: opts.source!.y,
+              targetX: target.x,
+              targetY: target.y,
+              imageUrl: product.imageUrl,
+              title: product.title,
+            },
+          ]);
+        } else {
+          setSimBagPulseKey((k) => k + 1);
+        }
+      }
+    },
+    [win],
+  );
+
+  const updateSimulatedQty = useCallback((productId: string, nextQty: number) => {
+    setSimCartItems((prev) => {
+      if (nextQty <= 0) {
+        return prev.filter((item) => item.productId !== productId);
+      }
+      return prev.map((item) =>
+        item.productId === productId
+          ? {
+              ...item,
+              quantity: Math.min(
+                Number(item.maxAvailableStock || 99),
+                Math.max(1, nextQty),
+              ),
+            }
+          : item,
+      );
+    });
+  }, []);
+
+  const handleFinishSimulatedCheckout = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (simCartItems.length === 0) return;
+    const lines = simCartItems.map(
+      (i) =>
+        `• ${i.quantity}x ${i.productName}${
+          i.size || i.color
+            ? ` (${[i.size && `Tam ${i.size}`, i.color].filter(Boolean).join(' / ')})`
+            : ''
+        } — ${formatBrl(i.priceUnit * i.quantity)}`,
+    );
+    const previewMsg = [
+      `Olá, ${storeData?.storeName || 'Loja'}! Pedido simulado na prévia:`,
+      ...lines,
+      `Modalidade: ${simFulfillment === 'DELIVERY' ? 'Entrega' : 'Retirada na loja'}`,
+      `Total: ${formatBrl(simCartTotal)}`,
+    ].join('\n');
+
+    setSimOrderSummary({
+      reference: `SIM-${String(Math.floor(1000 + Math.random() * 9000))}`,
+      total: simCartTotal,
+      itemsCount: simCartCount,
+      messagePreview: previewMsg,
+    });
+    setSimCartItems([]);
+    setSimView('checkout_done');
+    win?.scrollTo({ top: 0, behavior: 'auto' });
+  };
+
+  return (
+    <>
+      {simView === 'product' && activeProduct ? (
+        (() => {
+          const variants: any[] = activeProduct.variants || [];
+          const sizes: string[] = activeProduct.sizes || [];
+          const colors: string[] = activeProduct.colors || [];
+          const galleryUrls: string[] = Array.isArray(activeProduct.galleryUrls)
+            ? activeProduct.galleryUrls
+            : activeProduct.imageUrl
+              ? [activeProduct.imageUrl]
+              : [];
+          const selectedVariant =
+            variants.find(
+              (v) =>
+                (sizes.length === 0 || v.size === chosenSize) &&
+                (colors.length === 0 || v.color === chosenColor),
+            ) ||
+            variants.find((v) => v.size === chosenSize) ||
+            variants[0];
+          const availStock = Number(selectedVariant?.availableStock ?? 0);
+          const variantInStock = Boolean(
+            selectedVariant?.inStock && availStock > 0,
+          );
+          const unitPrice = Number(
+            selectedVariant?.priceSell ?? activeProduct.priceSell ?? 0,
+          );
+          const currentPhoto =
+            activePhotoUrl || activeProduct.imageUrl || galleryUrls[0] || null;
+
+          return (
+            <div
+              style={themeStyles}
+              className={`min-h-screen pb-16 ${
+                isDark ? 'bg-ink text-on-brand' : 'bg-page text-ink'
+              }`}
+            >
+              <header
+                className={`sticky top-0 z-30 border-b backdrop-blur-md ${
+                  isDark
+                    ? 'bg-ink/94 border-muted/40 text-on-brand'
+                    : 'bg-surface/94 border-line text-ink'
+                }`}
+              >
+                <div
+                  className={`${composition.container} py-3 flex items-center justify-between gap-3`}
+                >
+                  <button
+                    type="button"
+                    onClick={goBackHome}
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-line bg-page/70 hover:border-brand text-xs font-semibold text-ink hover:text-brand transition cursor-pointer"
+                  >
+                    <ArrowLeft size={15} />
+                    <span>Voltar à vitrine</span>
+                  </button>
+                  <StorefrontBagButton
+                    cartCount={simCartCount}
+                    cartTotal={simCartTotal}
+                    pulseKey={simBagPulseKey}
+                    onClick={() => setSimDrawerOpen(true)}
+                  />
+                </div>
+              </header>
+
+              <div className={`${composition.container} pt-5 sm:pt-7`}>
+                <div
+                  className={`border rounded-3xl p-4 sm:p-7 lg:p-9 grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 ${
+                    isDark
+                      ? 'bg-ink border-muted/40 text-on-brand'
+                      : 'bg-surface border-line text-ink'
+                  }`}
+                >
+                  <div className="lg:col-span-6 space-y-3">
+                    <StorefrontProductFrame
+                      imageUrl={currentPhoto}
+                      alt={activeProduct.title}
+                      categoryId={activeProduct.categoryId}
+                      categoryName={activeProduct.categoryName}
+                      productName={activeProduct.title}
+                      padding="lg"
+                      aspectClassName="aspect-[4/5]"
+                      roundedClassName="rounded-2xl sm:rounded-3xl"
+                      eager
+                    />
+                    {galleryUrls.length > 1 && (
+                      <div className="flex gap-2.5 overflow-x-auto py-1">
+                        {galleryUrls.map((url) => (
+                          <button
+                            key={url}
+                            type="button"
+                            onClick={() => setActivePhotoUrl(url)}
+                            className={`w-16 h-20 rounded-2xl overflow-hidden border-2 bg-page p-1.5 shrink-0 cursor-pointer transition ${
+                              currentPhoto === url
+                                ? 'border-brand'
+                                : 'border-line opacity-75 hover:opacity-100'
+                            }`}
+                          >
+                            <img
+                              src={getFullUrl(url)}
+                              alt=""
+                              className="w-full h-full object-contain object-center"
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="lg:col-span-6 flex flex-col justify-between space-y-5">
+                    <div className="space-y-4">
+                      <div>
+                        {activeProduct.categoryName && (
+                          <span className="text-xs font-semibold uppercase tracking-wider text-brand">
+                            {activeProduct.categoryName}
+                          </span>
+                        )}
+                        <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold mt-1 leading-tight">
+                          {activeProduct.title}
+                        </h1>
+                        <p className="text-2xl font-bold text-brand mt-2 tabular-nums">
+                          {formatBrl(unitPrice)}
+                        </p>
+                      </div>
+
+                      {activeProduct.description && (
+                        <p
+                          className={`text-xs sm:text-sm leading-relaxed ${
+                            isDark ? 'text-line' : 'text-muted'
+                          }`}
+                        >
+                          {activeProduct.description}
+                        </p>
+                      )}
+
+                      {sizes.length > 0 && (
+                        <div className="space-y-2">
+                          <label className="text-xs font-semibold uppercase tracking-wider text-muted block">
+                            Tamanho:{' '}
+                            <strong
+                              className={isDark ? 'text-on-brand' : 'text-ink'}
+                            >
+                              {chosenSize}
+                            </strong>
+                          </label>
+                          <div className="flex flex-wrap gap-2">
+                            {sizes.map((sz) => {
+                              const szAvail = variants.some(
+                                (v) =>
+                                  v.size === sz &&
+                                  v.inStock &&
+                                  Number(v.availableStock ?? 0) > 0,
+                              );
+                              const active = chosenSize === sz;
+                              return (
+                                <button
+                                  key={sz}
+                                  type="button"
+                                  onClick={() => {
+                                    setChosenSize(sz);
+                                    const matchCl = variants.find(
+                                      (v) =>
+                                        v.size === sz &&
+                                        v.color === chosenColor &&
+                                        v.inStock,
+                                    );
+                                    if (!matchCl) {
+                                      const firstCl = variants.find(
+                                        (v) => v.size === sz && v.inStock,
+                                      );
+                                      if (firstCl?.color) {
+                                        setChosenColor(firstCl.color);
+                                      }
+                                    }
+                                  }}
+                                  style={
+                                    active
+                                      ? {
+                                          backgroundColor: 'var(--sf-primary)',
+                                          color: '#FFFFFF',
+                                        }
+                                      : undefined
+                                  }
+                                  className={`px-4 py-2 rounded-xl text-xs font-semibold border cursor-pointer transition ${
+                                    active
+                                      ? 'border-transparent'
+                                      : szAvail
+                                        ? isDark
+                                          ? 'bg-ink border-muted/50 text-on-brand hover:border-brand'
+                                          : 'bg-page border-line text-ink hover:border-brand'
+                                        : 'bg-page border-line text-muted opacity-45 line-through'
+                                  }`}
+                                >
+                                  {sz}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {colors.length > 0 && (
+                        <div className="space-y-2">
+                          <label className="text-xs font-semibold uppercase tracking-wider text-muted block">
+                            Cor:{' '}
+                            <strong
+                              className={isDark ? 'text-on-brand' : 'text-ink'}
+                            >
+                              {chosenColor}
+                            </strong>
+                          </label>
+                          <div className="flex flex-wrap gap-2">
+                            {colors.map((cl) => {
+                              const matchV = variants.find(
+                                (v) =>
+                                  (sizes.length === 0 ||
+                                    v.size === chosenSize) &&
+                                  v.color === cl,
+                              );
+                              const clAvail = Boolean(
+                                matchV?.inStock &&
+                                  Number(matchV?.availableStock ?? 0) > 0,
+                              );
+                              const active = chosenColor === cl;
+                              return (
+                                <button
+                                  key={cl}
+                                  type="button"
+                                  onClick={() => setChosenColor(cl)}
+                                  style={
+                                    active
+                                      ? {
+                                          backgroundColor: 'var(--sf-primary)',
+                                          color: '#FFFFFF',
+                                        }
+                                      : undefined
+                                  }
+                                  className={`px-4 py-2 rounded-xl text-xs font-semibold border cursor-pointer transition ${
+                                    active
+                                      ? 'border-transparent'
+                                      : clAvail
+                                        ? isDark
+                                          ? 'bg-ink border-muted/50 text-on-brand hover:border-brand'
+                                          : 'bg-page border-line text-ink hover:border-brand'
+                                        : 'bg-page border-line text-muted opacity-45 line-through'
+                                  }`}
+                                >
+                                  {cl}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      <div
+                        className={`p-3.5 rounded-2xl border flex items-center justify-between gap-3 ${
+                          isDark
+                            ? 'bg-ink border-muted/40'
+                            : 'bg-page border-line'
+                        }`}
+                      >
+                        <div>
+                          <p className="text-xs font-semibold">
+                            {variantInStock
+                              ? 'Disponível no estoque'
+                              : 'Opção sem saldo'}
+                          </p>
+                          <p className="text-[11px] text-muted">
+                            {variantInStock
+                              ? `${availStock} un. livre(s) nesta variação`
+                              : 'Selecione outra combinação'}
+                          </p>
+                        </div>
+                        {variantInStock && (
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setChosenQuantity((q) => Math.max(1, q - 1))
+                              }
+                              className="w-8 h-8 rounded-xl bg-surface border border-line text-ink flex items-center justify-center cursor-pointer"
+                            >
+                              <Minus size={13} />
+                            </button>
+                            <span className="w-7 text-center font-bold text-sm tabular-nums">
+                              {chosenQuantity}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setChosenQuantity((q) =>
+                                  Math.min(availStock, q + 1),
+                                )
+                              }
+                              className="w-8 h-8 rounded-xl bg-surface border border-line text-ink flex items-center justify-center cursor-pointer"
+                            >
+                              <Plus size={13} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2.5 pt-2">
+                      <button
+                        type="button"
+                        disabled={!variantInStock}
+                        onClick={() =>
+                          addSimulatedItem(
+                            activeProduct,
+                            selectedVariant,
+                            chosenQuantity,
+                            { openDrawer: true },
+                          )
+                        }
+                        style={
+                          variantInStock
+                            ? {
+                                backgroundColor: 'var(--sf-primary)',
+                                color: '#FFFFFF',
+                              }
+                            : undefined
+                        }
+                        className="w-full py-3.5 px-6 rounded-2xl disabled:opacity-45 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer hover:opacity-95 transition"
+                      >
+                        <ShoppingBag size={16} />
+                        <span>
+                          {variantInStock
+                            ? `Adicionar à sacola • ${formatBrl(unitPrice * chosenQuantity)}`
+                            : 'Opção indisponível'}
+                        </span>
+                      </button>
+
+                      {simCartCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSimView('checkout');
+                            win?.scrollTo({ top: 0, behavior: 'auto' });
+                          }}
+                          className="w-full py-2.5 px-5 rounded-2xl bg-support text-brand font-semibold text-xs flex items-center justify-center gap-2 cursor-pointer"
+                        >
+                          <span>
+                            Simular finalização ({simCartCount}{' '}
+                            {simCartCount === 1 ? 'peça' : 'peças'})
+                          </span>
+                          <ArrowRight size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()
+      ) : simView === 'collection' && activeCollection ? (
+        <div
+          style={themeStyles}
+          className={`min-h-screen pb-16 ${
+            isDark ? 'bg-ink text-on-brand' : 'bg-page text-ink'
+          }`}
+        >
+          <header
+            className={`sticky top-0 z-30 border-b backdrop-blur-md ${
+              isDark
+                ? 'bg-ink/94 border-muted/40 text-on-brand'
+                : 'bg-surface/94 border-line text-ink'
+            }`}
+          >
+            <div
+              className={`${composition.container} py-3 flex items-center justify-between gap-3`}
+            >
+              <button
+                type="button"
+                onClick={goBackHome}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-line bg-page/70 hover:border-brand text-xs font-semibold text-ink hover:text-brand transition cursor-pointer"
+              >
+                <ArrowLeft size={15} />
+                <span>Voltar à vitrine</span>
+              </button>
+              <StorefrontBagButton
+                cartCount={simCartCount}
+                cartTotal={simCartTotal}
+                pulseKey={simBagPulseKey}
+                onClick={() => setSimDrawerOpen(true)}
+              />
+            </div>
+          </header>
+
+          <div className={`${composition.container} pt-6 space-y-6`}>
+            {activeCollection.kind === 'look' ? (
+              <StorefrontShopTheLook
+                look={activeCollection}
+                pieces={activeCollection.products || []}
+                template={template}
+                onSelectProduct={openProductInPreview}
+                onAddLookItems={(entries) => {
+                  entries.forEach((entry, idx) =>
+                    addSimulatedItem(
+                      entry.product,
+                      entry.variant,
+                      entry.quantity,
+                      { openDrawer: idx === entries.length - 1 },
+                    ),
+                  );
+                }}
+              />
+            ) : (
+              <>
+                <div
+                  className={`rounded-3xl border p-6 sm:p-8 space-y-2 ${
+                    isDark
+                      ? 'bg-ink border-muted/40 text-on-brand'
+                      : 'bg-surface border-line text-ink'
+                  }`}
+                >
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-brand">
+                    Coleção curada • {(activeCollection.products || []).length}{' '}
+                    peças
+                  </span>
+                  <h1 className="text-2xl sm:text-3xl font-bold">
+                    {activeCollection.title}
+                  </h1>
+                  {(activeCollection.subtitle ||
+                    activeCollection.description) && (
+                    <p className="text-xs sm:text-sm text-muted max-w-2xl">
+                      {activeCollection.description ||
+                        activeCollection.subtitle}
+                    </p>
+                  )}
+                </div>
+
+                <div className={`grid ${composition.catalogGrid}`}>
+                  {(activeCollection.products || []).map(
+                    (prod: any, idx: number) => (
+                      <StorefrontProductCard
+                        key={prod.id || prod.retailGroupId || idx}
+                        product={prod}
+                        index={idx}
+                        isDark={isDark}
+                        template={template}
+                        onSelect={() => openProductInPreview(prod.slug, prod)}
+                        onQuickAdd={(p, v, src) =>
+                          addSimulatedItem(p, v, 1, {
+                            openDrawer: false,
+                            source: src,
+                          })
+                        }
+                      />
+                    ),
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      ) : simView === 'checkout' ? (
+        <div
+          style={themeStyles}
+          className={`min-h-screen pb-16 ${
+            isDark ? 'bg-ink text-on-brand' : 'bg-page text-ink'
+          }`}
+        >
+          <header
+            className={`sticky top-0 z-30 border-b backdrop-blur-md ${
+              isDark
+                ? 'bg-ink/94 border-muted/40 text-on-brand'
+                : 'bg-surface/94 border-line text-ink'
+            }`}
+          >
+            <div
+              className={`${composition.container} py-3 flex items-center justify-between gap-3`}
+            >
+              <button
+                type="button"
+                onClick={goBackHome}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-line bg-page/70 hover:border-brand text-xs font-semibold text-ink hover:text-brand transition cursor-pointer"
+              >
+                <ArrowLeft size={15} />
+                <span>Continuar na prévia</span>
+              </button>
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-brand">
+                Simulação de finalização
+              </span>
+            </div>
+          </header>
+
+          <div className={`${composition.container} pt-6 max-w-4xl space-y-5`}>
+            <div className="rounded-2xl border border-brand/45 bg-support/75 px-4 py-3 text-xs text-ink flex items-start gap-2.5">
+              <ShieldCheck size={16} className="text-brand shrink-0 mt-0.5" />
+              <div>
+                <strong>Modo de simulação da prévia:</strong> esta etapa permite
+                testar a jornada do cliente sem gravar pedidos reais e sem
+                reservar estoque da loja.
+              </div>
+            </div>
+
+            <form
+              onSubmit={handleFinishSimulatedCheckout}
+              className="grid grid-cols-1 lg:grid-cols-12 gap-5"
+            >
+              <div className="lg:col-span-7 bg-surface text-ink border border-line rounded-3xl p-5 sm:p-6 space-y-4">
+                <h2 className="font-bold text-sm sm:text-base">
+                  1. Identificação e Recebimento
+                </h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="sm:col-span-2">
+                    <label className="text-xs font-semibold text-ink block mb-1">
+                      Nome completo
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={simCustomerName}
+                      onChange={(e) => setSimCustomerName(e.target.value)}
+                      className="w-full p-2.5 bg-page border border-line rounded-xl text-xs sm:text-sm text-ink outline-none focus:border-brand"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="text-xs font-semibold text-ink block mb-1">
+                      WhatsApp
+                    </label>
+                    <input
+                      type="tel"
+                      required
+                      value={simCustomerPhone}
+                      onChange={(e) =>
+                        setSimCustomerPhone(formatPhoneInput(e.target.value))
+                      }
+                      className="w-full p-2.5 bg-page border border-line rounded-xl text-xs sm:text-sm text-ink outline-none focus:border-brand"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                  {storeData?.pickupEnabled !== false && (
+                    <button
+                      type="button"
+                      onClick={() => setSimFulfillment('PICKUP')}
+                      className={`p-3.5 rounded-2xl border text-left transition cursor-pointer ${
+                        simFulfillment === 'PICKUP'
+                          ? 'border-brand bg-support'
+                          : 'border-line bg-page'
+                      }`}
+                    >
+                      <p className="font-bold text-xs text-ink">
+                        Retirada na loja
+                      </p>
+                      <p className="text-[11px] text-muted mt-0.5">
+                        Sem taxa de entrega
+                      </p>
+                    </button>
+                  )}
+                  {storeData?.deliveryEnabled && (
+                    <button
+                      type="button"
+                      onClick={() => setSimFulfillment('DELIVERY')}
+                      className={`p-3.5 rounded-2xl border text-left transition cursor-pointer ${
+                        simFulfillment === 'DELIVERY'
+                          ? 'border-brand bg-support'
+                          : 'border-line bg-page'
+                      }`}
+                    >
+                      <p className="font-bold text-xs text-ink">Entrega</p>
+                      <p className="text-[11px] text-muted mt-0.5">
+                        Informar endereço
+                      </p>
+                    </button>
+                  )}
+                </div>
+
+                {simFulfillment === 'DELIVERY' && (
+                  <div>
+                    <label className="text-xs font-semibold text-ink block mb-1">
+                      Endereço para simulação
+                    </label>
+                    <input
+                      type="text"
+                      value={simAddress}
+                      onChange={(e) => setSimAddress(e.target.value)}
+                      placeholder="Rua, número e bairro"
+                      className="w-full p-2.5 bg-page border border-line rounded-xl text-xs sm:text-sm text-ink outline-none focus:border-brand"
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <label className="text-xs font-semibold text-ink block mb-1">
+                    Observações (opcional)
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={simNotes}
+                    onChange={(e) => setSimNotes(e.target.value)}
+                    placeholder="Preferência de atendimento..."
+                    className="w-full p-2.5 bg-page border border-line rounded-xl text-xs sm:text-sm text-ink outline-none focus:border-brand resize-none"
+                  />
+                </div>
+              </div>
+
+              <div className="lg:col-span-5 bg-surface text-ink border border-line rounded-3xl p-5 sm:p-6 space-y-4 self-start">
+                <h3 className="font-bold text-sm sm:text-base">
+                  Resumo da Sacola ({simCartCount})
+                </h3>
+                <div className="divide-y divide-line max-h-60 overflow-y-auto">
+                  {simCartItems.map((item) => (
+                    <div
+                      key={item.productId}
+                      className="py-2.5 flex items-center justify-between gap-2.5 text-xs"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <StorefrontProductFrame
+                          imageUrl={item.imageUrl}
+                          alt={item.productName}
+                          productName={item.productName}
+                          padding="xs"
+                          aspectClassName="w-11 h-14 shrink-0"
+                          roundedClassName="rounded-lg"
+                        />
+                        <div className="min-w-0">
+                          <p className="font-semibold text-ink truncate">
+                            {item.quantity}x {item.productName}
+                          </p>
+                          {(item.size || item.color) && (
+                            <p className="text-[11px] text-muted">
+                              {[item.size, item.color]
+                                .filter(Boolean)
+                                .join(' / ')}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <span className="font-bold text-ink shrink-0 tabular-nums">
+                        {formatBrl(item.priceUnit * item.quantity)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="border-t border-line pt-3 flex items-baseline justify-between">
+                  <span className="font-semibold text-sm">Subtotal</span>
+                  <span className="text-xl font-bold text-brand tabular-nums">
+                    {formatBrl(simCartTotal)}
+                  </span>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={simCartItems.length === 0}
+                  style={{
+                    backgroundColor: 'var(--sf-primary)',
+                    color: '#FFFFFF',
+                  }}
+                  className="w-full py-3.5 px-5 rounded-2xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer hover:opacity-95 disabled:opacity-50"
+                >
+                  <MessageCircle size={16} />
+                  <span>Concluir simulação de pedido</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : simView === 'checkout_done' && simOrderSummary ? (
+        <div
+          style={themeStyles}
+          className={`min-h-screen p-6 flex items-center justify-center ${
+            isDark ? 'bg-ink text-on-brand' : 'bg-page text-ink'
+          }`}
+        >
+          <div className="max-w-lg w-full bg-surface text-ink border border-line rounded-3xl p-6 sm:p-8 space-y-4">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-support text-brand text-xs font-semibold">
+              <CheckCircle2 size={14} />
+              <span>Simulação concluída • Sem gravação no banco</span>
+            </div>
+            <h2 className="text-xl font-bold">
+               Jornada validada ({simOrderSummary.reference})
+            </h2>
+            <p className="text-xs text-muted leading-relaxed">
+              Nenhum pedido real foi criado nem houve reserva de estoque. Veja
+              abaixo como o resumo chegaria ao WhatsApp da loja:
+            </p>
+            <pre className="p-3.5 rounded-2xl bg-page border border-line text-[11px] text-ink whitespace-pre-wrap font-mono leading-relaxed">
+              {simOrderSummary.messagePreview}
+            </pre>
+            <button
+              type="button"
+              onClick={goBackHome}
+              style={{
+                backgroundColor: 'var(--sf-primary)',
+                color: '#FFFFFF',
+              }}
+              className="w-full py-3 px-5 rounded-2xl font-bold text-xs sm:text-sm cursor-pointer"
+            >
+              Voltar à vitrine da prévia
+            </button>
+          </div>
+        </div>
+      ) : (
+        <StorefrontHomeView
+          storeData={storeData}
+          products={filteredProducts}
+          allCatalogProducts={products}
+          search={search}
+          setSearch={setSearch}
+          selectedCategoryId={selectedCategoryId}
+          setSelectedCategoryId={setSelectedCategoryId}
+          selectedSize={selectedSize}
+          setSelectedSize={setSelectedSize}
+          selectedColor={selectedColor}
+          setSelectedColor={setSelectedColor}
+          sortBy={sortBy}
+          setSortBy={setSortBy}
+          inStockOnly={inStockOnly}
+          setInStockOnly={setInStockOnly}
+          cartCount={simCartCount}
+          cartTotal={simCartTotal}
+          bagPulseKey={simBagPulseKey}
+          onSelectProduct={openProductInPreview}
+          onQuickAdd={(prod, variant, qty = 1, source) =>
+            addSimulatedItem(prod, variant, qty, {
+              openDrawer: false,
+              source,
+            })
+          }
+          onAddLookItems={(entries) => {
+            entries.forEach((entry, idx) =>
+              addSimulatedItem(entry.product, entry.variant, entry.quantity, {
+                openDrawer: idx === entries.length - 1,
+              }),
+            );
+          }}
+          onOpenCart={() => setSimDrawerOpen(true)}
+          onOpenCollection={openCollectionInPreview}
+          isPreview
+          selectedSectionId={selectedSectionId}
+          onSelectEditorSection={onSelectEditorSection}
+          activeSelectionFilterId={simSelectionFilterId}
+          onSelectSelectionFilter={setSimSelectionFilterId}
+        />
+      )}
+
+      <MobileFloatingCartBar
+        visible={simView === 'home' && simCartCount > 0 && !simDrawerOpen}
+        cartCount={simCartCount}
+        cartTotal={simCartTotal}
+        pulseKey={simBagPulseKey}
+        onOpenCart={() => setSimDrawerOpen(true)}
+      />
+
+      <StorefrontCartDrawer
+        open={simDrawerOpen}
+        onClose={() => setSimDrawerOpen(false)}
+        cartItems={simCartItems}
+        cartCount={simCartCount}
+        cartTotal={simCartTotal}
+        cartValidation={null}
+        validatingCart={false}
+        isOffline={false}
+        isDark={isDark}
+        isPreviewSimulation
+        themeStyles={themeStyles}
+        onUpdateQuantity={updateSimulatedQty}
+        onClearCart={() => setSimCartItems([])}
+        onNavigateProduct={(prodSlug) => openProductInPreview(prodSlug)}
+        onProceedCheckout={() => {
+          if (simView === 'home' && win) {
+            homeScrollYRef.current = win.scrollY;
+          }
+          setSimDrawerOpen(false);
+          setSimView('checkout');
+          win?.scrollTo({ top: 0, behavior: 'auto' });
+        }}
+      />
+
+      <FlyToBagOverlay
+        tokens={simFlyTokens}
+        onCompleteToken={(id) => {
+          setSimFlyTokens((prev) => prev.filter((t) => t.id !== id));
+          setSimBagPulseKey((k) => k + 1);
+        }}
+      />
+    </>
   );
 }
 

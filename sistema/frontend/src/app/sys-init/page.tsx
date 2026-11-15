@@ -1566,11 +1566,38 @@ export default function SysInitPage() {
                       ) : (
                         groups.map(g => (
                           <tr key={g.id} className="hover:bg-surface transition">
-                            <td className="px-6 py-4 font-semibold text-muted">{g.name}</td>
-                            <td className="px-6 py-4 text-muted">{g.members?.length || 0} membros</td>
-                            <td className="px-6 py-4 text-right">
-                              <button onClick={() => { setSelectedGroup(g); loadGroupUsers(g.id); }} className="p-2 text-muted hover:text-brand hover:bg-support rounded-lg transition" title="Gerenciar">
+                            <td className="px-6 py-4 font-semibold text-ink">{g.name}</td>
+                            <td className="px-6 py-4 text-muted">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <span className="font-semibold text-ink">{g.members?.length || 0} {g.members?.length === 1 ? 'loja' : 'lojas'}</span>
+                                {Array.isArray(g.members) && g.members.slice(0, 4).map((m: any) => (
+                                  <span key={m.id} className="px-2 py-0.5 rounded-full bg-support border border-line text-xs text-brand font-medium">
+                                    {m.alias || m.tenant?.nomeFantasia || m.tenant?.name}
+                                  </span>
+                                ))}
+                                {Array.isArray(g.members) && g.members.length > 4 && (
+                                  <span className="text-xs text-muted">+{g.members.length - 4}</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-right space-x-1">
+                              <button
+                                onClick={() => {
+                                  setSelectedGroup(g);
+                                  setEditingGroupName(g.name || '');
+                                  loadGroupUsers(g.id);
+                                }}
+                                className="p-2 text-muted hover:text-brand hover:bg-support rounded-lg transition"
+                                title="Gerenciar grupo"
+                              >
                                 <Settings size={18} />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteGroup(g)}
+                                className="p-2 text-muted hover:text-brand hover:bg-support rounded-lg transition"
+                                title="Excluir grupo"
+                              >
+                                <Trash2 size={18} />
                               </button>
                             </td>
                           </tr>
@@ -3279,11 +3306,38 @@ export default function SysInitPage() {
         {selectedGroup && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/80 backdrop-blur-sm animate-[fadeIn_0.2s_ease]">
             <div className="bg-page/90 border border-line rounded-3xl w-full max-w-4xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
-              <div className="p-6 border-b border-line flex justify-between items-center bg-page">
+              <div className="p-6 border-b border-line flex justify-between items-center bg-page gap-4">
                 <h2 className="text-xl font-bold flex items-center gap-2 text-brand">Gerenciar Grupo: {selectedGroup.name}</h2>
-                <button onClick={() => { setSelectedGroup(null); loadGroups(); }} className="p-1.5 hover:bg-surface rounded-lg text-muted hover:text-ink transition"><X size={20} /></button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteGroup(selectedGroup)}
+                    className="px-3 py-1.5 rounded-lg border border-line bg-surface text-xs font-semibold text-muted hover:text-brand hover:bg-support transition flex items-center gap-1.5"
+                    title="Excluir grupo"
+                  >
+                    <Trash2 size={14} /> Excluir Grupo
+                  </button>
+                  <button onClick={() => { setSelectedGroup(null); loadGroups(); }} className="p-1.5 hover:bg-surface rounded-lg text-muted hover:text-ink transition"><X size={20} /></button>
+                </div>
               </div>
-              <div className="px-6 pt-5">
+              <div className="px-6 pt-5 space-y-3">
+                <form onSubmit={handleRenameGroup} className="flex flex-wrap items-center gap-2">
+                  <input
+                    required
+                    type="text"
+                    value={editingGroupName}
+                    onChange={e => setEditingGroupName(e.target.value)}
+                    placeholder="Nome do grupo multi-lojas"
+                    className="flex-1 min-w-[220px] p-2.5 bg-page border border-line rounded-xl text-ink text-sm focus:border-brand outline-none"
+                  />
+                  <button
+                    type="submit"
+                    disabled={savingGroupName}
+                    className="px-4 py-2.5 bg-brand disabled:opacity-50 text-on-brand text-xs font-bold rounded-xl transition"
+                  >
+                    {savingGroupName ? 'Salvando...' : 'Renomear Grupo'}
+                  </button>
+                </form>
                 <div className="bg-support border border-brand/25 rounded-2xl p-4 text-xs text-ink">
                   <strong className="text-brand">Login único ativo:</strong> Ao vincular uma loja (Tenant) como membro deste grupo, o próprio login <strong>admin</strong> de cada loja passa a exibir automaticamente o módulo <strong>Rede Multi-Lojas</strong> e o seletor rápido de unidades no topo do sistema (sem precisar criar um usuário separado).
                 </div>
@@ -3293,11 +3347,19 @@ export default function SysInitPage() {
                   <h3 className="font-bold text-muted border-b border-line pb-2">Membros (Tenants)</h3>
                   <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar">
                     {selectedGroup.members?.map((m: any) => (
-                      <div key={m.id} className="bg-page border border-line rounded-xl p-3 flex justify-between items-center">
+                      <div key={m.id} className="bg-page border border-line rounded-xl p-3 flex justify-between items-center gap-2">
                         <div>
-                          <p className="font-semibold text-muted text-sm">{m.tenant?.name || m.tenant?.nomeFantasia}</p>
+                          <p className="font-semibold text-ink text-sm">{m.tenant?.name || m.tenant?.nomeFantasia}</p>
                           {m.alias && <p className="text-xs text-muted">Alias: {m.alias}</p>}
                         </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveGroupMember(m.tenantId)}
+                          className="p-1.5 rounded-lg border border-line bg-surface text-muted hover:text-brand hover:bg-support transition"
+                          title="Desvincular esta loja do grupo"
+                        >
+                          <Trash2 size={14} />
+                        </button>
                       </div>
                     ))}
                     {(!selectedGroup.members || selectedGroup.members.length === 0) && <p className="text-muted text-sm italic">Nenhum membro neste grupo.</p>}
@@ -3323,8 +3385,16 @@ export default function SysInitPage() {
                       <p className="text-muted text-sm italic">Nenhum usuário proprietário.</p>
                     ) : (
                       groupUsers.map((u: any) => (
-                        <div key={u.id} className="bg-page border border-line rounded-xl p-3 flex justify-between items-center">
-                          <div><p className="font-semibold text-muted text-sm">{u.name}</p><p className="text-xs text-muted">{u.email}</p></div>
+                        <div key={u.id} className="bg-page border border-line rounded-xl p-3 flex justify-between items-center gap-2">
+                          <div><p className="font-semibold text-ink text-sm">{u.name}</p><p className="text-xs text-muted">{u.email}</p></div>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteGroupUser(u.id)}
+                            className="p-1.5 rounded-lg border border-line bg-surface text-muted hover:text-brand hover:bg-support transition"
+                            title="Excluir usuário do grupo"
+                          >
+                            <Trash2 size={14} />
+                          </button>
                         </div>
                       ))
                     )}

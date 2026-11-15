@@ -359,6 +359,10 @@ export function App() {
                   element={<RetailStorefrontPage />}
                 />
                 <Route
+                  path="/loja-virtual/entregas"
+                  element={<RetailStorefrontPage />}
+                />
+                <Route
                   path="/loja-virtual/configuracoes"
                   element={<RetailStorefrontPage />}
                 />

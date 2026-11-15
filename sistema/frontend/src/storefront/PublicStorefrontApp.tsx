@@ -96,6 +96,11 @@ import {
   MobileFloatingCartBar,
   StorefrontCartDrawer,
 } from './components/StorefrontCartDrawer';
+import {
+  StorefrontCheckoutRouteCalculator,
+  StorefrontOrderDeliveryScene,
+  type PublicExpressQuoteResponse,
+} from './components/StorefrontDeliveryAnimation';
 
 const SF_CONTAINER =
   'max-w-[1440px] mx-auto w-full px-4 sm:px-6 lg:px-8 xl:px-12';
@@ -1511,6 +1516,12 @@ export function PublicStorefrontApp() {
   const lastFetchedCepRef = useRef('');
   const [addressRef, setAddressRef] = useState('');
   const [orderNotes, setOrderNotes] = useState('');
+  const [deliveryVehicle, setDeliveryVehicle] = useState<'MOTO' | 'CARRO'>(
+    'MOTO',
+  );
+  const [expressQuote, setExpressQuote] =
+    useState<PublicExpressQuoteResponse | null>(null);
+  const [loadingExpressQuote, setLoadingExpressQuote] = useState(false);
   const [submittingOrder, setSubmittingOrder] = useState(false);
   const [priceDivergenceAlert, setPriceDivergenceAlert] = useState<any[] | null>(
     null,
@@ -2016,51 +2027,83 @@ export function PublicStorefrontApp() {
   }, [isCartPage, isCheckoutPage, cartDrawerOpen, isOffline]);
 
   // Carregar status de pedido (/loja/:slug/pedido/:referencia)
-  const fetchOrderStatus = useCallback(async () => {
-    if (!slug || !referencia) return;
-    const tokenFromUrl =
-      searchParams.get('token') || searchParams.get('t') || '';
-    const savedToken = storeData?.publicId
-      ? getSavedOrderAccessToken(storeData.publicId, referencia)
-      : '';
-    const token = tokenFromUrl || savedToken || '';
+  const fetchOrderStatus = useCallback(
+    async (silent = false) => {
+      if (!slug || !referencia) return;
+      const tokenFromUrl =
+        searchParams.get('token') || searchParams.get('t') || '';
+      const savedToken = storeData?.publicId
+        ? getSavedOrderAccessToken(storeData.publicId, referencia)
+        : '';
+      const token = tokenFromUrl || savedToken || '';
 
-    if (!token) {
-      setOrderError(
-        'Para consultar o andamento deste pedido, utilize o link seguro gerado na finalização.',
-      );
-      return;
-    }
-
-    setLoadingOrder(true);
-    setOrderError(null);
-    try {
-      const { data } = await storefrontApi.get(
-        `/storefront/public/${slug}/orders/${referencia}`,
-        {
-          params: { token },
-          headers: { 'x-order-token': token },
-        },
-      );
-      setOrderDetail(data);
-      if (storeData?.publicId && tokenFromUrl) {
-        saveOrderAccessToken(storeData.publicId, referencia, tokenFromUrl);
+      if (!token) {
+        if (!silent) {
+          setOrderError(
+            'Para consultar o andamento deste pedido, utilize o link seguro gerado na finalização.',
+          );
+        }
+        return;
       }
-    } catch (err: any) {
-      setOrderError(
-        err.response?.data?.message ||
-          'Não foi possível localizar este pedido ou a credencial de acesso é inválida.',
-      );
-    } finally {
-      setLoadingOrder(false);
-    }
-  }, [slug, referencia, searchParams, storeData?.publicId]);
+
+      if (!silent) {
+        setLoadingOrder(true);
+        setOrderError(null);
+      }
+      try {
+        const { data } = await storefrontApi.get(
+          `/storefront/public/${slug}/orders/${referencia}`,
+          {
+            params: { token },
+            headers: { 'x-order-token': token },
+          },
+        );
+        setOrderDetail(data);
+        if (storeData?.publicId && tokenFromUrl) {
+          saveOrderAccessToken(storeData.publicId, referencia, tokenFromUrl);
+        }
+      } catch (err: any) {
+        if (!silent) {
+          setOrderError(
+            err.response?.data?.message ||
+              'Não foi possível localizar este pedido ou a credencial de acesso é inválida.',
+          );
+        }
+      } finally {
+        if (!silent) {
+          setLoadingOrder(false);
+        }
+      }
+    },
+    [slug, referencia, searchParams, storeData?.publicId],
+  );
 
   useEffect(() => {
     if (isOrderPage) {
-      void fetchOrderStatus();
+      void fetchOrderStatus(false);
     }
   }, [isOrderPage, fetchOrderStatus]);
+
+  // Atualização silenciosa em tempo real da entrega/pedido na tela de acompanhamento
+  useEffect(() => {
+    if (!isOrderPage || !orderDetail || isOffline) return;
+    const isTerminal =
+      ['CANCELLED', 'REJECTED', 'EXPIRED'].includes(
+        orderDetail.commercialStatus || '',
+      ) || orderDetail.fulfillmentStatus === 'DELIVERED';
+    if (isTerminal) return;
+
+    const timer = window.setInterval(() => {
+      void fetchOrderStatus(true);
+    }, 10000);
+    return () => window.clearInterval(timer);
+  }, [
+    isOrderPage,
+    orderDetail?.commercialStatus,
+    orderDetail?.fulfillmentStatus,
+    isOffline,
+    fetchOrderStatus,
+  ]);
 
   const cartCount = useMemo(
     () => cartItems.reduce((acc, i) => acc + Number(i.quantity || 0), 0),
@@ -2074,6 +2117,95 @@ export function PublicStorefrontApp() {
       ),
     [cartItems],
   );
+
+  // Cotação automática 99 Entregas no checkout quando CEP/bairro/sacola mudam
+  useEffect(() => {
+    if (
+      !isCheckoutPage ||
+      fulfillmentMode !== 'DELIVERY' ||
+      !storeData?.expressDelivery?.enabled ||
+      !slug ||
+      isOffline ||
+      cartItems.length === 0
+    ) {
+      if (fulfillmentMode !== 'DELIVERY') {
+        setExpressQuote(null);
+      }
+      return;
+    }
+
+    const cleanCep = zipCode.replace(/\D/g, '');
+    if (cleanCep.length < 8 && !neighborhood.trim()) {
+      setExpressQuote(null);
+      return;
+    }
+
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      setLoadingExpressQuote(true);
+      try {
+        const { data } = await storefrontApi.post(
+          `/storefront/public/${slug}/delivery/quote`,
+          {
+            zipCode: cleanCep.length === 8 ? cleanCep : undefined,
+            neighborhood: neighborhood.trim() || undefined,
+            city: city.trim() || undefined,
+            subtotal: cartTotal,
+            vehicleType: deliveryVehicle,
+          },
+        );
+        if (cancelled) return;
+        setExpressQuote(data);
+        if (
+          data?.available &&
+          data?.selectedVehicle &&
+          data.selectedVehicle !== deliveryVehicle
+        ) {
+          setDeliveryVehicle(data.selectedVehicle);
+        }
+        if (data?.destination) {
+          if (!street && data.destination.street) {
+            setStreet(data.destination.street);
+          }
+          if (!neighborhood && data.destination.neighborhood) {
+            setNeighborhood(data.destination.neighborhood);
+          }
+          if (!city && data.destination.city) {
+            setCity(
+              data.destination.state
+                ? `${data.destination.city} - ${data.destination.state}`
+                : data.destination.city,
+            );
+          }
+        }
+      } catch {
+        if (!cancelled) {
+          setExpressQuote(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingExpressQuote(false);
+        }
+      }
+    }, 260);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [
+    isCheckoutPage,
+    fulfillmentMode,
+    storeData?.expressDelivery?.enabled,
+    slug,
+    isOffline,
+    cartItems.length,
+    zipCode,
+    neighborhood,
+    city,
+    cartTotal,
+    deliveryVehicle,
+  ]);
 
   const launchFlyToBag = useCallback(
     (source?: AddSourceRect, imageUrl?: string | null, title?: string) => {
@@ -2171,13 +2303,37 @@ export function PublicStorefrontApp() {
       return;
     }
 
+    if (
+      fulfillmentMode === 'DELIVERY' &&
+      storeData?.expressDelivery?.enabled
+    ) {
+      const cleanCep = zipCode.replace(/\D/g, '');
+      if (cleanCep.length !== 8) {
+        toast.error(
+          'Informe o CEP completo de 8 dígitos para calcular a Entrega 99.',
+        );
+        return;
+      }
+      if (expressQuote && !expressQuote.available) {
+        toast.error(
+          expressQuote.message ||
+            'A entrega expressa não está disponível para este endereço.',
+        );
+        return;
+      }
+    }
+
     setSubmittingOrder(true);
     setPriceDivergenceAlert(null);
     try {
-      const attemptKey = getOrCreateOrderAttemptKey(
+      const baseAttemptKey = getOrCreateOrderAttemptKey(
         storeData.publicId,
         storeData.slug,
       );
+      const attemptKey =
+        fulfillmentMode === 'DELIVERY' && storeData?.expressDelivery?.enabled
+          ? `${baseAttemptKey}-${deliveryVehicle.toLowerCase()}`
+          : baseAttemptKey;
 
       saveStorefrontCustomerProfile(storeData.publicId, {
         customerName: customerName.trim(),
@@ -2202,6 +2358,10 @@ export function PublicStorefrontApp() {
             cpf: customerCpf.trim() || undefined,
           },
           fulfillmentMode,
+          ...(fulfillmentMode === 'DELIVERY' &&
+          storeData?.expressDelivery?.enabled
+            ? { deliveryVehicle }
+            : {}),
           deliveryAddress:
             fulfillmentMode === 'DELIVERY'
               ? {
@@ -2453,13 +2613,39 @@ export function PublicStorefrontApp() {
 
                     <div className="sm:text-right">
                       <p className="text-[11px] text-muted uppercase font-extrabold tracking-wider">
-                        Total dos Produtos
+                        {Number(orderDetail.deliveryFee || 0) > 0 ||
+                        orderDetail.expressQuote
+                          ? 'Total do Pedido'
+                          : 'Total dos Produtos'}
                       </p>
                       <p className="text-2xl font-extrabold text-brand tabular-nums">
                         {formatBrl(orderDetail.total)}
                       </p>
+                      {(Number(orderDetail.deliveryFee || 0) > 0 ||
+                        orderDetail.expressQuote) && (
+                        <p className="text-[11px] text-muted mt-0.5 tabular-nums">
+                          Produtos {formatBrl(orderDetail.subtotal)} • Entrega{' '}
+                          {Number(orderDetail.deliveryFee || 0) === 0
+                            ? 'Grátis'
+                            : formatBrl(orderDetail.deliveryFee)}
+                        </p>
+                      )}
                     </div>
                   </div>
+
+                  {/* Animação ao vivo de Entrega 99 quando o pedido é na modalidade Entrega */}
+                  {orderDetail.fulfillmentMode === 'DELIVERY' &&
+                    !isCancelledOrExpired && (
+                      <StorefrontOrderDeliveryScene
+                        storeName={storeData?.storeName || 'Loja'}
+                        commercialStatus={orderDetail.commercialStatus}
+                        fulfillmentStatus={orderDetail.fulfillmentStatus}
+                        deliveryFee={orderDetail.deliveryFee}
+                        deliveryDestination={orderDetail.deliveryDestination}
+                        expressQuote={orderDetail.expressQuote}
+                        expressDispatch={orderDetail.expressDispatch}
+                      />
+                    )}
 
                   {/* Linha do tempo visual em 4 etapas */}
                   {!isCancelledOrExpired && (
@@ -3644,11 +3830,15 @@ export function PublicStorefrontApp() {
                             />
                             <div>
                               <p className="font-extrabold text-xs sm:text-sm text-ink">
-                                Entrega a Combinar
+                                {storeData?.expressDelivery?.enabled
+                                  ? 'Entrega Expressa 99'
+                                  : 'Entrega a Combinar'}
                               </p>
                               <p className="text-xs text-muted mt-0.5">
-                                {storeData?.deliveryFeeNote ||
-                                  'Taxa e prazo combinados pelo WhatsApp.'}
+                                {storeData?.expressDelivery?.enabled
+                                  ? 'Cálculo automático por CEP • 99 Moto ou Carro'
+                                  : storeData?.deliveryFeeNote ||
+                                    'Taxa e prazo combinados pelo WhatsApp.'}
                               </p>
                             </div>
                           </motion.button>
@@ -3766,6 +3956,29 @@ export function PublicStorefrontApp() {
                                 />
                               </div>
                             </div>
+
+                            {storeData?.expressDelivery?.enabled && (
+                              <div className="pt-4">
+                                <StorefrontCheckoutRouteCalculator
+                                  storeName={storeData?.storeName || 'Loja'}
+                                  originCity={
+                                    storeData.expressDelivery.originCity
+                                  }
+                                  originNeighborhood={
+                                    storeData.expressDelivery.originNeighborhood
+                                  }
+                                  freeShippingAbove={
+                                    storeData.expressDelivery.freeShippingAbove
+                                  }
+                                  cartSubtotal={cartTotal}
+                                  zipCode={zipCode}
+                                  loadingQuote={loadingExpressQuote}
+                                  quote={expressQuote}
+                                  selectedVehicle={deliveryVehicle}
+                                  onSelectVehicle={setDeliveryVehicle}
+                                />
+                              </div>
+                            )}
                           </motion.div>
                         )}
                       </AnimatePresence>
@@ -3815,14 +4028,51 @@ export function PublicStorefrontApp() {
                         ))}
                       </div>
 
-                      <div className="border-t border-line pt-3 flex items-baseline justify-between">
-                        <span className="font-bold text-sm">
-                          Total dos produtos
-                        </span>
-                        <span className="text-2xl font-extrabold text-brand tabular-nums">
-                          {formatBrl(cartTotal)}
-                        </span>
-                      </div>
+                      {fulfillmentMode === 'DELIVERY' &&
+                      storeData?.expressDelivery?.enabled &&
+                      expressQuote?.available ? (
+                        <div className="border-t border-line pt-3 space-y-1.5">
+                          <div className="flex items-center justify-between text-xs text-muted">
+                            <span>Subtotal dos produtos</span>
+                            <span className="tabular-nums font-semibold text-ink">
+                              {formatBrl(cartTotal)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-xs text-muted">
+                            <span>
+                              Entrega (
+                              {deliveryVehicle === 'CARRO'
+                                ? '99Entrega Carro'
+                                : '99Entrega Moto'}
+                              )
+                            </span>
+                            <span className="tabular-nums font-bold text-brand">
+                              {expressQuote.selectedFee === 0
+                                ? 'Grátis'
+                                : formatBrl(expressQuote.selectedFee)}
+                            </span>
+                          </div>
+                          <div className="flex items-baseline justify-between pt-1.5 border-t border-line">
+                            <span className="font-bold text-sm">
+                              Total com entrega
+                            </span>
+                            <span className="text-2xl font-extrabold text-brand tabular-nums">
+                              {formatBrl(
+                                cartTotal + Number(expressQuote.selectedFee || 0),
+                              )}
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="border-t border-line pt-3 flex items-baseline justify-between">
+                          <span className="font-bold text-sm">
+                            Total dos produtos
+                          </span>
+                          <span className="text-2xl font-extrabold text-brand tabular-nums">
+                            {formatBrl(cartTotal)}
+                          </span>
+                        </div>
+                      )}
 
                       <div className="p-3.5 rounded-2xl bg-page border border-line text-xs text-muted space-y-1">
                         <p className="font-extrabold text-ink flex items-center gap-1.5">

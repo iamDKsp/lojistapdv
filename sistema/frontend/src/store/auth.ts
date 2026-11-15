@@ -6,6 +6,7 @@ export type User = {
   id: string;
   email?: string;
   name: string;
+  imageUrl?: string | null;
   role: string;
   tenant: string;
   tenantName?: string;
@@ -24,6 +25,7 @@ interface AuthState {
   logout: () => void;
   setTermsAccepted: () => void;
   setTenantLogo: (logoUrl: string | null) => void;
+  setUserImage: (imageUrl: string | null) => void;
   setGroupId: (groupId: string | null) => void;
 }
 
@@ -79,6 +81,7 @@ export const useAuthStore = create<AuthState>()(
       },
       setTermsAccepted: () => set((state) => ({ user: state.user ? { ...state.user, termsAccepted: true } : null })),
       setTenantLogo: (logoUrl) => set((state) => ({ user: state.user ? { ...state.user, logoUrl } : null })),
+      setUserImage: (imageUrl) => set((state) => ({ user: state.user ? { ...state.user, imageUrl } : null })),
       setGroupId: (groupId) => set((state) => ({ user: state.user ? { ...state.user, groupId } : null })),
     }),
     { name: 'lojista-auth' }

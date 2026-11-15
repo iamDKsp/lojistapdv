@@ -2,6 +2,10 @@ import { Injectable, BadRequestException, ConflictException, Logger, NotFoundExc
 import { TenantConnectionManager } from '../prisma/tenant-prisma.service';
 import { TenantContextService } from '../prisma/tenant-context.service';
 import { HeartPrismaService } from '../prisma/heart-prisma.service';
+import {
+  EntityPhotoResolverService,
+  TenantActorPhotoLookup,
+} from '../prisma/entity-photo-resolver.service';
 import { NfceService } from '../nfce/nfce.service';
 import { ProductsService } from '../products/products.service';
 import { Prisma } from '@prisma/client';
@@ -42,12 +46,62 @@ export class SalesService {
     private productsService: ProductsService,
     private mailService: MailService,
     private integrationsService: IntegrationsService,
-    @Optional() private crediarioService?: CrediarioService
+    @Optional() private crediarioService?: CrediarioService,
+    @Optional() private photoResolver?: EntityPhotoResolverService,
   ) {}
 
   private async getPrisma() {
     const { tenantId, databaseUrl } = this.tenantContext.get();
     return this.tenantManager.getTenantClient(tenantId, databaseUrl);
+  }
+
+  private async loadActors(prisma?: any): Promise<TenantActorPhotoLookup> {
+    const { tenantId } = this.tenantContext.get();
+    const resolver =
+      this.photoResolver ??
+      (this.heartPrisma?.operatorProfile
+        ? new EntityPhotoResolverService(this.heartPrisma)
+        : null);
+    if (!resolver) return new TenantActorPhotoLookup({});
+    return resolver.loadTenantActors(tenantId, prisma);
+  }
+
+  private hydrateSaleRecord(sale: any, actors: TenantActorPhotoLookup): any {
+    if (!sale) return sale;
+    const hydratedOperator = sale.operator
+      ? actors.hydrateOperator(sale.operator)
+      : sale.operatorId
+        ? (() => {
+            const resolved = actors.resolveActor({ id: sale.operatorId });
+            return resolved.name
+              ? {
+                  id: sale.operatorId,
+                  name: resolved.name,
+                  imageUrl: resolved.imageUrl,
+                }
+              : null;
+          })()
+        : null;
+
+    const hydratedItems = Array.isArray(sale.items)
+      ? sale.items.map((item: any) => ({
+          ...item,
+          imageUrl:
+            item.imageUrl ??
+            EntityPhotoResolverService.resolveProductImageUrl(item.product),
+          product: item.product
+            ? EntityPhotoResolverService.withResolvedProductImage(item.product)
+            : item.product,
+        }))
+      : sale.items;
+
+    return {
+      ...sale,
+      ...(hydratedOperator !== null || sale.operator !== undefined
+        ? { operator: hydratedOperator }
+        : {}),
+      items: hydratedItems,
+    };
   }
 
   private async consumeLotsFIFO(
@@ -394,7 +448,12 @@ export class SalesService {
 
 
       const discount = new Prisma.Decimal(data.discount || 0);
-      let total = subtotal.sub(discount);
+      const explicitAddition = new Prisma.Decimal(data.addition || 0);
+      if (explicitAddition.lt(0)) {
+        throw new BadRequestException('O valor de acréscimo/frete não pode ser negativo.');
+      }
+      let addition = explicitAddition;
+      let total = subtotal.sub(discount).add(addition);
 
       // Calcular total pago para detectar acréscimo (ex: iFood com valor maior que o carrinho)
       let paymentsTotal = new Prisma.Decimal(0);
@@ -410,8 +469,7 @@ export class SalesService {
       });
 
       if (total.lte(0) || paymentsTotal.sub(total).abs().gt(0.01)) throw new BadRequestException('Os pagamentos devem corresponder ao total da venda após o desconto.');
-      let addition = new Prisma.Decimal(0);
-      if (paymentsTotal.gt(total)) {
+      if (explicitAddition.eq(0) && paymentsTotal.gt(total)) {
         addition = paymentsTotal.sub(total);
         total = paymentsTotal;
       }
@@ -940,10 +998,23 @@ export class SalesService {
       const fullSale = await tx.sale.findUnique({
         where: { id: sale.id },
         include: {
+          operator: {
+            select: { id: true, name: true, isManager: true, jobTitle: true },
+          },
           items: {
             include: {
               modifiers: true,
-              lotConsumptions: true
+              lotConsumptions: true,
+              product: {
+                select: {
+                  id: true,
+                  name: true,
+                  size: true,
+                  color: true,
+                  imageUrl: true,
+                  retailGroup: { select: { id: true, name: true, imageUrl: true } },
+                },
+              },
             }
           },
           payments: true,
@@ -1002,6 +1073,11 @@ export class SalesService {
       installmentsCount: crediarioOutcome.createdReceivables.length,
       firstDueDate: firstRec.dueDate,
     });
+  }
+
+  if (sale && (this.photoResolver || this.heartPrisma?.operatorProfile)) {
+    const actors = await this.loadActors(prisma);
+    sale = this.hydrateSaleRecord(sale, actors);
   }
 
   return sale;
@@ -1213,21 +1289,34 @@ export class SalesService {
       };
     }
 
-    const [total, data] = await Promise.all([
+    const [total, rawData, actors] = await Promise.all([
       prisma.sale.count({ where }),
       prisma.sale.findMany({
         where,
         include: {
           payments: true,
-          items: { include: { product: true } },
+          items: {
+            include: {
+              product: {
+                include: {
+                  retailGroup: { select: { id: true, name: true, imageUrl: true } },
+                },
+              },
+            },
+          },
           customer: true,
-          operator: true,
+          operator: {
+            select: { id: true, name: true, isManager: true, jobTitle: true, active: true },
+          },
         },
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
       }),
+      this.loadActors(prisma),
     ]);
+
+    const data = rawData.map((s: any) => this.hydrateSaleRecord(s, actors));
 
     return {
       data,
@@ -1245,20 +1334,34 @@ export class SalesService {
     today.setHours(0, 0, 0, 0);
     const skip = (page - 1) * limit;
 
-    const [total, data] = await Promise.all([
+    const [total, rawData, actors] = await Promise.all([
       prisma.sale.count({ where: { createdAt: { gte: today }, NOT: [{ status: 'cancelled' }, { source: 'ajuste_fiscal' }] } }),
       prisma.sale.findMany({
         where: { createdAt: { gte: today }, NOT: [{ status: 'cancelled' }, { source: 'ajuste_fiscal' }] },
         include: {
           payments: true,
-          items: { include: { product: true } },
+          items: {
+            include: {
+              product: {
+                include: {
+                  retailGroup: { select: { id: true, name: true, imageUrl: true } },
+                },
+              },
+            },
+          },
           customer: true,
+          operator: {
+            select: { id: true, name: true, isManager: true, jobTitle: true, active: true },
+          },
         },
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
-      })
+      }),
+      this.loadActors(prisma),
     ]);
+
+    const data = rawData.map((s: any) => this.hydrateSaleRecord(s, actors));
 
     return {
       data,
@@ -1540,8 +1643,10 @@ export class SalesService {
   }
 
   async cancel(saleId: string, reason: string) {
-    const { tenantId } = this.tenantContext.get();
+    const { tenantId, userId } = this.tenantContext.get();
     const prisma = await this.getPrisma();
+    const actors = await this.loadActors(prisma);
+    const cancelActor = userId ? actors.resolveActor({ userId }) : null;
 
     const sale = await prisma.$transaction(async (tx: any) => {
       await tx.$executeRaw`INSERT INTO tenant_settings (id) VALUES ('singleton') ON CONFLICT (id) DO UPDATE SET id = EXCLUDED.id`;
@@ -1621,7 +1726,19 @@ export class SalesService {
           nfceStatus: 'cancelada'
         },
         include: {
-          items: true,
+          operator: { select: { id: true, name: true, isManager: true, jobTitle: true } },
+          items: {
+            include: {
+              product: {
+                select: {
+                  id: true,
+                  name: true,
+                  imageUrl: true,
+                  retailGroup: { select: { imageUrl: true } },
+                },
+              },
+            },
+          },
           payments: true
         }
       });
@@ -1640,6 +1757,7 @@ export class SalesService {
                 commercialStatus: 'CANCELLED',
                 paymentStatus: 'REFUNDED',
                 cancelledAt: new Date(),
+                cancelledByUserId: userId || null,
                 cancelReason: `Venda #${existingSale.code ?? existingSale.id} cancelada: ${reason}`,
                 version: { increment: 1 },
               },
@@ -1651,6 +1769,8 @@ export class SalesService {
                 fromStatus: linkedOrder.commercialStatus,
                 toStatus: 'CANCELLED',
                 actorType: 'ADMIN',
+                actorId: userId || null,
+                actorName: cancelActor?.name || null,
                 reason: `Venda vinculada cancelada: ${reason}`,
                 metadataJson: { saleId },
               },
@@ -1670,7 +1790,7 @@ export class SalesService {
       this.logger.error(`Erro ao invalidar cache de produtos do tenant ${tenantId}: ${err.message}`);
     }
 
-    return sale;
+    return this.hydrateSaleRecord(sale, actors);
   }
   async updatePayments(saleId: string, payments: { method: string; value: number; tPag?: string }[]) {
     const prisma = await this.getPrisma();
@@ -1738,10 +1858,27 @@ export class SalesService {
         data: newPaymentRecords
       });
 
-      return await tx.sale.findUnique({
+      const updated = await tx.sale.findUnique({
         where: { id: saleId },
-        include: { payments: true, items: true }
+        include: {
+          operator: { select: { id: true, name: true, isManager: true, jobTitle: true } },
+          payments: true,
+          items: {
+            include: {
+              product: {
+                select: {
+                  id: true,
+                  name: true,
+                  imageUrl: true,
+                  retailGroup: { select: { imageUrl: true } },
+                },
+              },
+            },
+          },
+        }
       });
+      const actors = await this.loadActors(prisma);
+      return this.hydrateSaleRecord(updated, actors);
     });
   }
 
@@ -2032,53 +2169,81 @@ export class SalesService {
       ];
     }
 
-    const [total, rawSales] = await Promise.all([
+    const [total, rawSales, actors] = await Promise.all([
       prisma.sale.count({ where }),
       prisma.sale.findMany({
         where,
         include: {
-          operator: { select: { name: true } },
+          operator: { select: { id: true, name: true } },
           payments: { select: { method: true, value: true } },
-          items: { select: { productId: true, productName: true, quantity: true, priceUnit: true, subtotal: true } },
+          items: {
+            select: {
+              productId: true,
+              productName: true,
+              quantity: true,
+              priceUnit: true,
+              subtotal: true,
+              product: {
+                select: {
+                  imageUrl: true,
+                  retailGroup: { select: { imageUrl: true } },
+                },
+              },
+            },
+          },
         },
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
       }),
+      this.loadActors(prisma),
     ]);
 
     const sales = await this.computeFiscalDetailsForSales(prisma, rawSales);
 
     return {
-      data: sales.map(s => ({
-        id: s.id,
-        nfceNumero: s.nfceNumero,
-        nfceSerie: s.nfceSerie,
-        nfceChave: s.nfceChave,
-        nfceProtocolo: s.nfceProtocolo,
-        nfceStatus: s.nfceStatus || 'nao_emitida',
-        nfceMotivoRejeicao: s.nfceMotivoRejeicao,
-        total: Number(s.fiscalTotal),
-        fullSaleTotal: Number(s.total),
-        discount: Number(s.discount),
-        source: s.source,
-        consumidorCpf: s.consumidorCpf,
-        consumidorNome: s.consumidorNome,
-        createdAt: s.createdAt,
-        operatorName: s.operator?.name || 'Sistema',
-        payments: (s.payments || []).map((p: any) => ({
-          method: p.method,
-          value: Number(p.value),
-        })),
-        itemsCount: s.fiscalItems.length,
-        itemsSummary: s.fiscalItems.slice(0, 3).map((i: any) => `${Number(i.quantity)}x ${i.productName}`).join(', ') + (s.fiscalItems.length > 3 ? '...' : ''),
-        itemsDetail: s.fiscalItems.map((i: any) => ({
-          name: i.productName,
-          quantity: Number(i.quantity),
-          priceUnit: Number(i.priceUnit),
-          subtotal: Number(i.subtotal),
-        })),
-      })),
+      data: sales.map(s => {
+        const opActor = actors.resolveActor(
+          {
+            operatorId: s.operator?.id || s.operatorId,
+            name: s.operator?.name,
+          },
+          s.operator?.name || 'Sistema',
+        );
+        return {
+          id: s.id,
+          nfceNumero: s.nfceNumero,
+          nfceSerie: s.nfceSerie,
+          nfceChave: s.nfceChave,
+          nfceProtocolo: s.nfceProtocolo,
+          nfceStatus: s.nfceStatus || 'nao_emitida',
+          nfceMotivoRejeicao: s.nfceMotivoRejeicao,
+          total: Number(s.fiscalTotal),
+          fullSaleTotal: Number(s.total),
+          discount: Number(s.discount),
+          source: s.source,
+          consumidorCpf: s.consumidorCpf,
+          consumidorNome: s.consumidorNome,
+          createdAt: s.createdAt,
+          operatorId: s.operator?.id || s.operatorId || null,
+          operatorName: opActor.name || 'Sistema',
+          operatorImageUrl: opActor.imageUrl,
+          payments: (s.payments || []).map((p: any) => ({
+            method: p.method,
+            value: Number(p.value),
+          })),
+          itemsCount: s.fiscalItems.length,
+          itemsSummary: s.fiscalItems.slice(0, 3).map((i: any) => `${Number(i.quantity)}x ${i.productName}`).join(', ') + (s.fiscalItems.length > 3 ? '...' : ''),
+          itemsDetail: s.fiscalItems.map((i: any) => ({
+            productId: i.productId || null,
+            name: i.productName,
+            imageUrl: EntityPhotoResolverService.resolveProductImageUrl(i.product),
+            quantity: Number(i.quantity),
+            priceUnit: Number(i.priceUnit),
+            subtotal: Number(i.subtotal),
+          })),
+        };
+      }),
       meta: {
         total,
         page,

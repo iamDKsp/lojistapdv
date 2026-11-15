@@ -63,6 +63,7 @@ export const ROUTES = {
     produtos: "/loja-virtual/produtos",
     categorias: "/loja-virtual/categorias",
     pedidos: "/loja-virtual/pedidos",
+    entregas: "/loja-virtual/entregas",
     configuracoes: "/loja-virtual/configuracoes",
   },
 
@@ -103,19 +104,23 @@ export const LEGACY_AND_ALIAS_REDIRECTS: ReadonlyArray<{
   { from: "/pdv", to: ROUTES.pos },
   { from: "/caixa", to: ROUTES.pos },
 
-  // Módulo Início (legado /dashboard/* + aliases sem hífen)
+  // Módulo Início (visão principal isolada) e Módulo Histórico de Caixas (caixas, relatórios e operações)
   { from: "/dashboard", to: ROUTES.inicio.visaoGeral },
   { from: "/inicio/visao-geral", to: ROUTES.inicio.visaoGeral },
   { from: "/inicio/visaogeral", to: ROUTES.inicio.visaoGeral },
   { from: "/dashboard/registers", to: ROUTES.inicio.historicoCaixas },
   { from: "/inicio/historicodecaixas", to: ROUTES.inicio.historicoCaixas },
   { from: "/inicio/caixas", to: ROUTES.inicio.historicoCaixas },
+  { from: "/historico-de-caixas", to: ROUTES.inicio.historicoCaixas },
+  { from: "/historicodecaixas", to: ROUTES.inicio.historicoCaixas },
   { from: "/dashboard/reports", to: ROUTES.inicio.relatorios },
   { from: "/inicio/relatorios-de-vendas", to: ROUTES.inicio.relatorios },
   { from: "/inicio/relatoriosdevendas", to: ROUTES.inicio.relatorios },
+  { from: "/relatorios", to: ROUTES.inicio.relatorios },
   { from: "/dashboard/operations", to: ROUTES.inicio.operacoes },
   { from: "/inicio/operacoes-locais", to: ROUTES.inicio.operacoes },
   { from: "/inicio/operacoeslocais", to: ROUTES.inicio.operacoes },
+  { from: "/operacoes", to: ROUTES.inicio.operacoes },
 
   // Módulo Estoque (legado /dashboard/inventory/* + aliases sem hífen)
   { from: "/dashboard/inventory", to: ROUTES.estoque.mercadorias },
@@ -222,6 +227,9 @@ export const LEGACY_AND_ALIAS_REDIRECTS: ReadonlyArray<{
   { from: "/lojavirtual/produtos", to: ROUTES.lojaVirtual.produtos },
   { from: "/lojavirtual/categorias", to: ROUTES.lojaVirtual.categorias },
   { from: "/lojavirtual/pedidos", to: ROUTES.lojaVirtual.pedidos },
+  { from: "/lojavirtual/entregas", to: ROUTES.lojaVirtual.entregas },
+  { from: "/loja-virtual/entrega", to: ROUTES.lojaVirtual.entregas },
+  { from: "/loja-virtual/99", to: ROUTES.lojaVirtual.entregas },
   { from: "/lojavirtual/configuracoes", to: ROUTES.lojaVirtual.configuracoes },
 
   // Módulo Configurações e Fiscal
@@ -268,7 +276,7 @@ export const LEGACY_AND_ALIAS_REDIRECTS: ReadonlyArray<{
 ];
 
 /**
- * Identifica o módulo canônico de uma rota (`pos`, `inicio`, `estoque`, `financeiro`,
+ * Identifica o módulo canônico de uma rota (`pos`, `inicio`, `historico-caixas`, `estoque`, `financeiro`,
  * `equipe`, `clientes`, `crediario`, `configuracoes`, `vitrine`, `grupo-portal`, `sys-init`).
  * Trocas dentro do mesmo módulo canônico são trocas de aba; trocas entre módulos distintos
  * (ou acionadas pelo menu de módulos / setas verticais) disparam a transição de módulo.
@@ -279,12 +287,22 @@ export function getCanonicalModuleId(pathname: string): string {
     return "pos";
   }
   if (
-    clean.startsWith("/inicio") ||
-    clean === "/dashboard" ||
+    clean.startsWith("/inicio/historico-de-caixas") ||
+    clean.startsWith("/inicio/historicodecaixas") ||
+    clean.startsWith("/inicio/caixas") ||
+    clean.startsWith("/inicio/relatorios") ||
+    clean.startsWith("/inicio/operacoes") ||
+    clean.startsWith("/historico-de-caixas") ||
+    clean.startsWith("/historicodecaixas") ||
+    clean.startsWith("/relatorios") ||
+    clean.startsWith("/operacoes") ||
     clean.startsWith("/dashboard/registers") ||
     clean.startsWith("/dashboard/reports") ||
     clean.startsWith("/dashboard/operations")
   ) {
+    return "historico-caixas";
+  }
+  if (clean.startsWith("/inicio") || clean === "/dashboard") {
     return "inicio";
   }
   if (

@@ -5,6 +5,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
@@ -16,6 +17,8 @@ import {
   checkStorefrontSchemaCompatibility,
   isStorefrontSchemaMissingError,
 } from '../tenants/tenant-schema-upgrade';
+import { StorefrontDeliveryService } from './storefront-delivery.service';
+import { EntityPhotoResolverService } from '../prisma/entity-photo-resolver.service';
 import {
   assertValidStorefrontSlug,
   buildProductPublicSlug,
@@ -35,6 +38,10 @@ export class StorefrontAdminService {
     private readonly heartPrisma: HeartPrismaService,
     private readonly tenantManager: TenantConnectionManager,
     private readonly tenantContext: TenantContextService,
+    @Optional()
+    private readonly deliveryService: StorefrontDeliveryService = new StorefrontDeliveryService(),
+    @Optional()
+    private readonly photoResolver?: EntityPhotoResolverService,
   ) {}
 
   private async getContextAndDb() {
@@ -123,6 +130,9 @@ export class StorefrontAdminService {
       }
 
       const defaultTheme = getDefaultStorefrontTheme(storeName);
+      defaultTheme.expressDelivery = this.deliveryService.getDefaultConfig(
+        tenant,
+      ) as any;
       let defaultPhone: string | null = null;
       try {
         if (tenant?.telefoneContato || tenant?.telefone) {
@@ -306,9 +316,12 @@ export class StorefrontAdminService {
               .catch(() => null)
           : null;
 
-      const formattedSettings = this.formatSettingsResponse(
+      const formattedSettings = await this.formatSettingsWithActor(
         settings,
         moduleEnabled,
+        tenant,
+        ctx.tenantId,
+        db,
       );
       const statsObj = {
         totalRetailGroups,
@@ -385,7 +398,50 @@ export class StorefrontAdminService {
     }
   }
 
-  private formatSettingsResponse(settings: any, moduleEnabled = true) {
+  private async formatSettingsWithActor(
+    settings: any,
+    moduleEnabled = true,
+    tenant?: any,
+    tenantId?: string,
+    db?: any,
+  ) {
+    let publisher: { name: string | null; imageUrl: string | null } = {
+      name: settings?.publishedByName || null,
+      imageUrl: null,
+    };
+    if (
+      this.photoResolver &&
+      tenantId &&
+      (settings?.publishedByUserId || settings?.publishedByName)
+    ) {
+      try {
+        const actors = await this.photoResolver.loadTenantActors(tenantId, db);
+        const resolved = actors.resolveActor(
+          settings.publishedByUserId,
+          settings.publishedByName,
+        );
+        publisher = {
+          name: resolved.name || settings.publishedByName || null,
+          imageUrl: resolved.imageUrl,
+        };
+      } catch {
+        // fallback silencioso para não interromper resposta
+      }
+    }
+    return this.formatSettingsResponse(
+      settings,
+      moduleEnabled,
+      tenant,
+      publisher,
+    );
+  }
+
+  private formatSettingsResponse(
+    settings: any,
+    moduleEnabled = true,
+    tenant?: any,
+    publisher?: { name: string | null; imageUrl: string | null },
+  ) {
     const draftTheme = validateAndSanitizeTheme(
       settings.draftThemeJson,
       settings.storeName,
@@ -394,6 +450,28 @@ export class StorefrontAdminService {
       settings.publishedThemeJson,
       settings.storeName,
     );
+    const expressModuleEnabled = tenant
+      ? this.deliveryService.isExpressModuleEnabledOnTenant(tenant)
+      : false;
+    const rawExpressSource =
+      settings.draftThemeJson &&
+      typeof settings.draftThemeJson === 'object' &&
+      (settings.draftThemeJson as any).expressDelivery
+        ? settings.draftThemeJson
+        : settings.publishedThemeJson;
+    const expressConfig = this.deliveryService.extractConfigFromTheme(
+      rawExpressSource,
+      tenant,
+    );
+    const expressDelivery = this.deliveryService.toAdminDto(
+      expressConfig,
+      expressModuleEnabled,
+    );
+
+    // Nunca retornar corporateToken em claro dentro de draftTheme/publishedTheme
+    delete (draftTheme as any).expressDelivery;
+    delete (publishedTheme as any).expressDelivery;
+
     const isPublished = Boolean(settings.isPublished);
     const confirmMins = Number(settings.confirmReservationMinutes ?? 15);
     return {
@@ -413,7 +491,11 @@ export class StorefrontAdminService {
       deliveryInstructions: settings.deliveryInstructions || '',
       deliveryNotes: settings.deliveryInstructions || '',
       deliveryFeeNote: settings.deliveryFeeNote || '',
-      deliveryFeeDefault: 0,
+      deliveryFeeDefault: expressDelivery.effectivelyActive
+        ? expressDelivery.baseFee
+        : 0,
+      expressDeliveryModuleEnabled: expressModuleEnabled,
+      expressDelivery,
       confirmReservationMinutes: confirmMins,
       reservationTtlMinutes: confirmMins,
       confirmedHoldHours: Number(settings.confirmedHoldHours ?? 24),
@@ -424,7 +506,10 @@ export class StorefrontAdminService {
       status: isPublished ? 'PUBLISHED' : 'DRAFT',
       effectivelyOnline: Boolean(isPublished && moduleEnabled),
       publishedAt: settings.publishedAt || null,
-      publishedByName: settings.publishedByName || null,
+      publishedByUserId: settings.publishedByUserId || null,
+      publishedByName:
+        publisher !== undefined ? publisher.name : settings.publishedByName || null,
+      publishedByImageUrl: publisher?.imageUrl ?? null,
       updatedAt: settings.updatedAt,
     };
   }
@@ -437,7 +522,13 @@ export class StorefrontAdminService {
       ctx.tenantId,
     );
     const moduleEnabled = tenant ? this.isModuleEnabledOnTenant(tenant) : true;
-    return this.formatSettingsResponse(settings, moduleEnabled);
+    return this.formatSettingsWithActor(
+      settings,
+      moduleEnabled,
+      tenant,
+      ctx.tenantId,
+      db,
+    );
   }
 
   async updateSettings(body: any) {
@@ -597,7 +688,7 @@ export class StorefrontAdminService {
     });
 
     await this.syncRegistryToHeart(updated, tenant, ctx.tenantId);
-    return this.formatSettingsResponse(updated, true);
+    return this.formatSettingsWithActor(updated, true, tenant, ctx.tenantId, db);
   }
 
   async saveAppearanceDraft(body: any) {
@@ -622,6 +713,13 @@ export class StorefrontAdminService {
         : current.draftThemeJson);
 
     const draftTheme = validateAndSanitizeTheme(rawThemeCandidate, storeName);
+    const existingExpress =
+      current.draftThemeJson && typeof current.draftThemeJson === 'object'
+        ? (current.draftThemeJson as any).expressDelivery
+        : undefined;
+    if (existingExpress && !draftTheme.expressDelivery) {
+      draftTheme.expressDelivery = existingExpress;
+    }
 
     const updated = await db.storefrontSettings.update({
       where: { id: 'singleton' },
@@ -647,7 +745,127 @@ export class StorefrontAdminService {
       },
     });
 
-    return this.formatSettingsResponse(updated, true);
+    return this.formatSettingsWithActor(updated, true, tenant, ctx.tenantId, db);
+  }
+
+  async updateExpressDeliverySettings(body: any) {
+    const { ctx, db, tenant } = await this.assertModuleAndSchemaReady(true);
+    const current = await this.ensureSettingsInitialized(
+      db,
+      tenant,
+      ctx.tenantId,
+    );
+
+    const prevConfig = this.deliveryService.extractConfigFromTheme(
+      current.draftThemeJson || current.publishedThemeJson,
+      tenant,
+    );
+    const nextConfig = this.deliveryService.sanitizeConfig(
+      body?.expressDelivery ?? body,
+      tenant,
+      prevConfig,
+    );
+
+    if (nextConfig.originZipCode && nextConfig.originZipCode.length === 8) {
+      const zipInfo = await this.deliveryService.resolveZipCodeInfo(
+        nextConfig.originZipCode,
+      );
+      if (zipInfo) {
+        nextConfig.originLat = zipInfo.lat;
+        nextConfig.originLng = zipInfo.lng;
+        if (!nextConfig.originStreet && zipInfo.street) {
+          nextConfig.originStreet = zipInfo.street;
+        }
+        if (!nextConfig.originNeighborhood && zipInfo.neighborhood) {
+          nextConfig.originNeighborhood = zipInfo.neighborhood;
+        }
+        if (!nextConfig.originCity && zipInfo.city) {
+          nextConfig.originCity = zipInfo.city;
+        }
+        if (!nextConfig.originState && zipInfo.state) {
+          nextConfig.originState = zipInfo.state;
+        }
+      }
+    }
+
+    const draftTheme = validateAndSanitizeTheme(
+      current.draftThemeJson,
+      current.storeName,
+    );
+    const publishedTheme = validateAndSanitizeTheme(
+      current.publishedThemeJson,
+      current.storeName,
+    );
+    draftTheme.expressDelivery = nextConfig as any;
+    publishedTheme.expressDelivery = nextConfig as any;
+
+    const deliveryEnabled =
+      body?.deliveryEnabled !== undefined
+        ? Boolean(body.deliveryEnabled)
+        : nextConfig.enabled
+          ? true
+          : Boolean(current.deliveryEnabled);
+
+    if (!current.pickupEnabled && !deliveryEnabled) {
+      throw new BadRequestException(
+        'Não é possível desativar a entrega enquanto a retirada na loja também estiver desativada.',
+      );
+    }
+
+    const updated = await db.storefrontSettings.update({
+      where: { id: 'singleton' },
+      data: {
+        deliveryEnabled,
+        ...(body?.deliveryFeeNote !== undefined
+          ? {
+              deliveryFeeNote:
+                sanitizePlainText(body.deliveryFeeNote, 240, 'Nota de entrega') ||
+                null,
+            }
+          : {}),
+        ...(body?.deliveryInstructions !== undefined
+          ? {
+              deliveryInstructions:
+                sanitizePlainText(
+                  body.deliveryInstructions,
+                  600,
+                  'Instruções de entrega',
+                ) || null,
+            }
+          : {}),
+        draftThemeJson: draftTheme as any,
+        publishedThemeJson: publishedTheme as any,
+      },
+    });
+
+    return this.formatSettingsWithActor(updated, true, tenant, ctx.tenantId, db);
+  }
+
+  async simulateExpressDeliveryQuote(body: any) {
+    const { ctx, db, tenant } = await this.assertModuleAndSchemaReady(false);
+    const current = await this.ensureSettingsInitialized(
+      db,
+      tenant,
+      ctx.tenantId,
+    );
+    const prevConfig = this.deliveryService.extractConfigFromTheme(
+      current.draftThemeJson || current.publishedThemeJson,
+      tenant,
+    );
+    const candidateConfig = body?.config
+      ? this.deliveryService.sanitizeConfig(body.config, tenant, prevConfig)
+      : prevConfig;
+
+    return this.deliveryService.calculateDeliveryQuote({
+      config: { ...candidateConfig, enabled: true },
+      moduleEnabled: true,
+      destinationZipCode: body?.zipCode || body?.destinationZipCode,
+      neighborhood: body?.neighborhood,
+      city: body?.city,
+      state: body?.state,
+      subtotal: Number(body?.subtotal ?? 120),
+      preferredVehicle: body?.vehicleType || body?.preferredVehicle,
+    });
   }
 
   async publishStorefront(actor?: { userId?: string; name?: string }) {
@@ -678,6 +896,19 @@ export class StorefrontAdminService {
       current.storeName,
     );
     const now = new Date();
+    const effectiveActorId = actor?.userId || ctx.userId || null;
+    let effectiveActorName = actor?.name || null;
+    if (!effectiveActorName && effectiveActorId && this.photoResolver) {
+      try {
+        const actors = await this.photoResolver.loadTenantActors(
+          ctx.tenantId,
+          db,
+        );
+        effectiveActorName = actors.resolveName(effectiveActorId, null);
+      } catch {
+        effectiveActorName = null;
+      }
+    }
 
     const updated = await db.$transaction(async (tx: any) => {
       const latestRevision = await tx.storefrontRevision.findFirst({
@@ -703,8 +934,8 @@ export class StorefrontAdminService {
           publishedVersion: nextVersion,
           isPublished: true,
           publishedAt: now,
-          publishedByUserId: actor?.userId || ctx.userId || null,
-          publishedByName: actor?.name || null,
+          publishedByUserId: effectiveActorId,
+          publishedByName: effectiveActorName,
         },
       });
 
@@ -724,8 +955,8 @@ export class StorefrontAdminService {
             pickupEnabled: settings.pickupEnabled,
             deliveryEnabled: settings.deliveryEnabled,
           },
-          createdByUserId: actor?.userId || ctx.userId || null,
-          createdByName: actor?.name || null,
+          createdByUserId: effectiveActorId,
+          createdByName: effectiveActorName,
           publishedAt: now,
         },
       });
@@ -734,7 +965,7 @@ export class StorefrontAdminService {
     });
 
     await this.syncRegistryToHeart(updated, tenant, ctx.tenantId);
-    return this.formatSettingsResponse(updated, true);
+    return this.formatSettingsWithActor(updated, true, tenant, ctx.tenantId, db);
   }
 
   async unpublishStorefront() {
@@ -749,7 +980,7 @@ export class StorefrontAdminService {
     });
 
     await this.syncRegistryToHeart(updated, tenant, ctx.tenantId);
-    return this.formatSettingsResponse(updated, true);
+    return this.formatSettingsWithActor(updated, true, tenant, ctx.tenantId, db);
   }
 
   // ── Categorias da Loja Virtual ────────────────────────────────────────────
@@ -1046,6 +1277,14 @@ export class StorefrontAdminService {
 
     const mapped = groups.map((rg: any) => {
       const sp = rg.storefrontProduct;
+      const galleryUrls = Array.isArray(sp?.galleryUrlsJson)
+        ? sp.galleryUrlsJson
+        : [];
+      const firstVariantImg =
+        (rg.variants || []).find((v: any) => v.imageUrl)?.imageUrl || null;
+      const resolvedImageUrl =
+        rg.imageUrl || galleryUrls[0] || firstVariantImg || null;
+
       const variants = (rg.variants || []).map((v: any) => {
         const physicalStock = Math.max(0, Math.floor(Number(v.stock ?? 0)));
         const reservedStock = reservedMap.get(v.id)?.quantity ?? 0;
@@ -1056,6 +1295,7 @@ export class StorefrontAdminService {
           color: v.color || null,
           shortCode: v.shortCode || null,
           barcode: v.barcode || null,
+          imageUrl: v.imageUrl || resolvedImageUrl,
           physicalStock,
           reservedStock,
           availableStock,
@@ -1095,8 +1335,8 @@ export class StorefrontAdminService {
         categoryName: rg.category?.name || '',
         priceSell: priceVal,
         priceSale: priceVal,
-        imageUrl: rg.imageUrl || null,
-        galleryUrls: Array.isArray(sp?.galleryUrlsJson) ? sp.galleryUrlsJson : [],
+        imageUrl: resolvedImageUrl,
+        galleryUrls,
         visible: isVis,
         isVisible: isVis,
         featured: Boolean(sp?.featured),
@@ -1106,7 +1346,7 @@ export class StorefrontAdminService {
         reservedStock: reservedStockTotal,
         availableStockTotal,
         availableStock: availableStockTotal,
-        missingPhoto: !rg.imageUrl,
+        missingPhoto: !resolvedImageUrl,
         outOfStock: availableStockTotal <= 0,
         variants,
       };

@@ -54,6 +54,24 @@ export class StorefrontAdminController {
     return this.adminService.updateSettings(body);
   }
 
+  @Put('delivery-settings')
+  async updateDeliverySettings(@Req() req: any, @Body() body: any) {
+    assertStorefrontAdminRole(req);
+    return this.adminService.updateExpressDeliverySettings(body || {});
+  }
+
+  @Post('delivery/simulate')
+  async simulateDeliveryQuote(@Req() req: any, @Body() body: any) {
+    assertStorefrontOrderViewRole(req);
+    return this.adminService.simulateExpressDeliveryQuote(body || {});
+  }
+
+  @Get('pos-alerts')
+  async getPosAlerts(@Req() req: any) {
+    assertStorefrontOrderViewRole(req);
+    return this.ordersService.getPosAlerts();
+  }
+
   @Put('appearance/draft')
   async saveAppearanceDraft(@Req() req: any, @Body() body: any) {
     assertStorefrontAdminRole(req);
@@ -273,6 +291,19 @@ export class StorefrontAdminController {
   ) {
     assertStorefrontFulfillmentRole(req);
     return this.ordersService.updateFulfillmentStatus(id, body || {}, {
+      userId: req.user?.userId || req.user?.id,
+      name: req.user?.name || req.user?.email,
+    });
+  }
+
+  @Put('orders/:id/dispatch-99')
+  async dispatchExpress99(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: any,
+  ) {
+    assertStorefrontFulfillmentRole(req);
+    return this.ordersService.dispatchExpressOrder(id, body || {}, {
       userId: req.user?.userId || req.user?.id,
       name: req.user?.name || req.user?.email,
     });

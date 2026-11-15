@@ -278,7 +278,17 @@ stateDiagram-v2
   - **`FlyToBagOverlay` & `QuickVariantModal`**: Animação GPU de ficha da peça voando até o botão **Sacola** com pulso elástico no contador ao adicionar a partir do catálogo, e modal/*bottom-sheet* rápido de 2 toques (**Escolher tamanho e cor**) sem sair da vitrine.
   - **`StorefrontSelectPopover` & `MobileFilterSheet`**: Substituição de `<select>` nativos do sistema operacional por popovers animados na paleta oficial e gaveta inferior de filtros em telas `< 640px`.
 - **Escala Responsiva Unificada (`320px` a `1920px+`) e Banner Hero Editorial**:
-  - Container unificado `max-w-[1440px]` em todas as telas da vitrine pública, moldura editorial arredondada para imagens/logos de capa no Hero (eliminando o corte seco 50/50 em logos quadrados) e transições suaves entre as 6 abas e o simulador Desktop/Celular em `/loja-virtual/*`.
+  - Container unificado `max-w-[1440px]` em todas as telas da vitrine pública, moldura editorial arredondada para imagens/logos de capa no Hero (eliminando o corte seco 50/50 em logos quadrados) e transições suaves entre as abas e o simulador Desktop/Celular em `/loja-virtual/*`.
+
+### 8.4. Módulo Entrega Loja Virtual — 99 Entregas (`modulos.entregaLojaVirtual`, 2026-11-15)
+- **Configuração e Cotação Inteligente (`/loja-virtual/entregas`)**:
+  - Aba dedicada para cálculo automático por distância (`DISTANCE_KM` ou `FIXED`), regras por bairro, `99Entrega Moto` e `99Entrega Carro`, pedido mínimo, frete grátis, simulador de CEP ao vivo e integração híbrida (Portal 99 Empresas + credenciais corporativas mascaradas).
+- **Alertas Sonoros e Despacho na Frente de Caixa (`RetailPosPage` + `PosDeliveryAlertBar`)**:
+  - Monitoramento em tempo real (`GET /api/storefront/admin/pos-alerts`) com alerta sonoro Web Audio API, banner de destaque e gaveta lateral para confirmar pedidos, registrar corrida 99 (`PUT /api/storefront/admin/orders/:id/dispatch-99`), enviar rastreio + PIN de 4 dígitos no WhatsApp e faturar a venda com acréscimo automático do frete (`Sale.addition`).
+- **Experiência Animada na Vitrine Pública (`StorefrontDeliveryAnimation`)**:
+  - Radar de rota no checkout (`POST /api/storefront/public/:slug/delivery/quote`) e cena vetorial animada em tempo real na página do pedido (`/loja/:slug/pedido/:referencia`) acompanhando o deslocamento da Moto/Carro 99 até a entrega.
+  - Documentação detalhada em `docs/ENTREGA-99-LOJA-VIRTUAL-2026-11-15.md`.
+
 
 
 

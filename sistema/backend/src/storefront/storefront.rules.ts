@@ -67,6 +67,7 @@ export interface StorefrontThemeConfig {
   announcementText: string;
   banners: StorefrontBannerConfig[];
   sections: StorefrontSectionConfig[];
+  expressDelivery?: Record<string, any>;
 }
 
 const RESERVED_SLUGS = new Set([
@@ -311,7 +312,7 @@ export function validateAndSanitizeTheme(
     }
   }
 
-  return {
+  const result: StorefrontThemeConfig = {
     template,
     primaryColor,
     accentColor,
@@ -324,6 +325,12 @@ export function validateAndSanitizeTheme(
     banners,
     sections,
   };
+
+  if (rawTheme.expressDelivery && typeof rawTheme.expressDelivery === 'object') {
+    result.expressDelivery = rawTheme.expressDelivery;
+  }
+
+  return result;
 }
 
 function assertNonTrivialPhoneDigits(digits: string, label: string): void {
@@ -417,6 +424,7 @@ export function normalizeOrderIdempotencyKey(
 export function computeStorefrontOrderFingerprint(payload: {
   customerPhone: string;
   fulfillmentMode: string;
+  deliveryVehicle?: string | null;
   items: { productId: string; quantity: number }[];
 }): string {
   const canonicalItems = [...(payload.items || [])]
@@ -426,13 +434,19 @@ export function computeStorefrontOrderFingerprint(payload: {
     }))
     .sort((a, b) => a.productId.localeCompare(b.productId));
 
-  const canonical = JSON.stringify({
+  const canonicalObj: Record<string, any> = {
     phone: String(payload.customerPhone || '').replace(/\D/g, ''),
     mode: String(payload.fulfillmentMode || 'PICKUP').toUpperCase(),
     items: canonicalItems,
-  });
+  };
+  if (payload.deliveryVehicle) {
+    canonicalObj.vehicle = String(payload.deliveryVehicle).toUpperCase();
+  }
 
-  return createHash('sha256').update(canonical).digest('hex').slice(0, 64);
+  return createHash('sha256')
+    .update(JSON.stringify(canonicalObj))
+    .digest('hex')
+    .slice(0, 64);
 }
 
 export function formatCurrencyBrl(value: number | string): string {
@@ -449,6 +463,8 @@ export function buildStorefrontWhatsappMessage(params: {
   fulfillmentMode: 'PICKUP' | 'DELIVERY';
   deliveryAddress?: any;
   notes?: string | null;
+  subtotal?: number;
+  deliveryFee?: number;
   total: number;
   items: {
     productName: string;
@@ -469,16 +485,34 @@ export function buildStorefrontWhatsappMessage(params: {
   lines.push('');
   lines.push(`*Pedido:* ${params.reference}`);
   lines.push(`*Cliente:* ${params.customerName} (${params.customerPhone})`);
-  lines.push(
-    `*Atendimento:* ${
-      params.fulfillmentMode === 'DELIVERY'
-        ? 'Entrega a combinar'
-        : 'Retirada na loja'
-    }`,
+
+  const addr =
+    params.fulfillmentMode === 'DELIVERY' &&
+    params.deliveryAddress &&
+    typeof params.deliveryAddress === 'object'
+      ? params.deliveryAddress
+      : null;
+  const expressQuote =
+    addr?.quote && typeof addr.quote === 'object' ? addr.quote : null;
+  const expressDispatch =
+    addr?.dispatch && typeof addr.dispatch === 'object' ? addr.dispatch : null;
+  const deliveryFee = Math.max(
+    0,
+    Number(params.deliveryFee ?? addr?.deliveryFee ?? 0),
   );
 
-  if (params.fulfillmentMode === 'DELIVERY' && params.deliveryAddress) {
-    const addr = params.deliveryAddress;
+  const fulfillmentLabel =
+    params.fulfillmentMode === 'DELIVERY'
+      ? expressQuote?.provider === '99_ENTREGAS'
+        ? expressQuote.vehicleType === 'CARRO'
+          ? '99Entrega Carro'
+          : '99Entrega Moto'
+        : 'Entrega a combinar'
+      : 'Retirada na loja';
+
+  lines.push(`*Atendimento:* ${fulfillmentLabel}`);
+
+  if (addr) {
     const parts = [
       addr.street,
       addr.number ? `nº ${addr.number}` : '',
@@ -490,6 +524,13 @@ export function buildStorefrontWhatsappMessage(params: {
     ].filter(Boolean);
     if (parts.length > 0) {
       lines.push(`*Endereço:* ${parts.join(', ')}`);
+    }
+    if (expressQuote?.distanceKm) {
+      lines.push(
+        `*Rota 99:* ~${Number(expressQuote.distanceKm)
+          .toFixed(1)
+          .replace('.', ',')} km (${expressQuote.estimatedMinutes || 25} min est.)`,
+      );
     }
   }
 
@@ -515,7 +556,28 @@ export function buildStorefrontWhatsappMessage(params: {
   }
 
   lines.push('');
-  lines.push(`*Total dos produtos:* ${formatCurrencyBrl(params.total)}`);
+  if (expressQuote?.provider === '99_ENTREGAS' || deliveryFee > 0) {
+    const subtotalVal =
+      params.subtotal !== undefined
+        ? Number(params.subtotal)
+        : Math.max(0, Number(params.total || 0) - deliveryFee);
+    lines.push(`*Subtotal dos produtos:* ${formatCurrencyBrl(subtotalVal)}`);
+    lines.push(
+      `*Frete (${fulfillmentLabel}):* ${
+        deliveryFee === 0 && expressQuote?.freeShippingApplied
+          ? 'Grátis'
+          : formatCurrencyBrl(deliveryFee)
+      }`,
+    );
+    lines.push(`*Total do pedido:* ${formatCurrencyBrl(params.total)}`);
+    if (expressDispatch?.confirmationPin) {
+      lines.push(
+        `*PIN de segurança na entrega:* ${expressDispatch.confirmationPin}`,
+      );
+    }
+  } else {
+    lines.push(`*Total dos produtos:* ${formatCurrencyBrl(params.total)}`);
+  }
 
   if (params.notes?.trim()) {
     lines.push(`*Observações:* ${params.notes.trim()}`);
@@ -672,6 +734,7 @@ export function toPublicVariantDto(
   variant: any,
   reservedQty: number,
   groupPriceSell: number,
+  fallbackImageUrl: string | null = null,
 ) {
   const physical = Math.max(0, Math.floor(Number(variant.stock ?? 0)));
   const availableStock = Math.max(0, physical - Math.max(0, reservedQty));
@@ -681,6 +744,7 @@ export function toPublicVariantDto(
     size: variant.size || null,
     color: variant.color || null,
     unit: variant.unit || 'UN',
+    imageUrl: variant.imageUrl || fallbackImageUrl || null,
     priceSell,
     availableStock,
     inStock: Boolean(variant.active !== false && availableStock > 0),
@@ -694,19 +758,22 @@ export function toPublicProductDto(
   const rg = sp.retailGroup;
   const priceSell = Number(rg?.priceSell ?? 0);
   const rawGallery = Array.isArray(sp.galleryUrlsJson) ? sp.galleryUrlsJson : [];
-  const mainImage = rg?.imageUrl || rawGallery[0] || null;
+  const activeVariants = (rg?.variants || []).filter(
+    (v: any) => v.active !== false,
+  );
+  const firstVariantImg =
+    activeVariants.find((v: any) => v.imageUrl)?.imageUrl || null;
+  const mainImage = rg?.imageUrl || rawGallery[0] || firstVariantImg || null;
   const gallery = Array.from(
     new Set([mainImage, ...rawGallery].filter(Boolean)),
   ) as string[];
 
-  const activeVariants = (rg?.variants || []).filter(
-    (v: any) => v.active !== false,
-  );
   const variants = activeVariants.map((v: any) =>
     toPublicVariantDto(
       v,
       reservedByProductId.get(v.id)?.quantity ?? 0,
       priceSell,
+      mainImage,
     ),
   );
 
@@ -749,6 +816,63 @@ export function toPublicOrderDto(
   whatsappMessage: string,
   compactWhatsappUrl?: string | null,
 ) {
+  const addr =
+    order.deliveryAddressJson && typeof order.deliveryAddressJson === 'object'
+      ? order.deliveryAddressJson
+      : null;
+  const subtotalNum = Number(order.subtotal ?? 0);
+  const discountNum = Number(order.discount ?? 0);
+  const totalNum = Number(order.total ?? 0);
+  const inferredFee = Math.max(
+    0,
+    Math.round((totalNum - subtotalNum + discountNum + Number.EPSILON) * 100) /
+      100,
+  );
+  const deliveryFee =
+    addr?.deliveryFee !== undefined
+      ? Math.max(0, Number(addr.deliveryFee || 0))
+      : inferredFee;
+
+  const rawQuote =
+    addr?.quote && typeof addr.quote === 'object' ? addr.quote : null;
+  const expressQuote = rawQuote
+    ? {
+        provider: '99_ENTREGAS' as const,
+        vehicleType: rawQuote.vehicleType === 'CARRO' ? 'CARRO' : 'MOTO',
+        label:
+          rawQuote.label ||
+          (rawQuote.vehicleType === 'CARRO'
+            ? '99Entrega Carro'
+            : '99Entrega Moto'),
+        fee: Number(rawQuote.fee ?? deliveryFee),
+        distanceKm:
+          rawQuote.distanceKm !== undefined && rawQuote.distanceKm !== null
+            ? Number(rawQuote.distanceKm)
+            : null,
+        estimatedMinutes: Number(rawQuote.estimatedMinutes || 25),
+        freeShippingApplied: Boolean(rawQuote.freeShippingApplied),
+        originLabel: rawQuote.originLabel || null,
+      }
+    : null;
+
+  const rawDispatch =
+    addr?.dispatch && typeof addr.dispatch === 'object' ? addr.dispatch : null;
+  const expressDispatch = rawDispatch
+    ? {
+        provider: '99_ENTREGAS' as const,
+        status: rawDispatch.status || 'WAITING',
+        vehicleType: rawDispatch.vehicleType === 'CARRO' ? 'CARRO' : 'MOTO',
+        courierName: rawDispatch.courierName || null,
+        vehiclePlate: rawDispatch.vehiclePlate || null,
+        trackingUrl: rawDispatch.trackingUrl || null,
+        confirmationPin: rawDispatch.confirmationPin || null,
+        requestedAt: rawDispatch.requestedAt || null,
+        dispatchedAt: rawDispatch.dispatchedAt || null,
+        deliveredAt: rawDispatch.deliveredAt || null,
+        updatedAt: rawDispatch.updatedAt || null,
+      }
+    : null;
+
   return {
     reference: order.reference,
     code: order.code,
@@ -759,9 +883,19 @@ export function toPublicOrderDto(
     fulfillmentStatus: order.fulfillmentStatus,
     paymentStatus: order.paymentStatus,
     reservationExpiresAt: order.reservationExpiresAt,
-    subtotal: Number(order.subtotal ?? 0),
-    discount: Number(order.discount ?? 0),
-    total: Number(order.total ?? 0),
+    subtotal: subtotalNum,
+    discount: discountNum,
+    deliveryFee,
+    total: totalNum,
+    deliveryDestination: addr
+      ? {
+          neighborhood: addr.neighborhood || null,
+          city: addr.city || null,
+          zipCode: addr.zipCode || null,
+        }
+      : null,
+    expressQuote,
+    expressDispatch,
     notes: order.notes || null,
     createdAt: order.createdAt,
     confirmedAt: order.confirmedAt || null,

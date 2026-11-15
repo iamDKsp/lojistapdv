@@ -1,5 +1,23 @@
 # Histórico — PDV Lojista
 
+## 2026-11-15 — Módulo Entrega Loja Virtual (`99 Entregas`), Alerta Sonoro no Caixa e Animação de Rota ao Vivo
+
+- **Motor de Cotação por Distância, Aba `/loja-virtual/entregas` e Despacho 99 (`backend/src/storefront/storefront-delivery.service.ts`, `storefront-admin.service.ts`, `storefront-orders.service.ts`, `frontend/src/retail/StorefrontExpressDeliveryTab.tsx` e `RetailStorefrontPage.tsx`)**:
+  - Implementado o módulo `modulos.entregaLojaVirtual` em **Modo Híbrido Inteligente** (Portal 99 Empresas + opção de credenciais corporativas `API_99_EMPRESAS` com mascaramento de token e zero vazamento na vitrine pública).
+  - Cálculo automático de rota entre o CEP da loja e o CEP do cliente (`DISTANCE_KM` ou `FIXED`), regras fixas por bairro, modalidades **99Entrega Moto** e **99Entrega Carro** (`carSurcharge`), pedido mínimo, gatilho de frete grátis, simulador de CEP ao vivo, geração de **PIN de Segurança de 4 dígitos** e cópia/despacho em 1 clique para o WhatsApp do comprador.
+  - Ajustado `SalesService.checkout` e `StorefrontOrdersService.convertOrderToSale` para registrar o frete do pedido em `Sale.addition`, conciliando o total faturado ao centavo sem exigir migração de schema.
+- **Notificação Sonora e Gaveta Rápida na Frente de Caixa (`frontend/src/retail/PosDeliveryAlertBar.tsx` e `RetailPosPage.tsx`)**:
+  - Monitoramento a cada 10s (`GET /api/storefront/admin/pos-alerts`) na tela de caixa (`/`), com acorde sonoro Web Audio API (com opção de silenciar), barra pulsante de alerta, contador no sino e gaveta lateral **Central de Entregas no Caixa** para confirmar, despachar 99 e converter pedidos em venda sem sair do caixa.
+- **Radar de Rota e Cena Animada de Entrega 99 na Vitrine Pública (`frontend/src/storefront/components/StorefrontDeliveryAnimation.tsx` e `PublicStorefrontApp.tsx`)**:
+  - No checkout (`/loja/:slug/finalizar`), radar animado calcula km/tempo estimado ao informar o CEP, exibe barra de progresso de frete grátis e permite escolher Moto ou Carro.
+  - No acompanhamento (`/loja/:slug/pedido/:referencia`), cena vetorial animada em tempo real (polling 10s) mostra a Moto/Carro 99 percorrendo o trajeto da loja até o cliente conforme o status avança (`Na Loja` -> `Chamando 99` -> `99 a Caminho` -> `Entregue`), junto ao PIN de 4 dígitos e link de rastreio — 100% dentro dos 8 tokens da paleta aprovada `roxo-branco`.
+
+## 2026-11-15 — Separação da Aba Principal `Início` e Sub-abas Exclusivas no Módulo `Histórico de Caixas`
+
+- **Remoção do Menu Superior Redundante na Aba `Início` (`frontend/src/retail/RetailLayout.tsx` e `frontend/src/lib/routes.ts`)**:
+  - A rota `/inicio` (**Início**) agora opera como tela principal independente, sem barra horizontal de sub-abas no topo, padronizando o rótulo `Início` na barra lateral, no cabeçalho superior (`Loja / Início`) e na navegação inferior mobile.
+  - As abas `Histórico de caixas` (`/inicio/historico-de-caixas`), `Relatórios de vendas` (`/inicio/relatorios`) e `Operações locais` (`/inicio/operacoes`) permanecem concentradas exclusivamente no módulo **Histórico de caixas** (módulo canônico `historico-caixas`), com transições direcionais entre si e sem exibir a aba redundante `Visão geral`.
+
 ## 2026-11-15 — Desconto no PDV por Valor Fixo (`R$`) ou Percentual (`%`)
 
 - **Seletor Duplo `Valor (R$)` | `Percentual (%)` no Fechamento de Venda (`frontend/src/retail/RetailCheckoutModal.tsx`, `frontend/src/retail/RetailPosPage.tsx` e `frontend/src/retail/retail.css`)**:

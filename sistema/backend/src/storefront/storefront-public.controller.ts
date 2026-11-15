@@ -147,6 +147,21 @@ export class StorefrontPublicController {
     return this.publicService.validateCart(slug, body);
   }
 
+  @Post(':slug/delivery/quote')
+  async quoteDelivery(
+    @Param('slug') slug: string,
+    @Body() body: any,
+    @Req() req: any,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    this.assertRateLimit(req, 'delivery-quote', 60);
+    res.setHeader(
+      'Cache-Control',
+      'no-store, no-cache, must-revalidate, private',
+    );
+    return this.publicService.quotePublicDelivery(slug, body || {});
+  }
+
   @Post(':slug/orders')
   async createOrder(
     @Param('slug') slug: string,

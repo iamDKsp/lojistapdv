@@ -1015,6 +1015,7 @@ function createInMemoryTenantDb(
           customerCpf: data.customerCpf,
           total: Number(data.total),
           discount: Number(data.discount || 0),
+          addition: Number(data.addition || 0),
           status: data.status,
           source: data.source,
           movimentarEstoque: data.movimentarEstoque,
@@ -1809,5 +1810,235 @@ describe('Módulo Loja Virtual (Storefront) - Isolamento, Reservas, Idempotênci
     const losers = pdvVsOnlineResults.filter((r) => r.status === 'rejected');
     expect(winners).toHaveLength(1);
     expect(losers).toHaveLength(1);
+  });
+
+  it('11. Módulo 99 Entregas (entregaLojaVirtual): cotação por km (Moto/Carro/Frete Grátis/Fora do Raio), mascaramento de token corporativo, pedido com frete + PIN, alertas PDV, despacho 99 e conversão atômica em venda com acréscimo de frete', async () => {
+    const h = createTestHarness();
+    // Habilitar módulo entregaLojaVirtual no tenant-a
+    h.heartTenants['tenant-a'].modulos = {
+      lojaVirtual: true,
+      entregaLojaVirtual: true,
+      nfce: false,
+    };
+
+    // 1) Configurar 99 Entregas com token corporativo sensível e regras de frete
+    await h.tenantContext.run(
+      {
+        tenantId: 'tenant-a',
+        databaseUrl: 'postgresql://local/tenant_a',
+        userId: 'admin-a',
+        role: 'admin',
+      },
+      async () => {
+        const saved = await h.adminService.updateExpressDeliverySettings({
+          enabled: true,
+          originZipCode: '01310100',
+          originStreet: 'Av. Paulista',
+          originNumber: '1000',
+          originNeighborhood: 'Bela Vista',
+          originCity: 'São Paulo',
+          originState: 'SP',
+          pricingMode: 'DISTANCE_KM',
+          baseFee: 8.9,
+          baseIncludedKm: 2,
+          feePerAdditionalKm: 2.5,
+          maxRadiusKm: 18,
+          motoEnabled: true,
+          carEnabled: true,
+          carSurcharge: 7.0,
+          minOrderAmount: 30,
+          freeShippingAbove: 200,
+          estimatedPrepMinutes: 15,
+          neighborhoodOverrides: [
+            { id: 'nb-1', neighborhood: 'Jardins', fee: 6.5, estimatedMinutes: 20 },
+          ],
+          apiIntegration: {
+            mode: 'API_99_EMPRESAS',
+            corporateAccountId: 'corp-99-sp',
+            corporateToken: 'tok_secret_99_super_privado_123456',
+            environment: 'sandbox',
+            autoRequestOnConfirm: false,
+          },
+        });
+
+        expect(saved.expressDeliveryModuleEnabled).toBe(true);
+        expect(saved.expressDelivery.effectivelyActive).toBe(true);
+        expect(saved.expressDelivery.apiIntegration.hasCorporateToken).toBe(true);
+        expect(saved.expressDelivery.apiIntegration.corporateTokenMasked).toContain('••••');
+        expect((saved.expressDelivery.apiIntegration as any).corporateToken).toBeUndefined();
+      },
+    );
+
+    // 2) Verificar que a home pública expõe expressDelivery seguro e NUNCA vaza token corporativo
+    const home = await h.publicService.getStorefrontHome('loja-alfa');
+    expect(home.expressDelivery.enabled).toBe(true);
+    expect((home.expressDelivery as any).apiIntegration).toBeUndefined();
+    expect((home.theme as any).expressDelivery).toBeUndefined();
+
+    // 3) Testar cotações públicas: Moto vs Carro, bairro fixo, frete grátis e fora do raio (RJ)
+    const quoteMoto = await h.publicService.quotePublicDelivery('loja-alfa', {
+      zipCode: '01415000',
+      subtotal: 79.9,
+      vehicleType: 'MOTO',
+    });
+    expect(quoteMoto.available).toBe(true);
+    expect(quoteMoto.selectedVehicle).toBe('MOTO');
+    expect(quoteMoto.selectedFee).toBeGreaterThanOrEqual(8.9);
+
+    const quoteCarro = await h.publicService.quotePublicDelivery('loja-alfa', {
+      zipCode: '01415000',
+      subtotal: 79.9,
+      vehicleType: 'CARRO',
+    });
+    expect(quoteCarro.available).toBe(true);
+    expect(quoteCarro.selectedVehicle).toBe('CARRO');
+    expect(Number((quoteCarro.selectedFee - quoteMoto.selectedFee).toFixed(2))).toBe(7.0);
+
+    const quoteOverride = await h.publicService.quotePublicDelivery('loja-alfa', {
+      zipCode: '01415000',
+      neighborhood: 'Jardins',
+      subtotal: 79.9,
+      vehicleType: 'MOTO',
+    });
+    expect(quoteOverride.available).toBe(true);
+    expect(quoteOverride.pricingSource).toBe('NEIGHBORHOOD_OVERRIDE');
+    expect(quoteOverride.selectedFee).toBe(6.5);
+
+    const quoteFree = await h.publicService.quotePublicDelivery('loja-alfa', {
+      zipCode: '01415000',
+      subtotal: 239.7,
+      vehicleType: 'MOTO',
+    });
+    expect(quoteFree.available).toBe(true);
+    expect(quoteFree.freeShippingApplied).toBe(true);
+    expect(quoteFree.selectedFee).toBe(0);
+
+    const quoteOutRadius = await h.publicService.quotePublicDelivery('loja-alfa', {
+      zipCode: '20040020', // Rio de Janeiro - fora do raio de 18 km de SP
+      subtotal: 120,
+      vehicleType: 'MOTO',
+    });
+    expect(quoteOutRadius.available).toBe(false);
+    expect(quoteOutRadius.reasonCode).toBe('OUT_OF_RADIUS');
+
+    // Rejeitar criação de pedido DELIVERY fora do raio
+    await expect(
+      h.ordersService.createPublicOrder('loja-alfa', {
+        idempotencyKey: 'ord-99-out-of-radius',
+        customerName: 'Cliente Distante',
+        customerPhone: '21999990000',
+        fulfillmentMode: 'DELIVERY',
+        deliveryVehicle: 'MOTO',
+        deliveryAddress: {
+          zipCode: '20040020',
+          street: 'Av. Rio Branco',
+          number: '100',
+          neighborhood: 'Centro',
+          city: 'Rio de Janeiro',
+          state: 'RJ',
+        },
+        items: [{ productId: 'prod-m-tenant-a', quantity: 1 }],
+      }),
+    ).rejects.toThrow();
+
+    // 4) Criar pedido público DELIVERY válido com 99Entrega Carro
+    const createdRes = await h.ordersService.createPublicOrder('loja-alfa', {
+      idempotencyKey: 'ord-99-valid-carro',
+      customerName: 'Mariana Silva',
+      customerPhone: '11988887777',
+      fulfillmentMode: 'DELIVERY',
+      deliveryVehicle: 'CARRO',
+      deliveryAddress: {
+        zipCode: '01415000',
+        street: 'Rua Bela Cintra',
+        number: '500',
+        neighborhood: 'Jardins',
+        city: 'São Paulo',
+        state: 'SP',
+      },
+      items: [{ productId: 'prod-m-tenant-a', quantity: 1 }],
+    });
+
+    // Bairro Jardins (6.50) + Carro (+7.00) = 13.50; Subtotal 79.90 + 13.50 = 93.40
+    expect(createdRes.subtotal).toBe(79.9);
+    expect(createdRes.deliveryFee).toBe(13.5);
+    expect(createdRes.total).toBe(93.4);
+    expect(createdRes.expressDispatch?.provider).toBe('99_ENTREGAS');
+    expect(createdRes.expressDispatch?.vehicleType).toBe('CARRO');
+    expect(createdRes.expressDispatch?.confirmationPin).toMatch(/^\d{4}$/);
+
+    const orderId = h.storeA.orders[0].id;
+
+    // 5) Verificar alerta na frente de caixa (POS), despacho 99 e conversão atômica em venda com frete
+    await h.tenantContext.run(
+      {
+        tenantId: 'tenant-a',
+        databaseUrl: 'postgresql://local/tenant_a',
+        userId: 'admin-a',
+        role: 'admin',
+      },
+      async () => {
+        const posAlerts = await h.ordersService.getPosAlerts();
+        expect(posAlerts.enabled).toBe(true);
+        expect(posAlerts.pendingDeliveryCount).toBe(1);
+        expect(posAlerts.activeExpressCount).toBe(1);
+        expect(posAlerts.alerts[0].id).toBe(orderId);
+        expect(posAlerts.alerts[0].deliveryFee).toBe(13.5);
+
+        await h.ordersService.confirmOrder(
+          orderId,
+          { holdHours: 24 },
+          { userId: 'admin-a', name: 'Caixa' },
+        );
+
+        const dispatched = await h.ordersService.dispatchExpressOrder(
+          orderId,
+          {
+            status: 'DISPATCHED',
+            vehicleType: 'CARRO',
+            courierName: 'Roberto Motorista',
+            vehiclePlate: 'BRA2E19',
+            trackingUrl: 'https://99app.com/track/corrida-teste-123',
+          },
+          { userId: 'admin-a', name: 'Caixa' },
+        );
+
+        expect(dispatched.order.fulfillmentStatus).toBe('OUT_FOR_DELIVERY');
+        expect(dispatched.order.expressDispatch.status).toBe('DISPATCHED');
+        expect(dispatched.order.expressDispatch.courierName).toBe('Roberto Motorista');
+        expect(dispatched.customerTrackingWhatsappUrl).toContain('wa.me/');
+
+        // Consultar visão pública de rastreamento em tempo real (usada pela animação do cliente)
+        const publicTrack = await h.ordersService.getPublicOrderByReference(
+          'loja-alfa',
+          createdRes.reference,
+          createdRes.accessToken,
+        );
+        expect(publicTrack.fulfillmentStatus).toBe('OUT_FOR_DELIVERY');
+        expect(publicTrack.expressDispatch?.status).toBe('DISPATCHED');
+        expect(publicTrack.expressDispatch?.courierName).toBe('Roberto Motorista');
+        expect(publicTrack.expressDispatch?.confirmationPin).toMatch(/^\d{4}$/);
+
+        // Abrir caixa e converter em venda no PDV: total da venda deve incluir o frete (addition = 13.50, total = 93.40)
+        h.storeA.cashRegisters.push({
+          id: 'cr-99',
+          status: 'open',
+          expectedCash: 0,
+        });
+
+        const converted = await h.ordersService.convertOrderToSale(
+          orderId,
+          {
+            idempotencyKey: 'conv-sale-99-order',
+            paymentMethodName: 'Pix',
+          },
+          { userId: 'admin-a', name: 'Caixa' },
+        );
+
+        expect(converted.sale.addition).toBe(13.5);
+        expect(converted.sale.total).toBe(93.4);
+        expect(converted.order.commercialStatus).toBe('COMPLETED');
+      },
+    );
   });
 });

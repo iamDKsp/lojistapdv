@@ -2,12 +2,14 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { HeartPrismaService } from '../prisma/heart-prisma.service';
 import { TenantConnectionManager } from '../prisma/tenant-prisma.service';
 import { TenantContextService } from '../prisma/tenant-context.service';
 import { getActiveReservedQuantities } from '../prisma/stock-reservations.helper';
 import { isStorefrontSchemaMissingError } from '../tenants/tenant-schema-upgrade';
+import { StorefrontDeliveryService } from './storefront-delivery.service';
 import {
   normalizeStorefrontSlug,
   toPublicCategoryDto,
@@ -22,6 +24,7 @@ export interface ResolvedPublicStore {
   slug: string;
   db: any;
   settings: any;
+  tenant?: any;
 }
 
 @Injectable()
@@ -30,6 +33,8 @@ export class StorefrontPublicService {
     private readonly heartPrisma: HeartPrismaService,
     private readonly tenantManager: TenantConnectionManager,
     private readonly tenantContext: TenantContextService,
+    @Optional()
+    private readonly deliveryService: StorefrontDeliveryService = new StorefrontDeliveryService(),
   ) {}
 
   /**
@@ -226,6 +231,7 @@ export class StorefrontPublicService {
       slug: settings.slug,
       db,
       settings,
+      tenant,
     };
   }
 
@@ -250,11 +256,26 @@ export class StorefrontPublicService {
   }
 
   async getStorefrontHome(rawSlug: string) {
-    return this.runInPublicStoreContext(rawSlug, async ({ db, settings }) => {
-      const publishedTheme = validateAndSanitizeTheme(
-        settings.publishedThemeJson,
-        settings.storeName,
-      );
+    return this.runInPublicStoreContext(
+      rawSlug,
+      async ({ db, settings, tenant }) => {
+        const publishedTheme = validateAndSanitizeTheme(
+          settings.publishedThemeJson,
+          settings.storeName,
+        );
+        const expressModuleEnabled = tenant
+          ? this.deliveryService.isExpressModuleEnabledOnTenant(tenant)
+          : false;
+        const expressConfig = this.deliveryService.extractConfigFromTheme(
+          settings.publishedThemeJson || settings.draftThemeJson,
+          tenant,
+        );
+        const expressDelivery = this.deliveryService.toPublicDto(
+          expressConfig,
+          expressModuleEnabled,
+        );
+        // Garantir que nenhuma credencial corporativa interna vaze no JSON público do tema
+        delete (publishedTheme as any).expressDelivery;
 
       const [categoriesRaw, storefrontProducts] = await Promise.all([
         db.storefrontCategory.findMany({
@@ -326,6 +347,7 @@ export class StorefrontPublicService {
           settings.confirmReservationMinutes ?? 15,
         ),
         whatsappConfigured: Boolean(settings.whatsappPhone),
+        expressDelivery,
         theme: publishedTheme,
         categories: categoriesRaw.map(toPublicCategoryDto),
         featuredProducts,
@@ -339,6 +361,46 @@ export class StorefrontPublicService {
         },
       };
     });
+  }
+
+  async quotePublicDelivery(
+    rawSlug: string,
+    body: {
+      zipCode?: string;
+      neighborhood?: string;
+      city?: string;
+      state?: string;
+      subtotal?: number;
+      vehicleType?: string;
+    },
+  ) {
+    return this.runInPublicStoreContext(
+      rawSlug,
+      async ({ settings, tenant }) => {
+        if (!settings.deliveryEnabled) {
+          throw new BadRequestException(
+            'A opção de entrega não está habilitada nesta loja.',
+          );
+        }
+        const expressModuleEnabled = tenant
+          ? this.deliveryService.isExpressModuleEnabledOnTenant(tenant)
+          : false;
+        const expressConfig = this.deliveryService.extractConfigFromTheme(
+          settings.publishedThemeJson || settings.draftThemeJson,
+          tenant,
+        );
+        return this.deliveryService.calculateDeliveryQuote({
+          config: expressConfig,
+          moduleEnabled: expressModuleEnabled,
+          destinationZipCode: body?.zipCode,
+          neighborhood: body?.neighborhood,
+          city: body?.city,
+          state: body?.state,
+          subtotal: Number(body?.subtotal ?? 0),
+          preferredVehicle: body?.vehicleType,
+        });
+      },
+    );
   }
 
   async listProducts(

@@ -48,6 +48,10 @@ import { api } from "@/lib/api";
 import { getFullUrl } from "@/lib/getFullUrl";
 import { SESSION_TRANSITION_EVENT } from "@/components/ui";
 import {
+  OperatorAvatarThumb,
+  useResolvedOperatorPhoto,
+} from "@/components/EntityPhotos";
+import {
   getCanonicalModuleId,
   shouldIgnoreArrowNavigation,
 } from "@/lib/routes";
@@ -224,12 +228,24 @@ export function RetailTeamAvatars({
 export function RetailOperatorAvatar({
   name,
   imageUrl,
+  operatorId,
 }: {
   name?: string | null;
   imageUrl?: string | null;
+  operatorId?: string | null;
 }) {
   const { operator } = useShift();
-  const resolvedPhoto = imageUrl !== undefined ? imageUrl : operator?.imageUrl;
+  const authUser = useAuthStore((s) => s.user);
+  const fallbackActivePhoto =
+    !name && !operatorId && imageUrl === undefined
+      ? operator?.imageUrl || authUser?.imageUrl || null
+      : null;
+  const resolvedFromLookup = useResolvedOperatorPhoto({
+    operatorId,
+    name,
+    imageUrl,
+  });
+  const resolvedPhoto = resolvedFromLookup || fallbackActivePhoto;
   const [imgError, setImgError] = useState(false);
 
   useEffect(() => {
@@ -613,7 +629,7 @@ export function RetailLayout() {
     : [
         [
           {
-            name: "Visão geral",
+            name: "Início",
             path: "/inicio",
             icon: Home,
             iconKind: "home",
@@ -786,9 +802,12 @@ export function RetailLayout() {
           : []),
       ];
     }
-    if (pathname.startsWith("/inicio")) {
+    if (
+      pathname.startsWith("/inicio/historico-de-caixas") ||
+      pathname.startsWith("/inicio/relatorios") ||
+      pathname.startsWith("/inicio/operacoes")
+    ) {
       return [
-        { label: "Visão geral", path: "/inicio" },
         { label: "Histórico de caixas", path: "/inicio/historico-de-caixas" },
         { label: "Relatórios de vendas", path: "/inicio/relatorios" },
         { label: "Operações locais", path: "/inicio/operacoes" },
@@ -851,6 +870,7 @@ export function RetailLayout() {
         { label: "Produtos", path: "/loja-virtual/produtos" },
         { label: "Categorias", path: "/loja-virtual/categorias" },
         { label: "Pedidos", path: "/loja-virtual/pedidos" },
+        { label: "99 Entregas", path: "/loja-virtual/entregas" },
         { label: "Configurações", path: "/loja-virtual/configuracoes" },
       ];
     }
@@ -878,7 +898,7 @@ export function RetailLayout() {
   ]);
 
   const sectionHeading = useMemo(() => {
-    if (pathname === "/inicio") return "Resumo";
+    if (pathname === "/inicio") return "Início";
     if (pathname.startsWith("/grupo-portal"))
       return groupName
         ? `Rede Multi-Lojas · ${groupName}`
@@ -912,7 +932,8 @@ export function RetailLayout() {
     if (pathname.startsWith("/financeiro")) return "finance";
     if (
       pathname.startsWith("/inicio/historico-de-caixas") ||
-      pathname.startsWith("/inicio/operacoes")
+      pathname.startsWith("/inicio/operacoes") ||
+      pathname.startsWith("/inicio/relatorios")
     )
       return "registers";
     if (pathname.startsWith("/equipe")) return "team";
@@ -929,7 +950,6 @@ export function RetailLayout() {
 
   const activeTabIndex = useMemo(() => {
     return subNavTabs.findIndex((tab) =>
-      tab.path === "/inicio" ||
       tab.path === "/estoque" ||
       tab.path === "/clientes" ||
       tab.path === "/crediario" ||
@@ -1333,6 +1353,8 @@ export function RetailLayout() {
                     >
                       <RetailOperatorAvatar
                         name={shift.operator?.name || user?.name}
+                        operatorId={shift.operator?.id || user?.id}
+                        imageUrl={shift.operator?.imageUrl ?? user?.imageUrl}
                       />
                       <ChevronsUpDown size={15} />
                     </button>
@@ -1340,14 +1362,26 @@ export function RetailLayout() {
                     {profileMenuOpen && (
                       <div className="retail-floating-menu" role="menu">
                         <div className="retail-floating-menu-head">
-                          <strong>{user?.name || "Administrador"}</strong>
-                          <small>
-                            {isStockist
-                              ? "Estoquista"
-                              : hasMultiStoreGroup
-                                ? `Administrador · ${groupName || "Multi-Lojas"}`
-                                : "Administrador"}
-                          </small>
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <OperatorAvatarThumb
+                              name={shift.operator?.name || user?.name}
+                              imageUrl={shift.operator?.imageUrl ?? user?.imageUrl}
+                              operatorId={shift.operator?.id || user?.id}
+                              size="md"
+                            />
+                            <div className="flex flex-col min-w-0">
+                              <strong className="truncate">
+                                {shift.operator?.name || user?.name || "Administrador"}
+                              </strong>
+                              <small>
+                                {isStockist
+                                  ? "Estoquista"
+                                  : hasMultiStoreGroup
+                                    ? `Administrador · ${groupName || "Multi-Lojas"}`
+                                    : "Administrador"}
+                              </small>
+                            </div>
+                          </div>
                         </div>
                         {!isStockist && (
                           <>
@@ -1466,7 +1500,6 @@ export function RetailLayout() {
                   >
                     {subNavTabs.map((tab, tabIdx) => {
                       const isExactRoot =
-                        tab.path === "/inicio" ||
                         tab.path === "/estoque" ||
                         tab.path === "/clientes" ||
                         tab.path === "/crediario" ||
@@ -1588,13 +1621,13 @@ export function RetailLayout() {
                     to="/inicio"
                     end
                     className={`retail-mobile-tab ${
-                      pathname.startsWith("/inicio")
+                      pathname === "/inicio"
                         ? "is-active"
                         : ""
                     }`}
                   >
                     <Home size={20} strokeWidth={2} />
-                    <span>Resumo</span>
+                    <span>Início</span>
                   </NavLink>
                   <NavLink
                     to="/estoque"
@@ -1622,10 +1655,16 @@ export function RetailLayout() {
                     type="button"
                     className={`retail-mobile-tab ${
                       menuOpen ||
+                      pathname.startsWith("/inicio/historico-de-caixas") ||
+                      pathname.startsWith("/inicio/relatorios") ||
+                      pathname.startsWith("/inicio/operacoes") ||
                       pathname.startsWith("/financeiro") ||
                       pathname.startsWith("/equipe") ||
+                      pathname.startsWith("/inteligencia-comercial") ||
                       pathname.startsWith("/crediario") ||
                       pathname.startsWith("/vitrine") ||
+                      pathname.startsWith("/loja-virtual") ||
+                      pathname.startsWith("/grupo-portal") ||
                       pathname.startsWith("/configuracoes")
                         ? "is-active"
                         : ""
@@ -1661,6 +1700,8 @@ export function RetailLayout() {
                     <div className="retail-mobile-drawer-store">
                       <RetailOperatorAvatar
                         name={shift.operator?.name || user?.name}
+                        operatorId={shift.operator?.id || user?.id}
+                        imageUrl={shift.operator?.imageUrl ?? user?.imageUrl}
                       />
                       <div>
                         <strong>

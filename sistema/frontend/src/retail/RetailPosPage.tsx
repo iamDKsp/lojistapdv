@@ -28,6 +28,7 @@ import {
   ChevronRight,
   ChevronUp,
   Monitor,
+  Truck,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -63,9 +64,15 @@ import {
   RetailTeamAvatars,
   RetailOperatorAvatar,
 } from "./RetailLayout";
+import { OperatorAvatarThumb, StockItemThumb } from "@/components/EntityPhotos";
 import { shouldIgnoreArrowNavigation } from "@/lib/routes";
 import { RetailCheckoutModal } from "./RetailCheckoutModal";
 import { RetailDialog } from "./RetailDialog";
+import {
+  PosDeliveryAlertBanner,
+  PosDeliveryAlertDrawer,
+  usePosStorefrontAlerts,
+} from "./PosDeliveryAlertBar";
 import { apiError, money } from "./types";
 
 const QUICK_METHODS = [
@@ -429,6 +436,18 @@ export function RetailPosPage() {
 
   const isAdmin =
     user?.role === "admin" || user?.role === "superadmin" || shell.isAdmin;
+
+  const storefrontEnabledForPos = Boolean(
+    tenant &&
+      (shell.config?.modulos?.lojaVirtual !== false ||
+        config?.modulos?.lojaVirtual),
+  );
+  const posStorefront = usePosStorefrontAlerts({
+    enabled: storefrontEnabledForPos,
+    isOnline: sync.isOnline,
+  });
+  const posActionableOrdersCount =
+    posStorefront.alertsData?.totalActionableCount ?? 0;
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
@@ -819,10 +838,20 @@ export function RetailPosPage() {
         <div className="retail-canvas-title-wrap">
           <h1>Criar Transação</h1>
           <div className="retail-pos-subline">
-            <span>
-              {shift.operator
-                ? `Operador: ${shift.operator.name}`
-                : "Identifique o operador para começar"}
+            <span className="inline-flex items-center gap-1.5">
+              {shift.operator ? (
+                <>
+                  <OperatorAvatarThumb
+                    name={shift.operator.name}
+                    imageUrl={shift.operator.imageUrl}
+                    operatorId={shift.operator.id}
+                    size="xs"
+                  />
+                  <span>Operador: {shift.operator.name}</span>
+                </>
+              ) : (
+                "Identifique o operador para começar"
+              )}
             </span>
             <span aria-hidden="true">·</span>
             <span>{storeTitle}</span>
@@ -849,7 +878,10 @@ export function RetailPosPage() {
               }
             >
               <Bell size={18} />
-              {(reviewCount > 0 || sync.pendingCount > 0 || !sync.isOnline) && (
+              {(posActionableOrdersCount > 0 ||
+                reviewCount > 0 ||
+                sync.pendingCount > 0 ||
+                !sync.isOnline) && (
                 <span className="retail-bell-dot" aria-hidden="true" />
               )}
             </button>
@@ -865,6 +897,20 @@ export function RetailPosPage() {
                 <div className="retail-floating-menu-status">
                   <ConnectionStatus syncState={sync} />
                 </div>
+                {posStorefront.alertsData?.enabled && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOpenMenu(null);
+                      posStorefront.openDrawerForOrder(
+                        posStorefront.alertsData?.latestOrderId || null,
+                      );
+                    }}
+                  >
+                    <Truck size={15} />
+                    Entregas 99 / Loja Virtual ({posActionableOrdersCount})
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => {
@@ -979,6 +1025,8 @@ export function RetailPosPage() {
             >
               <RetailOperatorAvatar
                 name={shift.operator?.name || user?.name}
+                operatorId={shift.operator?.id || user?.id}
+                imageUrl={shift.operator?.imageUrl ?? user?.imageUrl}
               />
               <ChevronsUpDown size={15} />
             </button>
@@ -986,16 +1034,26 @@ export function RetailPosPage() {
             {openMenu === "profile" && (
               <div className="retail-floating-menu" role="menu">
                 <div className="retail-floating-menu-head">
-                  <strong>
-                    {shift.operator?.name || user?.name || "Operador"}
-                  </strong>
-                  <small>
-                    {isAdmin
-                      ? shell.cashierOnlyMode
-                        ? "Modo Caixa (Sem Menu Lateral)"
-                        : "Administrador"
-                      : "Operador de Caixa"}
-                  </small>
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <OperatorAvatarThumb
+                      name={shift.operator?.name || user?.name}
+                      imageUrl={shift.operator?.imageUrl ?? user?.imageUrl}
+                      operatorId={shift.operator?.id || user?.id}
+                      size="md"
+                    />
+                    <div className="flex flex-col min-w-0">
+                      <strong className="truncate">
+                        {shift.operator?.name || user?.name || "Operador"}
+                      </strong>
+                      <small>
+                        {isAdmin
+                          ? shell.cashierOnlyMode
+                            ? "Modo Caixa (Sem Menu Lateral)"
+                            : "Administrador"
+                          : "Operador de Caixa"}
+                      </small>
+                    </div>
+                  </div>
                 </div>
                 <button
                   type="button"
@@ -1058,6 +1116,13 @@ export function RetailPosPage() {
           </div>
         </div>
       </header>
+
+      <PosDeliveryAlertBanner
+        alertsData={posStorefront.alertsData}
+        soundMuted={posStorefront.soundMuted}
+        onToggleSound={posStorefront.toggleSoundMuted}
+        onOpenDrawer={posStorefront.openDrawerForOrder}
+      />
 
       {shift.registerQueryFailed && (
         <div className="retail-message" role="status">
@@ -1754,9 +1819,17 @@ export function RetailPosPage() {
                         .reduce((n, i) => n + i.quantity, 0)
                   }
                 >
-                  <strong>
-                    {product.size || "Único"} · {product.color || "Sortida"}
-                  </strong>
+                  <span className="inline-flex items-center gap-2.5 min-w-0">
+                    <StockItemThumb
+                      size="xs"
+                      name={product.name}
+                      imageUrl={product.imageUrl || choice.imageUrl}
+                      product={product}
+                    />
+                    <strong>
+                      {product.size || "Único"} · {product.color || "Sortida"}
+                    </strong>
+                  </span>
                   <span>
                     {Number(product.stock)} peças em estoque ·{" "}
                     {money(product.priceSell)}
@@ -1842,6 +1915,22 @@ export function RetailPosPage() {
           }}
         />
       )}
+
+      <PosDeliveryAlertDrawer
+        open={posStorefront.drawerOpen}
+        onClose={() => posStorefront.setDrawerOpen(false)}
+        alertsData={posStorefront.alertsData}
+        loading={posStorefront.loadingAlerts}
+        selectedOrderId={posStorefront.selectedOrderId}
+        onSelectOrderId={posStorefront.setSelectedOrderId}
+        cashRegisterId={shift.cashRegister?.id || null}
+        operatorId={shift.operator?.id || null}
+        onRefresh={posStorefront.refreshAlerts}
+        onSaleConverted={() => {
+          void load();
+          void shift.refreshShift();
+        }}
+      />
     </div>
   );
 }

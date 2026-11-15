@@ -58,6 +58,10 @@ import {
   SF_VIEW_TRANSITION,
 } from '@/storefront/storefront-motion';
 import { RetailDialog } from './RetailDialog';
+import {
+  StorefrontExpressDeliveryTab,
+  StorefrontOrderExpressDispatchCard,
+} from './StorefrontExpressDeliveryTab';
 import { apiError, money } from './types';
 
 type TabKey =
@@ -66,7 +70,8 @@ type TabKey =
   | 'appearance'
   | 'products'
   | 'categories'
-  | 'orders';
+  | 'orders'
+  | 'delivery';
 
 const COMMERCIAL_STATUS_LABELS: Record<string, string> = {
   AWAITING_CONFIRMATION: 'Aguardando confirmação',
@@ -242,10 +247,12 @@ function normalizeAdminCategory(c: any) {
 
 function normalizeAdminOrder(o: any) {
   const deliveryAddr = o.deliveryAddress && typeof o.deliveryAddress === 'object' ? o.deliveryAddress : {};
+  const mode = o.deliveryMode || o.fulfillmentMode || 'PICKUP';
   return {
     ...o,
     whatsappUrl: o.whatsappUrl || o.customerWhatsappUrl || null,
-    deliveryMode: o.deliveryMode || o.fulfillmentMode || 'PICKUP',
+    deliveryMode: mode,
+    fulfillmentMode: mode,
     customerDocument: o.customerDocument || o.customerCpf || null,
     addressLine: o.addressLine || deliveryAddr.street || null,
     addressNumber: o.addressNumber || deliveryAddr.number || null,
@@ -291,6 +298,7 @@ export function RetailStorefrontPage() {
 
   const activeTab: TabKey = useMemo(() => {
     const p = location.pathname;
+    if (p.includes('/loja-virtual/entregas')) return 'delivery';
     if (p.includes('/loja-virtual/configuracoes')) return 'settings';
     if (p.includes('/loja-virtual/aparencia')) return 'appearance';
     if (p.includes('/loja-virtual/produtos')) return 'products';
@@ -303,6 +311,7 @@ export function RetailStorefrontPage() {
     const routes: Record<TabKey, string> = {
       overview: '/loja-virtual',
       orders: '/loja-virtual/pedidos',
+      delivery: '/loja-virtual/entregas',
       products: '/loja-virtual/produtos',
       categories: '/loja-virtual/categorias',
       appearance: '/loja-virtual/aparencia',
@@ -1222,6 +1231,24 @@ export function RetailStorefrontPage() {
       (o.commercialStatus === 'CONFIRMED' &&
         o.fulfillmentStatus !== 'DELIVERED'),
   );
+  const expressDeliveryCfg =
+    overview?.settings?.expressDelivery ||
+    overview?.config?.expressDelivery ||
+    null;
+  const originAddressLine = expressDeliveryCfg?.originStreet
+    ? [
+        `${expressDeliveryCfg.originStreet}${expressDeliveryCfg.originNumber ? `, ${expressDeliveryCfg.originNumber}` : ''}`,
+        expressDeliveryCfg.originNeighborhood,
+        expressDeliveryCfg.originCity
+          ? `${expressDeliveryCfg.originCity}${expressDeliveryCfg.originState ? `/${expressDeliveryCfg.originState}` : ''}`
+          : '',
+        expressDeliveryCfg.originZipCode
+          ? `CEP ${expressDeliveryCfg.originZipCode}`
+          : '',
+      ]
+        .filter(Boolean)
+        .join(' - ')
+    : settingsForm.address || '';
 
   return (
     <div className="management-storefront space-y-5">
@@ -1622,6 +1649,15 @@ export function RetailStorefrontPage() {
                 >
                   <Package size={15} />
                   <span>Gerenciar Peças</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTab('delivery')}
+                  className="retail-button retail-button-secondary w-full col-span-2"
+                  style={{ minHeight: 38, fontSize: 12 }}
+                >
+                  <Truck size={15} className="text-brand" />
+                  <span>Configurar 99 Entregas (Frete por Km & Rastreio)</span>
                 </button>
               </div>
             </div>
@@ -2084,6 +2120,20 @@ export function RetailStorefrontPage() {
                     </div>
                   )}
 
+                  {/* Central de Despacho 99 Entregas (para pedidos DELIVERY) */}
+                  {selectedOrder.fulfillmentMode === 'DELIVERY' && (
+                    <StorefrontOrderExpressDispatchCard
+                      order={selectedOrder}
+                      originAddressLine={originAddressLine}
+                      onUpdated={async (updatedOrder: any) => {
+                        if (updatedOrder) {
+                          setSelectedOrder(normalizeAdminOrder(updatedOrder));
+                        }
+                        await loadOrdersOnly();
+                      }}
+                    />
+                  )}
+
                   {/* Lista de Itens do Pedido */}
                   <div>
                     <h4 className="font-bold text-xs uppercase tracking-wider text-muted mb-2.5">
@@ -2133,14 +2183,52 @@ export function RetailStorefrontPage() {
                       ))}
                     </div>
 
-                    <div className="flex justify-between items-center mt-3 pt-3 pb-6 border-t border-line">
-                      <span className="text-xs font-bold text-muted">
-                        Total do Pedido (c/ entrega de{' '}
-                        {money(selectedOrder.deliveryFee || 0)})
-                      </span>
-                      <span className="text-lg font-black text-ink">
-                        {money(selectedOrder.total)}
-                      </span>
+                    <div className="mt-3 pt-3 pb-6 border-t border-line space-y-1.5">
+                      {(selectedOrder.fulfillmentMode === 'DELIVERY' ||
+                        Number(selectedOrder.deliveryFee || 0) > 0) && (
+                        <>
+                          <div className="flex justify-between items-center text-xs text-muted">
+                            <span>Subtotal das peças</span>
+                            <span className="font-bold text-ink">
+                              {money(
+                                Number(
+                                  selectedOrder.subtotal ??
+                                    Math.max(
+                                      0,
+                                      Number(selectedOrder.total || 0) -
+                                        Number(selectedOrder.deliveryFee || 0),
+                                    ),
+                                ),
+                              )}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center text-xs text-muted">
+                            <span>
+                              Entrega 99
+                              {selectedOrder.expressQuote?.vehicleType ===
+                              'CARRO'
+                                ? ' (Carro)'
+                                : selectedOrder.expressQuote?.vehicleType ===
+                                    'MOTO'
+                                  ? ' (Moto)'
+                                  : ''}
+                            </span>
+                            <span className="font-bold text-brand">
+                              {Number(selectedOrder.deliveryFee || 0) === 0
+                                ? 'Grátis'
+                                : money(Number(selectedOrder.deliveryFee || 0))}
+                            </span>
+                          </div>
+                        </>
+                      )}
+                      <div className="flex justify-between items-center pt-1">
+                        <span className="text-xs font-bold text-muted">
+                          Total do Pedido
+                        </span>
+                        <span className="text-lg font-black text-ink">
+                          {money(selectedOrder.total)}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -3646,6 +3734,14 @@ export function RetailStorefrontPage() {
                         placeholder="Ex: Entregas por motoboy em até 2 horas."
                       />
                     </label>
+                    <button
+                      type="button"
+                      onClick={() => setTab('delivery')}
+                      className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-support border border-brand px-3 py-2 text-xs font-extrabold text-brand hover:bg-surface transition cursor-pointer"
+                    >
+                      <Truck size={14} />
+                      <span>Configurar 99 Entregas (Km, Moto/Carro & PIN)</span>
+                    </button>
                   </div>
                 )}
               </div>
@@ -3724,6 +3820,21 @@ export function RetailStorefrontPage() {
             </div>
           </div>
         </form>
+      )}
+
+      {/* ==================================================================== */}
+      {/* ABA 7: MÓDULO 99 ENTREGAS (FRETE POR KM, MOTO/CARRO & API/PORTAL)    */}
+      {/* ==================================================================== */}
+      {activeTab === 'delivery' && (
+        <StorefrontExpressDeliveryTab
+          initialConfig={expressDeliveryCfg}
+          deliveryEnabled={Boolean(settingsForm.deliveryEnabled)}
+          deliveryFeeNote={settingsForm.deliveryNotes}
+          onSaved={async () => {
+            const ovRes = await api.get('/storefront/admin/overview');
+            applyOverviewData(ovRes.data);
+          }}
+        />
       )}
         </motion.div>
       </AnimatePresence>

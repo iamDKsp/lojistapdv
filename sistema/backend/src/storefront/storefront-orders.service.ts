@@ -5,6 +5,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { Prisma } from '@prisma/client';
@@ -16,8 +17,18 @@ import { TenantContextService } from '../prisma/tenant-context.service';
 import { TenantConnectionManager } from '../prisma/tenant-prisma.service';
 import { retryTransaction } from '../prisma/transaction-retry';
 import { SalesService } from '../sales/sales.service';
+import {
+  EntityPhotoResolverService,
+  TenantActorPhotoLookup,
+} from '../prisma/entity-photo-resolver.service';
 import { isStorefrontSchemaMissingError } from '../tenants/tenant-schema-upgrade';
 import { StorefrontAdminService } from './storefront-admin.service';
+import {
+  ExpressDispatchRecord,
+  ExpressDispatchStatus,
+  ExpressVehicleType,
+  StorefrontDeliveryService,
+} from './storefront-delivery.service';
 import { StorefrontPublicService } from './storefront-public.service';
 import {
   assertValidCommercialTransition,
@@ -45,6 +56,10 @@ export class StorefrontOrdersService {
     private readonly publicService: StorefrontPublicService,
     private readonly adminService: StorefrontAdminService,
     private readonly salesService: SalesService,
+    @Optional()
+    private readonly deliveryService: StorefrontDeliveryService = new StorefrontDeliveryService(),
+    @Optional()
+    private readonly photoResolver?: EntityPhotoResolverService,
   ) {}
 
   private deriveOrderAccessToken(tenantId: string, rawClientKey: string): string {
@@ -77,6 +92,7 @@ export class StorefrontOrdersService {
         | 'DELIVERY',
       deliveryAddress: order.deliveryAddressJson,
       notes: order.notes,
+      subtotal: Number(order.subtotal ?? 0),
       total: Number(order.total ?? 0),
       items: (order.items || []).map((i: any) => ({
         productName: i.productName,
@@ -122,7 +138,7 @@ export class StorefrontOrdersService {
   async createPublicOrder(rawSlug: string, body: any, originUrl?: string) {
     return this.publicService.runInPublicStoreContext(
       rawSlug,
-      async ({ tenantId, db, settings }) => {
+      async ({ tenantId, db, settings, tenant }) => {
         const rawKey = String(body?.idempotencyKey || '').trim();
         const idempotencyKey = normalizeOrderIdempotencyKey(rawKey, tenantId);
         const accessToken = this.deriveOrderAccessToken(tenantId, rawKey);
@@ -265,10 +281,39 @@ export class StorefrontOrdersService {
           }
         }
 
+        const requestedVehicleRaw =
+          fulfillmentMode === 'DELIVERY'
+            ? String(
+                body?.deliveryVehicle ||
+                  body?.deliveryAddress?.vehicleType ||
+                  '',
+              )
+                .trim()
+                .toUpperCase()
+            : '';
+        const requestedVehicle: ExpressVehicleType | undefined =
+          requestedVehicleRaw === 'CARRO' || requestedVehicleRaw === 'MOTO'
+            ? (requestedVehicleRaw as ExpressVehicleType)
+            : undefined;
+
+        const expressModuleEnabled = tenant
+          ? this.deliveryService.isExpressModuleEnabledOnTenant(tenant)
+          : false;
+        const expressConfig = this.deliveryService.extractConfigFromTheme(
+          settings.publishedThemeJson || settings.draftThemeJson,
+          tenant,
+        );
+        const isExpressActive = Boolean(
+          fulfillmentMode === 'DELIVERY' &&
+            expressModuleEnabled &&
+            expressConfig.enabled,
+        );
+
         const requestedItems = Array.from(consolidated.values());
         const fingerprint = computeStorefrontOrderFingerprint({
           customerPhone,
           fulfillmentMode,
+          ...(requestedVehicle ? { deliveryVehicle: requestedVehicle } : {}),
           items: requestedItems,
         });
 
@@ -306,6 +351,20 @@ export class StorefrontOrdersService {
         });
         if (preExisting) {
           return validateReplay(preExisting);
+        }
+
+        // Pré-aquecer cache de CEP fora da transação (nunca bloquear linhas aguardando rede externa)
+        if (isExpressActive) {
+          if (deliveryAddressJson?.zipCode) {
+            await this.deliveryService.resolveZipCodeInfo(
+              deliveryAddressJson.zipCode,
+            );
+          }
+          if (expressConfig.originZipCode) {
+            await this.deliveryService.resolveZipCodeInfo(
+              expressConfig.originZipCode,
+            );
+          }
         }
 
         const productIds = requestedItems
@@ -404,6 +463,12 @@ export class StorefrontOrdersService {
                     );
                   }
 
+                  const galleryFirst = Array.isArray(sp?.galleryUrlsJson)
+                    ? sp.galleryUrlsJson[0] || null
+                    : null;
+                  const resolvedItemImageUrl =
+                    rg.imageUrl || galleryFirst || product.imageUrl || null;
+
                   if (
                     reqItem.expectedPriceUnit !== undefined &&
                     Math.abs(
@@ -414,6 +479,7 @@ export class StorefrontOrdersService {
                       productId: product.id,
                       productName:
                         sp.commercialTitle || rg.name || product.name,
+                      imageUrl: resolvedItemImageUrl,
                       expectedPriceUnit: Number(reqItem.expectedPriceUnit),
                       currentPriceUnit: serverPriceUnit,
                     });
@@ -463,7 +529,7 @@ export class StorefrontOrdersService {
                     variantLabel,
                     sku: product.shortCode || null,
                     barcode: product.barcode || null,
-                    imageUrl: rg.imageUrl || product.imageUrl || null,
+                    imageUrl: resolvedItemImageUrl,
                     unit: product.unit || 'UN',
                     quantity: reqItem.quantity,
                     priceUnit: new Prisma.Decimal(serverPriceUnit.toFixed(4)),
@@ -521,8 +587,74 @@ export class StorefrontOrdersService {
                   now.getTime() + holdMinutes * 60_000,
                 );
 
-                const totalDecimal = new Prisma.Decimal(
+                const subtotalDecimal = new Prisma.Decimal(
                   (subtotalCents / 100).toFixed(2),
+                );
+                let deliveryFeeCents = 0;
+                let finalDeliveryAddressJson = deliveryAddressJson
+                  ? { ...deliveryAddressJson }
+                  : null;
+
+                if (isExpressActive && finalDeliveryAddressJson) {
+                  const quote =
+                    await this.deliveryService.calculateDeliveryQuote({
+                      config: expressConfig,
+                      moduleEnabled: true,
+                      destinationZipCode: finalDeliveryAddressJson.zipCode,
+                      neighborhood: finalDeliveryAddressJson.neighborhood,
+                      city: finalDeliveryAddressJson.city,
+                      subtotal: Number((subtotalCents / 100).toFixed(2)),
+                      preferredVehicle: requestedVehicle,
+                    });
+
+                  if (!quote.available) {
+                    throw new BadRequestException(
+                      quote.message ||
+                        'Entrega 99 indisponível para o endereço ou valor informado.',
+                    );
+                  }
+
+                  deliveryFeeCents = Math.round(quote.selectedFee * 100);
+                  const initialDispatch: ExpressDispatchRecord = {
+                    provider: '99_ENTREGAS',
+                    status: 'WAITING',
+                    vehicleType: quote.selectedVehicle,
+                    courierName: null,
+                    courierPhone: null,
+                    vehiclePlate: null,
+                    trackingUrl: null,
+                    externalOrderId: null,
+                    confirmationPin:
+                      this.deliveryService.generateConfirmationPin(),
+                    notes: null,
+                    requestedAt: null,
+                    dispatchedAt: null,
+                    deliveredAt: null,
+                    updatedAt: now.toISOString(),
+                  };
+
+                  finalDeliveryAddressJson = {
+                    ...finalDeliveryAddressJson,
+                    deliveryFee: quote.selectedFee,
+                    quote: {
+                      provider: '99_ENTREGAS',
+                      vehicleType: quote.selectedVehicle,
+                      label:
+                        quote.selectedVehicle === 'CARRO'
+                          ? '99Entrega Carro'
+                          : '99Entrega Moto',
+                      fee: quote.selectedFee,
+                      distanceKm: quote.distanceKm,
+                      estimatedMinutes: quote.estimatedMinutes,
+                      freeShippingApplied: quote.freeShippingApplied,
+                      originLabel: quote.originLabel,
+                    },
+                    dispatch: initialDispatch,
+                  };
+                }
+
+                const totalDecimal = new Prisma.Decimal(
+                  ((subtotalCents + deliveryFeeCents) / 100).toFixed(2),
                 );
 
                 const order = await tx.storefrontOrder.create({
@@ -537,9 +669,9 @@ export class StorefrontOrdersService {
                     customerPhone,
                     customerCpf,
                     fulfillmentMode,
-                    deliveryAddressJson,
+                    deliveryAddressJson: finalDeliveryAddressJson,
                     notes,
-                    subtotal: totalDecimal,
+                    subtotal: subtotalDecimal,
                     discount: new Prisma.Decimal(0),
                     total: totalDecimal,
                     commercialStatus: 'AWAITING_CONFIRMATION',
@@ -673,6 +805,20 @@ export class StorefrontOrdersService {
               where: { id: order.id },
               include: { items: true },
             })) || order;
+        }
+
+        const missingImgMap = await this.buildMissingItemImageMap(
+          [order],
+          db,
+        );
+        if (missingImgMap.size > 0 && Array.isArray(order.items)) {
+          order = {
+            ...order,
+            items: order.items.map((it: any) => ({
+              ...it,
+              imageUrl: it.imageUrl || missingImgMap.get(it.productId) || null,
+            })),
+          };
         }
 
         const wa = this.buildOrderWhatsappData(
@@ -821,6 +967,83 @@ export class StorefrontOrdersService {
 
   // ── Gestão Administrativa de Pedidos ──────────────────────────────────────
 
+  private async buildMissingItemImageMap(
+    orders: any[],
+    db: any,
+  ): Promise<Map<string, string | null>> {
+    const map = new Map<string, string | null>();
+    if (!Array.isArray(orders) || orders.length === 0) return map;
+    if (typeof db?.product?.findMany !== 'function') return map;
+
+    const missingProductIds = Array.from(
+      new Set(
+        orders
+          .flatMap((o: any) => (Array.isArray(o?.items) ? o.items : []))
+          .filter((i: any) => !i?.imageUrl && i?.productId)
+          .map((i: any) => String(i.productId)),
+      ),
+    );
+    if (missingProductIds.length === 0) return map;
+
+    try {
+      const products =
+        (await Promise.resolve(
+          db.product.findMany({
+            where: { id: { in: missingProductIds } },
+            include: { retailGroup: true },
+          }),
+        ).catch(() => [])) || [];
+      for (const p of products) {
+        const img = p?.imageUrl || p?.retailGroup?.imageUrl || null;
+        if (img) {
+          map.set(p.id, img);
+        }
+      }
+    } catch {
+      // fallback silencioso
+    }
+    return map;
+  }
+
+  private async resolveEffectiveActor(
+    actor: { userId?: string; name?: string } | undefined,
+    ctx: { tenantId: string; userId?: string },
+    db: any,
+  ): Promise<{ userId: string | null; name: string | null }> {
+    const userId = actor?.userId || ctx.userId || null;
+    let name = actor?.name || null;
+    if (!name && userId && this.photoResolver) {
+      try {
+        const actors = await this.photoResolver.loadTenantActors(
+          ctx.tenantId,
+          db,
+        );
+        name = actors.resolveName(userId, null);
+      } catch {
+        name = null;
+      }
+    }
+    return { userId, name };
+  }
+
+  private async hydrateAdminOrders(
+    orders: any[],
+    tenantId: string,
+    db: any,
+    storeName?: string,
+  ) {
+    if (!Array.isArray(orders) || orders.length === 0) return [];
+    const [actors, fallbackImages] = await Promise.all([
+      this.photoResolver
+        ? this.photoResolver.loadTenantActors(tenantId, db).catch(() => null)
+        : Promise.resolve(null),
+      this.buildMissingItemImageMap(orders, db),
+    ]);
+    return orders.map((o: any) =>
+      this.formatAdminOrderDto(o, storeName, actors, fallbackImages),
+    );
+  }
+
   async listAdminOrders(filters?: {
     commercialStatus?: string;
     fulfillmentStatus?: string;
@@ -828,7 +1051,8 @@ export class StorefrontOrdersService {
     page?: number;
     limit?: number;
   }) {
-    const { db } = await this.adminService.assertModuleAndSchemaReady(false);
+    const { ctx, db } =
+      await this.adminService.assertModuleAndSchemaReady(false);
     await this.expireOverdueReservationsForTenant(db, new Date());
 
     const where: any = {};
@@ -864,6 +1088,8 @@ export class StorefrontOrdersService {
               code: true,
               status: true,
               total: true,
+              operatorId: true,
+              operator: { select: { id: true, name: true, isManager: true } },
               createdAt: true,
             },
           },
@@ -874,7 +1100,11 @@ export class StorefrontOrdersService {
       }),
     ]);
 
-    const formattedOrders = orders.map((o: any) => this.formatAdminOrderDto(o));
+    const formattedOrders = await this.hydrateAdminOrders(
+      orders,
+      ctx.tenantId,
+      db,
+    );
     return {
       data: formattedOrders,
       items: formattedOrders,
@@ -888,7 +1118,8 @@ export class StorefrontOrdersService {
   }
 
   async getAdminOrderById(orderId: string) {
-    const { db } = await this.adminService.assertModuleAndSchemaReady(false);
+    const { ctx, db } =
+      await this.adminService.assertModuleAndSchemaReady(false);
     await this.expireOverdueReservationsForTenant(db, new Date());
 
     const order = await db.storefrontOrder.findUnique({
@@ -903,6 +1134,7 @@ export class StorefrontOrdersService {
         sale: {
           include: {
             payments: true,
+            operator: { select: { id: true, name: true, isManager: true } },
           },
         },
       },
@@ -912,10 +1144,20 @@ export class StorefrontOrdersService {
       throw new NotFoundException('Pedido não encontrado.');
     }
 
-    return this.formatAdminOrderDto(order);
+    const [formatted] = await this.hydrateAdminOrders(
+      [order],
+      ctx.tenantId,
+      db,
+    );
+    return formatted;
   }
 
-  private formatAdminOrderDto(order: any) {
+  private formatAdminOrderDto(
+    order: any,
+    storeName?: string,
+    actors?: TenantActorPhotoLookup | null,
+    fallbackImages?: Map<string, string | null>,
+  ) {
     const customerDigits = String(order.customerPhone || '').replace(/\D/g, '');
     const customerWaPhone =
       customerDigits.length === 10 || customerDigits.length === 11
@@ -931,6 +1173,95 @@ export class StorefrontOrdersService {
         ? order.deliveryAddressJson
         : null;
 
+    const subtotalNum = Number(order.subtotal ?? 0);
+    const discountNum = Number(order.discount ?? 0);
+    const totalNum = Number(order.total ?? 0);
+    const inferredFee = Math.max(
+      0,
+      Math.round((totalNum - subtotalNum + discountNum + Number.EPSILON) * 100) /
+        100,
+    );
+    const deliveryFee =
+      addr?.deliveryFee !== undefined
+        ? Math.max(0, Number(addr.deliveryFee || 0))
+        : inferredFee;
+
+    const expressQuote =
+      addr?.quote && typeof addr.quote === 'object' ? addr.quote : null;
+    const expressDispatch: ExpressDispatchRecord | null =
+      addr?.dispatch && typeof addr.dispatch === 'object'
+        ? addr.dispatch
+        : null;
+
+    const customerTrackingWhatsappUrl = expressDispatch
+      ? this.deliveryService.buildCustomerTrackingWhatsappUrl({
+          customerPhone: order.customerPhone,
+          customerName: order.customerName,
+          storeName: storeName || 'Loja Virtual',
+          reference: order.reference,
+          dispatch: expressDispatch,
+        })
+      : customerWhatsappUrl;
+
+    const dropoffCopyLine = addr
+      ? [
+          addr.street,
+          addr.number ? `nº ${addr.number}` : '',
+          addr.complement || '',
+          addr.neighborhood || '',
+          addr.city || '',
+          addr.zipCode ? `CEP ${addr.zipCode}` : '',
+        ]
+          .filter(Boolean)
+          .join(', ')
+      : null;
+
+    const confirmedActor =
+      order.confirmedByUserId || order.confirmedByName
+        ? actors
+          ? actors.resolveActor(order.confirmedByUserId, order.confirmedByName)
+          : { name: order.confirmedByName || null, imageUrl: null }
+        : { name: null, imageUrl: null };
+
+    const cancelledActor =
+      order.cancelledByUserId || order.cancelledByName
+        ? actors
+          ? actors.resolveActor(order.cancelledByUserId, order.cancelledByName)
+          : { name: order.cancelledByName || null, imageUrl: null }
+        : { name: null, imageUrl: null };
+
+    let formattedSale = order.sale || null;
+    if (formattedSale && (formattedSale.operatorId || formattedSale.operator)) {
+      const saleOpActor = actors
+        ? actors.resolveActor(
+            formattedSale.operatorId || formattedSale.operator?.id,
+            formattedSale.operator?.name || null,
+          )
+        : {
+            name: formattedSale.operator?.name || null,
+            imageUrl: formattedSale.operator?.imageUrl || null,
+          };
+      formattedSale = {
+        ...formattedSale,
+        operatorName: saleOpActor.name,
+        operatorImageUrl: saleOpActor.imageUrl,
+        operator: formattedSale.operator
+          ? {
+              ...EntityPhotoResolverService.stripOperatorSecret(
+                formattedSale.operator,
+              ),
+              imageUrl: saleOpActor.imageUrl,
+            }
+          : saleOpActor.name
+            ? {
+                id: formattedSale.operatorId || null,
+                name: saleOpActor.name,
+                imageUrl: saleOpActor.imageUrl,
+              }
+            : null,
+      };
+    }
+
     return {
       id: order.id,
       code: order.code,
@@ -941,10 +1272,12 @@ export class StorefrontOrdersService {
       customerCpf: order.customerCpf,
       customerDocument: order.customerCpf,
       customerWhatsappUrl,
+      customerTrackingWhatsappUrl,
       whatsappUrl: customerWhatsappUrl,
       fulfillmentMode: order.fulfillmentMode,
       deliveryMode: order.fulfillmentMode,
       deliveryAddress: addr,
+      dropoffCopyLine,
       addressLine: addr?.street || null,
       addressNumber: addr?.number || null,
       addressComplement: addr?.complement || null,
@@ -953,22 +1286,29 @@ export class StorefrontOrdersService {
       state: addr?.state || null,
       zipCode: addr?.zipCode || null,
       notes: order.notes || null,
-      subtotal: Number(order.subtotal ?? 0),
-      discount: Number(order.discount ?? 0),
-      total: Number(order.total ?? 0),
+      subtotal: subtotalNum,
+      discount: discountNum,
+      deliveryFee,
+      total: totalNum,
+      expressQuote,
+      expressDispatch,
       commercialStatus: order.commercialStatus,
       reservationStatus: order.reservationStatus,
       fulfillmentStatus: order.fulfillmentStatus,
       paymentStatus: order.paymentStatus,
       reservationExpiresAt: order.reservationExpiresAt,
       confirmedAt: order.confirmedAt,
-      confirmedByName: order.confirmedByName,
+      confirmedByUserId: order.confirmedByUserId || null,
+      confirmedByName: confirmedActor.name ?? order.confirmedByName ?? null,
+      confirmedByImageUrl: confirmedActor.imageUrl,
       cancelledAt: order.cancelledAt,
-      cancelledByName: order.cancelledByName,
+      cancelledByUserId: order.cancelledByUserId || null,
+      cancelledByName: cancelledActor.name ?? order.cancelledByName ?? null,
+      cancelledByImageUrl: cancelledActor.imageUrl,
       cancelReason: order.cancelReason,
       completedAt: order.completedAt,
       saleId: order.saleId,
-      sale: order.sale || null,
+      sale: formattedSale,
       offlineConflictDetected: Boolean(order.offlineConflictDetected),
       offlineConflictNote: order.offlineConflictNote || null,
       version: Number(order.version ?? 1),
@@ -984,7 +1324,7 @@ export class StorefrontOrdersService {
         variantLabel: i.variantLabel,
         sku: i.sku,
         barcode: i.barcode,
-        imageUrl: i.imageUrl,
+        imageUrl: i.imageUrl || fallbackImages?.get(i.productId) || null,
         unit: i.unit,
         quantity: Number(i.quantity),
         priceUnit: Number(i.priceUnit),
@@ -1001,18 +1341,31 @@ export class StorefrontOrdersService {
         releasedAt: r.releasedAt,
         releaseReason: r.releaseReason,
       })),
-      events: (order.events || []).map((e: any) => ({
-        id: e.id,
-        eventType: e.eventType,
-        fromStatus: e.fromStatus,
-        toStatus: e.toStatus,
-        actorType: e.actorType,
-        actorId: e.actorId,
-        actorName: e.actorName,
-        reason: e.reason,
-        metadata: e.metadataJson,
-        createdAt: e.createdAt,
-      })),
+      events: (order.events || []).map((e: any) => {
+        const isStaffEvent =
+          e.actorType !== 'CUSTOMER' &&
+          e.actorType !== 'SYSTEM' &&
+          Boolean(e.actorId || e.actorName);
+        const resolvedEventActor =
+          isStaffEvent && actors
+            ? actors.resolveActor(e.actorId, e.actorName)
+            : { name: e.actorName || null, imageUrl: null };
+        return {
+          id: e.id,
+          eventType: e.eventType,
+          fromStatus: e.fromStatus,
+          toStatus: e.toStatus,
+          actorType: e.actorType,
+          actorId: e.actorId,
+          actorName: isStaffEvent
+            ? resolvedEventActor.name || e.actorName || null
+            : e.actorName,
+          actorImageUrl: isStaffEvent ? resolvedEventActor.imageUrl : null,
+          reason: e.reason,
+          metadata: e.metadataJson,
+          createdAt: e.createdAt,
+        };
+      }),
     };
   }
 
@@ -1036,6 +1389,8 @@ export class StorefrontOrdersService {
         Number(body?.holdHours ?? settings.confirmedHoldHours ?? 24),
       ),
     );
+
+    const effectiveActor = await this.resolveEffectiveActor(actor, ctx, db);
 
     await db.$transaction(async (tx: any) => {
       await tx.$queryRaw`SELECT id FROM storefront_orders WHERE id = ${orderId} FOR UPDATE`;
@@ -1109,8 +1464,8 @@ export class StorefrontOrdersService {
           reservationStatus: 'ACTIVE',
           reservationExpiresAt: newExpiresAt,
           confirmedAt: now,
-          confirmedByUserId: actor.userId || ctx.userId || null,
-          confirmedByName: actor.name || null,
+          confirmedByUserId: effectiveActor.userId,
+          confirmedByName: effectiveActor.name,
           version: { increment: 1 },
         },
       });
@@ -1122,8 +1477,8 @@ export class StorefrontOrdersService {
           fromStatus: order.commercialStatus,
           toStatus: 'CONFIRMED',
           actorType: 'ADMIN',
-          actorId: actor.userId || ctx.userId || null,
-          actorName: actor.name || null,
+          actorId: effectiveActor.userId,
+          actorName: effectiveActor.name,
           reason:
             sanitizePlainText(
               body?.reason ||
@@ -1180,6 +1535,8 @@ export class StorefrontOrdersService {
       return this.getAdminOrderById(orderId);
     }
 
+    const effectiveActor = await this.resolveEffectiveActor(actor, ctx, db);
+
     await db.$transaction(async (tx: any) => {
       await tx.$queryRaw`SELECT id FROM storefront_orders WHERE id = ${orderId} FOR UPDATE`;
       const order = await tx.storefrontOrder.findUnique({
@@ -1219,8 +1576,8 @@ export class StorefrontOrdersService {
           reservationStatus:
             order.reservationStatus === 'CONSUMED' ? 'CONSUMED' : 'RELEASED',
           cancelledAt: now,
-          cancelledByUserId: actor.userId || ctx.userId || null,
-          cancelledByName: actor.name || null,
+          cancelledByUserId: effectiveActor.userId,
+          cancelledByName: effectiveActor.name,
           cancelReason: reason,
           version: { increment: 1 },
         },
@@ -1234,8 +1591,8 @@ export class StorefrontOrdersService {
           fromStatus: order.commercialStatus,
           toStatus: targetStatus,
           actorType: 'ADMIN',
-          actorId: actor.userId || ctx.userId || null,
-          actorName: actor.name || null,
+          actorId: effectiveActor.userId,
+          actorName: effectiveActor.name,
           reason,
         },
       });
@@ -1255,6 +1612,8 @@ export class StorefrontOrdersService {
       body?.fulfillmentStatus,
     );
 
+    const effectiveActor = await this.resolveEffectiveActor(actor, ctx, db);
+
     await db.$transaction(async (tx: any) => {
       const order = await tx.storefrontOrder.findUnique({
         where: { id: orderId },
@@ -1270,10 +1629,47 @@ export class StorefrontOrdersService {
 
       if (order.fulfillmentStatus === nextFulfillment) return;
 
+      const nowIso = new Date().toISOString();
+      let updatedAddressJson = order.deliveryAddressJson;
+      if (
+        order.fulfillmentMode === 'DELIVERY' &&
+        updatedAddressJson &&
+        typeof updatedAddressJson === 'object'
+      ) {
+        const prevDispatch =
+          (updatedAddressJson as any).dispatch &&
+          typeof (updatedAddressJson as any).dispatch === 'object'
+            ? (updatedAddressJson as any).dispatch
+            : null;
+        if (prevDispatch) {
+          const syncedStatus: ExpressDispatchStatus =
+            nextFulfillment === 'DELIVERED'
+              ? 'DELIVERED'
+              : nextFulfillment === 'OUT_FOR_DELIVERY'
+                ? 'DISPATCHED'
+                : prevDispatch.status;
+          updatedAddressJson = {
+            ...(updatedAddressJson as any),
+            dispatch: {
+              ...prevDispatch,
+              status: syncedStatus,
+              ...(syncedStatus === 'DISPATCHED' && !prevDispatch.dispatchedAt
+                ? { dispatchedAt: nowIso }
+                : {}),
+              ...(syncedStatus === 'DELIVERED' && !prevDispatch.deliveredAt
+                ? { deliveredAt: nowIso }
+                : {}),
+              updatedAt: nowIso,
+            },
+          };
+        }
+      }
+
       await tx.storefrontOrder.update({
         where: { id: orderId },
         data: {
           fulfillmentStatus: nextFulfillment,
+          deliveryAddressJson: updatedAddressJson,
           version: { increment: 1 },
         },
       });
@@ -1285,8 +1681,8 @@ export class StorefrontOrdersService {
           fromStatus: order.fulfillmentStatus,
           toStatus: nextFulfillment,
           actorType: 'ADMIN',
-          actorId: actor.userId || ctx.userId || null,
-          actorName: actor.name || null,
+          actorId: effectiveActor.userId,
+          actorName: effectiveActor.name,
           reason: body?.reason
             ? sanitizePlainText(body.reason, 300)
             : `Atendimento atualizado para ${nextFulfillment}`,
@@ -1342,12 +1738,41 @@ export class StorefrontOrdersService {
       };
     }
 
+    const orderDiscount =
+      body.discount !== undefined
+        ? Number(body.discount)
+        : Number(order.discount ?? 0);
+    const orderSubtotal = Number(order.subtotal ?? 0);
+    const orderTotal = Number(order.total ?? 0);
+    const addr =
+      order.deliveryAddressJson && typeof order.deliveryAddressJson === 'object'
+        ? (order.deliveryAddressJson as any)
+        : null;
+    const inferredFee = Math.max(
+      0,
+      Math.round(
+        (orderTotal - orderSubtotal + Number(order.discount ?? 0) + Number.EPSILON) *
+          100,
+      ) / 100,
+    );
+    const orderDeliveryFee =
+      addr?.deliveryFee !== undefined
+        ? Math.max(0, Number(addr.deliveryFee || 0))
+        : inferredFee;
+    const expectedSaleTotal = Math.max(
+      0.01,
+      Math.round(
+        (orderSubtotal - orderDiscount + orderDeliveryFee + Number.EPSILON) *
+          100,
+      ) / 100,
+    );
+
     let resolvedPayments = Array.isArray(body?.payments) ? body.payments : [];
     if (resolvedPayments.length === 0 && body?.paymentMethodName) {
       resolvedPayments = [
         {
           method: String(body.paymentMethodName).trim(),
-          value: Number(order.total ?? 0),
+          value: expectedSaleTotal,
           label: String(body.paymentMethodName).trim(),
         },
       ];
@@ -1386,10 +1811,8 @@ export class StorefrontOrdersService {
         body.customerDocument ||
         order.customerCpf ||
         undefined,
-      discount:
-        body.discount !== undefined
-          ? Number(body.discount)
-          : Number(order.discount ?? 0),
+      discount: orderDiscount,
+      addition: orderDeliveryFee,
       emitirNfce: Boolean(body.emitirNfce),
       items: checkoutItems,
       payments: resolvedPayments,
@@ -1400,5 +1823,346 @@ export class StorefrontOrdersService {
       order: updatedOrder,
       sale,
     };
+  }
+
+  // ── Despacho Express 99 Entregas e Alertas de Frente de Caixa ─────────────
+
+  private sanitizeTrackingUrl(raw: unknown): string | null {
+    if (raw === null || raw === undefined || raw === '') return null;
+    const trimmed = String(raw).trim();
+    if (!trimmed) return null;
+    if (trimmed.length > 500) {
+      throw new BadRequestException('Link de rastreio excede o tamanho máximo.');
+    }
+    if (!/^https:\/\//i.test(trimmed)) {
+      throw new BadRequestException(
+        'O link de rastreio da corrida deve iniciar com https://.',
+      );
+    }
+    return trimmed;
+  }
+
+  async dispatchExpressOrder(
+    orderId: string,
+    body: {
+      status?: ExpressDispatchStatus;
+      vehicleType?: ExpressVehicleType;
+      courierName?: string | null;
+      courierPhone?: string | null;
+      vehiclePlate?: string | null;
+      trackingUrl?: string | null;
+      externalOrderId?: string | null;
+      confirmationPin?: string | null;
+      notes?: string | null;
+    },
+    actor: { userId?: string; name?: string },
+  ) {
+    const { ctx, db, tenant } =
+      await this.adminService.assertModuleAndSchemaReady(true);
+    const settings = await this.adminService.ensureSettingsInitialized(
+      db,
+      tenant,
+      ctx.tenantId,
+    );
+
+    const validDispatchStatuses: ExpressDispatchStatus[] = [
+      'WAITING',
+      'REQUESTED',
+      'DISPATCHED',
+      'DELIVERED',
+    ];
+    const requestedStatus = body?.status
+      ? (String(body.status).trim().toUpperCase() as ExpressDispatchStatus)
+      : undefined;
+    if (
+      requestedStatus !== undefined &&
+      !validDispatchStatuses.includes(requestedStatus)
+    ) {
+      throw new BadRequestException(
+        `Status de despacho 99 inválido: "${String(body.status)}".`,
+      );
+    }
+
+    let finalDispatch!: ExpressDispatchRecord;
+    const effectiveActor = await this.resolveEffectiveActor(actor, ctx, db);
+
+    await db.$transaction(async (tx: any) => {
+      const order = await tx.storefrontOrder.findUnique({
+        where: { id: orderId },
+      });
+      if (!order) {
+        throw new NotFoundException('Pedido da Loja Virtual não encontrado.');
+      }
+      if (order.fulfillmentMode !== 'DELIVERY') {
+        throw new BadRequestException(
+          'Apenas pedidos na modalidade Entrega podem receber despacho 99 Entregas.',
+        );
+      }
+      if (
+        ['REJECTED', 'CANCELLED', 'EXPIRED'].includes(order.commercialStatus)
+      ) {
+        throw new BadRequestException(
+          `Não é possível despachar um pedido com status "${order.commercialStatus}".`,
+        );
+      }
+
+      const prevAddr =
+        order.deliveryAddressJson &&
+        typeof order.deliveryAddressJson === 'object'
+          ? (order.deliveryAddressJson as any)
+          : {};
+      const prevDispatch: Partial<ExpressDispatchRecord> =
+        prevAddr.dispatch && typeof prevAddr.dispatch === 'object'
+          ? prevAddr.dispatch
+          : {};
+
+      const nowIso = new Date().toISOString();
+      const nextStatus: ExpressDispatchStatus =
+        requestedStatus || prevDispatch.status || 'REQUESTED';
+      const nextVehicle: ExpressVehicleType =
+        body?.vehicleType === 'CARRO'
+          ? 'CARRO'
+          : body?.vehicleType === 'MOTO'
+            ? 'MOTO'
+            : prevDispatch.vehicleType === 'CARRO'
+              ? 'CARRO'
+              : prevAddr.quote?.vehicleType === 'CARRO'
+                ? 'CARRO'
+                : 'MOTO';
+
+      const pinRaw =
+        body?.confirmationPin !== undefined && body.confirmationPin !== null
+          ? String(body.confirmationPin).replace(/\D/g, '').slice(0, 6)
+          : '';
+      const confirmationPin =
+        pinRaw.length >= 4
+          ? pinRaw
+          : prevDispatch.confirmationPin ||
+            this.deliveryService.generateConfirmationPin();
+
+      finalDispatch = {
+        provider: '99_ENTREGAS',
+        status: nextStatus,
+        vehicleType: nextVehicle,
+        courierName:
+          body?.courierName !== undefined
+            ? sanitizePlainText(body.courierName, 80, 'Nome do entregador') ||
+              null
+            : prevDispatch.courierName || null,
+        courierPhone:
+          body?.courierPhone !== undefined
+            ? String(body.courierPhone || '')
+                .replace(/\D/g, '')
+                .slice(0, 15) || null
+            : prevDispatch.courierPhone || null,
+        vehiclePlate:
+          body?.vehiclePlate !== undefined
+            ? sanitizePlainText(body.vehiclePlate, 12, 'Placa do veículo')
+                .toUpperCase() || null
+            : prevDispatch.vehiclePlate || null,
+        trackingUrl:
+          body?.trackingUrl !== undefined
+            ? this.sanitizeTrackingUrl(body.trackingUrl)
+            : prevDispatch.trackingUrl || null,
+        externalOrderId:
+          body?.externalOrderId !== undefined
+            ? sanitizePlainText(body.externalOrderId, 80) || null
+            : prevDispatch.externalOrderId || null,
+        confirmationPin,
+        notes:
+          body?.notes !== undefined
+            ? sanitizePlainText(body.notes, 240) || null
+            : prevDispatch.notes || null,
+        requestedAt:
+          nextStatus !== 'WAITING'
+            ? prevDispatch.requestedAt || nowIso
+            : prevDispatch.requestedAt || null,
+        dispatchedAt:
+          nextStatus === 'DISPATCHED' || nextStatus === 'DELIVERED'
+            ? prevDispatch.dispatchedAt || nowIso
+            : prevDispatch.dispatchedAt || null,
+        deliveredAt:
+          nextStatus === 'DELIVERED'
+            ? prevDispatch.deliveredAt || nowIso
+            : null,
+        updatedAt: nowIso,
+      };
+
+      const nextFulfillmentStatus =
+        nextStatus === 'DELIVERED'
+          ? 'DELIVERED'
+          : nextStatus === 'DISPATCHED'
+            ? 'OUT_FOR_DELIVERY'
+            : nextStatus === 'REQUESTED' &&
+                order.fulfillmentStatus === 'WAITING_SEPARATION'
+              ? 'PREPARING'
+              : order.fulfillmentStatus;
+
+      await tx.storefrontOrder.update({
+        where: { id: orderId },
+        data: {
+          fulfillmentStatus: nextFulfillmentStatus,
+          deliveryAddressJson: {
+            ...prevAddr,
+            dispatch: finalDispatch,
+          },
+          version: { increment: 1 },
+        },
+      });
+
+      await tx.storefrontOrderEvent.create({
+        data: {
+          orderId,
+          eventType: 'EXPRESS_99_UPDATED',
+          fromStatus: order.fulfillmentStatus,
+          toStatus: nextFulfillmentStatus,
+          actorType: 'ADMIN',
+          actorId: effectiveActor.userId,
+          actorName: effectiveActor.name,
+          reason: `Despacho 99 (${
+            nextVehicle === 'CARRO' ? 'Carro' : 'Moto'
+          }): ${nextStatus}`,
+          metadataJson: {
+            status: nextStatus,
+            vehicleType: nextVehicle,
+            courierName: finalDispatch.courierName,
+            vehiclePlate: finalDispatch.vehiclePlate,
+            hasTrackingUrl: Boolean(finalDispatch.trackingUrl),
+          },
+        },
+      });
+    });
+
+    const formattedOrder = await this.getAdminOrderById(orderId);
+    const customerTrackingWhatsappUrl =
+      this.deliveryService.buildCustomerTrackingWhatsappUrl({
+        customerPhone: formattedOrder.customerPhone,
+        customerName: formattedOrder.customerName,
+        storeName: settings.storeName || 'Loja Virtual',
+        reference: formattedOrder.reference,
+        dispatch: finalDispatch,
+      });
+
+    return {
+      order: {
+        ...formattedOrder,
+        customerTrackingWhatsappUrl,
+      },
+      customerTrackingWhatsappUrl,
+    };
+  }
+
+  async getPosAlerts() {
+    try {
+      const { ctx, db, tenant } =
+        await this.adminService.assertModuleAndSchemaReady(false);
+      await this.expireOverdueReservationsForTenant(db, new Date());
+
+      const settings = await this.adminService.ensureSettingsInitialized(
+        db,
+        tenant,
+        ctx.tenantId,
+      );
+      const expressModuleEnabled = tenant
+        ? this.deliveryService.isExpressModuleEnabledOnTenant(tenant)
+        : false;
+      const expressConfig = this.deliveryService.extractConfigFromTheme(
+        settings.publishedThemeJson || settings.draftThemeJson,
+        tenant,
+      );
+
+      const activeOrders = await db.storefrontOrder.findMany({
+        where: {
+          commercialStatus: { in: ['AWAITING_CONFIRMATION', 'CONFIRMED'] },
+        },
+        include: {
+          items: true,
+          reservations: true,
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 40,
+      });
+
+      const actionable = (activeOrders || []).filter(
+        (o: any) => o.fulfillmentStatus !== 'DELIVERED',
+      );
+
+      // Priorizar AWAITING_CONFIRMATION + DELIVERY no topo da frente de caixa
+      actionable.sort((a: any, b: any) => {
+        const score = (ord: any) => {
+          let s = 0;
+          if (ord.commercialStatus === 'AWAITING_CONFIRMATION') s += 10;
+          if (ord.fulfillmentMode === 'DELIVERY') s += 5;
+          return s;
+        };
+        const diff = score(b) - score(a);
+        if (diff !== 0) return diff;
+        return (
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+      });
+
+      const pendingConfirmationCount = actionable.filter(
+        (o: any) => o.commercialStatus === 'AWAITING_CONFIRMATION',
+      ).length;
+      const pendingDeliveryCount = actionable.filter(
+        (o: any) =>
+          o.fulfillmentMode === 'DELIVERY' &&
+          o.commercialStatus === 'AWAITING_CONFIRMATION',
+      ).length;
+      const activeExpressCount = actionable.filter(
+        (o: any) => o.fulfillmentMode === 'DELIVERY',
+      ).length;
+
+      const originAddressLine = [
+        expressConfig.originStreet,
+        expressConfig.originNumber ? `nº ${expressConfig.originNumber}` : '',
+        expressConfig.originNeighborhood,
+        expressConfig.originCity,
+        expressConfig.originState,
+        expressConfig.originZipCode
+          ? `CEP ${expressConfig.originZipCode}`
+          : '',
+      ]
+        .filter(Boolean)
+        .join(', ');
+
+      const alerts = await this.hydrateAdminOrders(
+        actionable.slice(0, 15),
+        ctx.tenantId,
+        db,
+        settings.storeName || 'Loja Virtual',
+      );
+
+      return {
+        enabled: true,
+        expressDeliveryModuleEnabled: expressModuleEnabled,
+        storeName: settings.storeName || 'Loja Virtual',
+        originAddressLine: originAddressLine || null,
+        serverTime: new Date().toISOString(),
+        totalActionableCount: actionable.length,
+        pendingConfirmationCount,
+        pendingDeliveryCount,
+        activeExpressCount,
+        latestOrderId: actionable[0]?.id || null,
+        latestOrderAt: actionable[0]?.createdAt || null,
+        alerts,
+      };
+    } catch {
+      return {
+        enabled: false,
+        expressDeliveryModuleEnabled: false,
+        storeName: null,
+        originAddressLine: null,
+        serverTime: new Date().toISOString(),
+        totalActionableCount: 0,
+        pendingConfirmationCount: 0,
+        pendingDeliveryCount: 0,
+        activeExpressCount: 0,
+        latestOrderId: null,
+        latestOrderAt: null,
+        alerts: [],
+      };
+    }
   }
 }

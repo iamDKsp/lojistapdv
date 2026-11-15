@@ -23,7 +23,7 @@ interface CashRegister {
   status: string;
   code?: number;
   openingValue?: number;
-  operator?: { id: string; name: string; isManager?: boolean };
+  operator?: { id: string; name: string; isManager?: boolean; imageUrl?: string | null };
 }
 
 export type RegisterStatus =

@@ -5014,7 +5014,19 @@ textarea:focus-visible {
   }
 }
 
-@media (max-width: 768px) {
+.retail-mobile-only {
+  display: none;
+}
+
+@media (max-width: 768px), ((max-height: 500px) and (pointer: coarse)) {
+  .retail-mobile-only {
+    display: block;
+  }
+
+  .retail-desktop-only {
+    display: none !important;
+  }
+
   /* 1. Prevenção total de auto-zoom no iOS Safari / Android (font-size >= 16px em todos os campos) */
   input,
   select,
@@ -5076,8 +5088,10 @@ textarea:focus-visible {
     min-height: 0;
     flex: 1;
     padding: 0;
-    /* Respiro superior dedicado para iPhone (Dynamic Island / Notch / Status Bar) */
+    /* Respiro superior e lateral dedicado para iPhone (Dynamic Island / Notch / Status Bar) */
     padding-top: max(14px, env(safe-area-inset-top, 0px));
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
     overflow: hidden;
     overscroll-behavior: none;
     background: var(--pdv-background);
@@ -5702,8 +5716,6 @@ textarea:focus-visible {
     padding: 0 !important;
   }
 
-  .retail-dialog,
-  .retail-dialog.retail-dialog-wide,
   .pdv-mobile-sheet {
     width: 100% !important;
     max-width: 100% !important;
@@ -5717,14 +5729,66 @@ textarea:focus-visible {
     animation: retailSheetSlideUp 240ms cubic-bezier(0.22, 1, 0.36, 1) both !important;
   }
 
+  .retail-dialog,
+  .retail-dialog.retail-dialog-wide {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: min(92dvh, calc(100dvh - env(safe-area-inset-top, 0px) - 8px)) !important;
+    margin: 0 !important;
+    border-radius: 24px 24px 0 0 !important;
+    border-left: 0 !important;
+    border-right: 0 !important;
+    border-bottom: 0 !important;
+    padding-bottom: 0;
+    animation: retailSheetSlideUp 240ms cubic-bezier(0.22, 1, 0.36, 1) both !important;
+  }
+
+  .retail-dialog > .retail-sheet-handle,
+  .retail-dialog > header,
+  .retail-dialog > .retail-dialog-footer {
+    flex-shrink: 0;
+  }
+
   .retail-dialog > header {
+    position: static;
     padding: 12px 16px;
   }
 
-  .retail-dialog-body {
+  .retail-dialog > form:has(> .retail-dialog-body) {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .retail-dialog > form > .retail-dialog-footer {
+    flex-shrink: 0;
+  }
+
+  .retail-dialog-body,
+  .retail-dialog > form > .retail-dialog-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
     padding: 14px 16px;
-    max-height: calc(92dvh - 132px);
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .retail-dialog:not(:has(.retail-dialog-footer)) > .retail-dialog-body:last-child {
+    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .retail-dialog:not(:has(.retail-dialog-body)) > :not(.retail-sheet-handle):not(header):not(.retail-dialog-footer):not(.retail-checkout-top-bar) {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 14px 16px calc(18px + env(safe-area-inset-bottom, 0px));
   }
 
   .retail-dialog-footer {
@@ -5878,6 +5942,24 @@ textarea:focus-visible {
     width: 100%;
     max-width: 100%;
     overflow-x: hidden;
+  }
+
+  .retail-mobile-cards-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+}
+
+@media (min-width: 640px) and (max-height: 500px) and (pointer: coarse) {
+  .retail-shell,
+  .retail-shell.has-rail,
+  .retail-shell.no-rail {
+    padding-top: max(6px, env(safe-area-inset-top, 0px));
+  }
+
+  .retail-mobile-cards-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -6774,7 +6856,7 @@ textarea:focus-visible {
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), ((max-height: 500px) and (pointer: coarse)) {
   .retail-intel-calendar-grid {
     gap: 4px;
   }

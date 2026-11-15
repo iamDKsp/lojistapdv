@@ -698,7 +698,7 @@ export function RetailPosPage() {
     setSearch("");
     if (
       typeof window !== "undefined" &&
-      !window.matchMedia("(max-width: 768px)").matches
+      !window.matchMedia("(max-width: 768px), ((max-height: 500px) and (pointer: coarse))").matches
     ) {
       searchRef.current?.focus();
     }

@@ -115,8 +115,8 @@ export function AddPayableModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-end bg-ink/60 backdrop-blur-sm">
-      <div className="management-payable-drawer bg-surface border-l border-line w-full max-w-lg h-full shadow-2xl flex flex-col">
+    <div className="fixed inset-0 z-[150] flex items-end sm:items-center justify-end bg-ink/60 backdrop-blur-sm">
+      <div className="management-payable-drawer bg-surface border-t sm:border-t-0 sm:border-l border-line rounded-t-3xl sm:rounded-none w-full max-w-lg max-h-[92dvh] sm:max-h-none sm:h-full shadow-2xl flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-6 py-5 border-b border-line bg-page/50">
           <h2 className="text-xl font-bold text-ink">
             {payableToEdit ? 'Editar Conta' : 'Nova Conta a Pagar'}
@@ -305,7 +305,7 @@ export function AddPayableModal({
           </div>
         </div>
 
-        <div className="p-6 border-t border-line bg-page/50 flex gap-3 pb-24 md:pb-6">
+        <div className="shrink-0 p-5 sm:p-6 pb-[max(20px,env(safe-area-inset-bottom))] border-t border-line bg-page/50 flex gap-3">
           <button
             type="button"
             onClick={onClose}

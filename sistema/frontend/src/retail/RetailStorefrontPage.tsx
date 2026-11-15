@@ -1307,23 +1307,25 @@ export function RetailStorefrontPage() {
             </span>
             {(overview?.config?.publishedByName ||
               overview?.settings?.publishedByName) && (
-              <OperatorInlineBadge
-                label="Publicado por:"
-                name={
-                  overview?.config?.publishedByName ||
-                  overview?.settings?.publishedByName
-                }
-                imageUrl={
-                  overview?.config?.publishedByImageUrl ||
-                  overview?.settings?.publishedByImageUrl
-                }
-                operatorId={
-                  overview?.config?.publishedByUserId ||
-                  overview?.settings?.publishedByUserId
-                }
-                size="xs"
-                variant="pill"
-              />
+              <span className="hidden sm:inline-flex">
+                <OperatorInlineBadge
+                  label="Publicado por:"
+                  name={
+                    overview?.config?.publishedByName ||
+                    overview?.settings?.publishedByName
+                  }
+                  imageUrl={
+                    overview?.config?.publishedByImageUrl ||
+                    overview?.settings?.publishedByImageUrl
+                  }
+                  operatorId={
+                    overview?.config?.publishedByUserId ||
+                    overview?.settings?.publishedByUserId
+                  }
+                  size="xs"
+                  variant="pill"
+                />
+              </span>
             )}
             {pendingPublishChanges.length > 0 || overview?.hasUnpublishedChanges ? (
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-page text-brand border border-line">
@@ -1333,15 +1335,15 @@ export function RetailStorefrontPage() {
               </span>
             ) : (
               isPublished && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-page text-muted border border-line">
+                <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-page text-muted border border-line">
                   Em dia com a loja publicada
                 </span>
               )
             )}
           </div>
           <h1>{settingsForm.storeName || 'Loja Virtual'}</h1>
-          <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-muted min-w-0">
-            <span className="font-mono text-ink bg-page px-2.5 py-1 rounded-lg border border-line break-all max-w-full">
+          <div className="management-storefront-url-row flex flex-wrap items-center gap-2 mt-1 text-xs text-muted min-w-0">
+            <span className="management-storefront-url-pill font-mono text-ink bg-page px-2.5 py-1 rounded-lg border border-line break-all max-w-full">
               {publicStoreUrl}
             </span>
             <button
@@ -1351,9 +1353,10 @@ export function RetailStorefrontPage() {
                 toast.success('Link da loja copiado!');
               }}
               className="retail-button retail-button-ghost"
-              style={{ minHeight: 30, padding: '4px 10px', fontSize: 12 }}
             >
-              <Copy size={13} /> Copiar link
+              <Copy size={13} />
+              <span className="sm:hidden">Copiar</span>
+              <span className="hidden sm:inline">Copiar link</span>
             </button>
             {isPublished ? (
               <a
@@ -1361,9 +1364,10 @@ export function RetailStorefrontPage() {
                 target="_blank"
                 rel="noreferrer"
                 className="retail-button retail-button-ghost"
-                style={{ minHeight: 30, padding: '4px 10px', fontSize: 12 }}
               >
-                <ExternalLink size={13} /> Abrir vitrine
+                <ExternalLink size={13} />
+                <span className="sm:hidden">Abrir</span>
+                <span className="hidden sm:inline">Abrir vitrine</span>
               </a>
             ) : (
               <button
@@ -1371,9 +1375,10 @@ export function RetailStorefrontPage() {
                 disabled
                 title="Publique ou reative a vitrine para abrir o link público"
                 className="retail-button retail-button-ghost"
-                style={{ minHeight: 30, padding: '4px 10px', fontSize: 12 }}
               >
-                <ExternalLink size={13} /> Abrir vitrine
+                <ExternalLink size={13} />
+                <span className="sm:hidden">Abrir</span>
+                <span className="hidden sm:inline">Abrir vitrine</span>
               </button>
             )}
           </div>
@@ -1403,7 +1408,10 @@ export function RetailStorefrontPage() {
             ) : (
               <Eye size={15} />
             )}
-            <span>
+            <span className="sm:hidden">
+              {isPublished || !hasEverPublished ? 'Pausar' : 'Reativar'}
+            </span>
+            <span className="hidden sm:inline">
               {isPublished || !hasEverPublished
                 ? 'Pausar vitrine'
                 : 'Reativar vitrine'}
@@ -1422,7 +1430,8 @@ export function RetailStorefrontPage() {
             ) : (
               <Save size={15} />
             )}
-            <span>Salvar configurações</span>
+            <span className="sm:hidden">Configurações</span>
+            <span className="hidden sm:inline">Salvar configurações</span>
           </button>
 
           {/* Slot fixo 3: Salvar rascunho (visual e curadoria, sem publicar) */}
@@ -1437,7 +1446,8 @@ export function RetailStorefrontPage() {
             ) : (
               <Save size={15} />
             )}
-            <span>Salvar rascunho</span>
+            <span className="sm:hidden">Rascunho</span>
+            <span className="hidden sm:inline">Salvar rascunho</span>
           </button>
 
           {/* Slot fixo 4: Publicar (abre resumo das mudanças antes de ir ao ar) */}
@@ -2723,8 +2733,34 @@ export function RetailStorefrontPage() {
                 )}
               </div>
 
+              {filteredProducts.length > 0 && (
+                <div className="retail-mobile-only mb-2">
+                  <label className="inline-flex items-center gap-2.5 px-3 py-2 rounded-xl border border-line bg-page text-xs font-semibold text-ink cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={
+                        filteredProducts.length > 0 &&
+                        selectedProductIds.length === filteredProducts.length
+                      }
+                      onChange={(e) => {
+                        setBatchFeedback(null);
+                        setSelectedProductIds(
+                          e.target.checked
+                            ? filteredProducts.map((p) => p.id)
+                            : [],
+                        );
+                      }}
+                      className="rounded accent-brand w-4 h-4"
+                    />
+                    <span>
+                      Selecionar todas listadas ({selectedProductIds.length}/{filteredProducts.length})
+                    </span>
+                  </label>
+                </div>
+              )}
+
               <div className="retail-table-wrap">
-                <table className="retail-table">
+                <table className="retail-table retail-table-cards">
                   <thead>
                     <tr>
                       <th style={{ width: 42 }}>
@@ -2757,7 +2793,7 @@ export function RetailStorefrontPage() {
                   <tbody>
                     {filteredProducts.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="py-12 text-center text-muted">
+                        <td colSpan={8} className="retail-cell-primary py-12 text-center text-muted">
                           Nenhuma peça encontrada com os filtros atuais.
                         </td>
                       </tr>
@@ -2766,7 +2802,7 @@ export function RetailStorefrontPage() {
                         const checked = selectedProductIds.includes(p.id);
                         return (
                           <tr key={p.id}>
-                            <td>
+                            <td className="retail-desktop-only">
                               <input
                                 type="checkbox"
                                 checked={checked}
@@ -2781,8 +2817,24 @@ export function RetailStorefrontPage() {
                                 className="rounded accent-brand"
                               />
                             </td>
-                            <td>
-                              <div className="flex items-center gap-3">
+                            <td className="retail-cell-primary">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <span className="retail-mobile-only shrink-0">
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    aria-label={`Selecionar ${p.displayTitle || p.name}`}
+                                    onChange={(e) => {
+                                      setBatchFeedback(null);
+                                      setSelectedProductIds((prev) =>
+                                        e.target.checked
+                                          ? [...prev, p.id]
+                                          : prev.filter((id) => id !== p.id),
+                                      );
+                                    }}
+                                    className="rounded accent-brand w-4 h-4"
+                                  />
+                                </span>
                                 <StorefrontProductFrame
                                   imageUrl={p.imageUrl}
                                   alt={p.name}
@@ -2792,9 +2844,9 @@ export function RetailStorefrontPage() {
                                   aspectClassName="w-11 h-13 shrink-0"
                                   roundedClassName="rounded-xl border border-line"
                                 />
-                                <div className="min-w-0">
+                                <div className="min-w-0 flex-1">
                                   <div className="flex items-center gap-1.5 flex-wrap">
-                                    <p className="font-bold text-ink truncate">
+                                    <p className="font-bold text-ink truncate max-w-full">
                                       {p.displayTitle || p.name}
                                     </p>
                                     {p.badgeLabel && (
@@ -2803,7 +2855,7 @@ export function RetailStorefrontPage() {
                                       </span>
                                     )}
                                   </div>
-                                  <p className="text-[11px] text-muted font-mono">
+                                  <p className="text-[11px] text-muted font-mono truncate">
                                     /{p.publicSlug}
                                     {Array.isArray(p.galleryUrls) &&
                                       p.galleryUrls.length > 0 &&
@@ -2812,14 +2864,14 @@ export function RetailStorefrontPage() {
                                 </div>
                               </div>
                             </td>
-                            <td>
+                            <td data-label="Categoria">
                               {p.categoryName ? (
-                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-page border border-line text-xs font-bold">
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-page border border-line text-xs font-bold w-fit max-w-full">
                                   <CategoryIconBadge
                                     categoryName={p.categoryName}
                                     size={14}
                                   />
-                                  <span>{p.categoryName}</span>
+                                  <span className="truncate">{p.categoryName}</span>
                                 </span>
                               ) : (
                                 <span className="text-xs text-muted">
@@ -2827,9 +2879,9 @@ export function RetailStorefrontPage() {
                                 </span>
                               )}
                             </td>
-                            <td className="font-bold">{money(p.priceSale)}</td>
-                            <td>
-                              <div>
+                            <td data-label="Preço" className="font-bold">{money(p.priceSale)}</td>
+                            <td data-label="Saldo">
+                              <div className="flex flex-wrap items-center gap-1">
                                 <span
                                   className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
                                     Number(p.availableStock) > 0
@@ -2840,13 +2892,13 @@ export function RetailStorefrontPage() {
                                   {p.availableStock} disp.
                                 </span>
                                 {p.reservedStock > 0 && (
-                                  <span className="text-[11px] text-muted ml-1.5">
+                                  <span className="text-[11px] text-muted">
                                     ({p.reservedStock} reserv.)
                                   </span>
                                 )}
                               </div>
                             </td>
-                            <td>
+                            <td data-label="Na vitrine">
                               <RetailSwitch
                                 size="sm"
                                 checked={Boolean(p.isVisible)}
@@ -2856,13 +2908,13 @@ export function RetailStorefrontPage() {
                                 label={p.isVisible ? 'Visível' : 'Oculto'}
                               />
                             </td>
-                            <td>
+                            <td data-label="Destaque">
                               <button
                                 type="button"
                                 onClick={() =>
                                   handleQuickToggleProduct(p, 'featured')
                                 }
-                                className={`min-w-[96px] justify-center px-2.5 py-1 rounded-lg text-xs font-bold inline-flex items-center gap-1 border transition ${
+                                className={`min-w-[96px] justify-center px-2.5 py-1.5 rounded-lg text-xs font-bold inline-flex items-center gap-1 border transition w-fit ${
                                   p.featured
                                     ? 'bg-brand text-on-brand border-brand'
                                     : 'bg-page text-muted border-line hover:text-ink'
@@ -2872,7 +2924,7 @@ export function RetailStorefrontPage() {
                                 <span>{p.featured ? 'Destaque' : 'Normal'}</span>
                               </button>
                             </td>
-                            <td className="text-right">
+                            <td className="retail-cell-actions text-right">
                               <button
                                 type="button"
                                 onClick={() =>
@@ -2885,8 +2937,8 @@ export function RetailStorefrontPage() {
                                 }
                                 className="retail-button retail-button-ghost"
                                 style={{
-                                  minHeight: 32,
-                                  padding: '4px 10px',
+                                  minHeight: 36,
+                                  padding: '6px 12px',
                                   fontSize: 12,
                                 }}
                               >

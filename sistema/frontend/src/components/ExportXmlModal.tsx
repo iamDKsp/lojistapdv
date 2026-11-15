@@ -103,14 +103,14 @@ export function ExportXmlModal({ isOpen, onClose }: ExportXmlModalProps) {
   const loading = loadingDownload || loadingEmail;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-ink/60 backdrop-blur-sm animate-in fade-in">
-      <div className="bg-page border border-line rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95">
-        <div className="flex justify-between items-center p-5 border-b border-line">
+    <div className="fixed inset-0 z-[150] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-ink/60 backdrop-blur-sm animate-in fade-in">
+      <div className="bg-page border border-line rounded-t-3xl sm:rounded-2xl w-full max-w-md max-h-[92dvh] flex flex-col overflow-hidden shadow-2xl animate-in zoom-in-95">
+        <div className="shrink-0 flex justify-between items-center p-5 border-b border-line">
           <h2 className="text-xl font-bold flex items-center gap-2"><FileArchive className="text-brand" /> Exportar XMLs</h2>
           <button onClick={onClose} className="text-muted hover:text-ink transition"><X size={24} /></button>
         </div>
         
-        <div className="p-6 space-y-5">
+        <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-5">
           <p className="text-muted text-sm">Selecione o período das Notas Fiscais (NFC-e) autorizadas para exportação.</p>
           
           <div className="grid grid-cols-2 gap-4">
@@ -151,7 +151,7 @@ export function ExportXmlModal({ isOpen, onClose }: ExportXmlModalProps) {
           </div>
         </div>
 
-        <div className="p-5 border-t border-line bg-page/50 flex flex-col sm:flex-row justify-end gap-3">
+        <div className="shrink-0 p-5 pb-[max(20px,env(safe-area-inset-bottom))] border-t border-line bg-page/50 flex flex-col sm:flex-row justify-end gap-3">
           <button 
             type="button"
             onClick={onClose} 

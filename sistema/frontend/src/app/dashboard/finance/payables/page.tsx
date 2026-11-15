@@ -114,8 +114,8 @@ export default function PayablesPage() {
           <p className="management-page-description text-muted mt-1 text-sm">Organize seus vencimentos e planeje os próximos meses.</p>
         </div>
         
-        <div className="management-finance-filters flex items-center gap-3 w-full md:w-auto">
-          <div style={{ width: 155 }}>
+        <div className="management-finance-filters grid grid-cols-[minmax(0,1fr)_96px] sm:flex sm:flex-wrap items-center gap-2.5 w-full md:w-auto">
+          <div className="min-w-0 sm:w-[155px]">
             <RetailSelect
               value={String(month)}
               onValueChange={(val) => setMonth(Number(val))}
@@ -129,24 +129,25 @@ export default function PayablesPage() {
             type="number" 
             value={year} 
             onChange={e => setYear(Number(e.target.value))}
-            className="bg-page border border-line text-ink rounded-xl w-24 px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-brand"
+            aria-label="Ano de referência"
+            className="bg-page border border-line text-ink rounded-xl w-full sm:w-24 min-h-[42px] px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-brand"
           />
           <button
             onClick={() => { setPayableToEdit(null); setIsModalOpen(true); }}
-            className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-brand hover:bg-brand text-on-brand px-4 py-2 rounded-xl transition-colors font-bold shadow-lg hover:text-on-brand"
+            className="col-span-2 sm:col-span-1 flex items-center justify-center gap-2 bg-brand hover:bg-brand-hover text-on-brand px-4 py-2.5 min-h-[44px] rounded-xl transition-colors font-bold shadow-lg hover:text-on-brand"
           >
-            <Plus size={18} /> <span className="hidden sm:inline">Nova Conta</span>
+            <Plus size={18} /> <span>Nova Conta</span>
           </button>
         </div>
       </div>
 
       <div className="management-finance-planning flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-brand bg-support px-4 py-3">
         <div><p className="text-sm font-semibold text-brand">Planejamento das contas fixas</p><p className="text-xs text-muted mt-1">Novas contas recorrentes já incluem os dois meses seguintes, sem esperar a baixa.</p></div>
-        <div className="flex gap-2">{[0, 1, 2].map(offset => {
+        <div className="flex flex-wrap gap-2">{[0, 1, 2].map(offset => {
           const now = new Date(); const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
           const selected = d.getMonth() + 1 === month && d.getFullYear() === year;
           return <button key={offset} onClick={() => { setMonth(d.getMonth() + 1); setYear(d.getFullYear()); }}
-            className={`rounded-xl px-3 py-2 text-xs font-semibold whitespace-nowrap transition ${selected ? 'bg-brand text-on-brand' : 'bg-page text-muted hover:text-ink'}`}>
+            className={`rounded-xl px-3 py-2 min-h-[38px] text-xs font-semibold whitespace-nowrap transition ${selected ? 'bg-brand text-on-brand' : 'bg-page text-muted hover:text-ink'}`}>
             {d.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })}
           </button>;
         })}</div>
@@ -188,24 +189,24 @@ export default function PayablesPage() {
       )}
 
       <div className="management-finance-ledger bg-page border border-line rounded-2xl overflow-hidden shadow-xl">
-        <div className="flex bg-page/80 p-1 border-b border-line">
+        <div className="flex bg-page/80 p-1 border-b border-line gap-1">
           <button 
             onClick={() => {
               setActiveTab('FIXED');
               navigate('/financeiro/contas-a-pagar/fixas');
             }}
-            className={`flex-1 py-3 text-sm font-bold text-center rounded-xl transition ${activeTab === 'FIXED' ? 'bg-surface text-ink shadow' : 'text-muted hover:text-muted hover:bg-page/50'}`}
+            className={`flex-1 px-2 py-2.5 sm:py-3 text-xs sm:text-sm font-bold text-center rounded-xl transition ${activeTab === 'FIXED' ? 'bg-surface text-ink shadow' : 'text-muted hover:text-muted hover:bg-page/50'}`}
           >
-            Contas Fixas (Mensais)
+            Contas Fixas <span className="hidden sm:inline">(Mensais)</span>
           </button>
           <button 
             onClick={() => {
               setActiveTab('VARIABLE');
               navigate('/financeiro/contas-a-pagar/variaveis');
             }}
-            className={`flex-1 py-3 text-sm font-bold text-center rounded-xl transition ${activeTab === 'VARIABLE' ? 'bg-surface text-ink shadow' : 'text-muted hover:text-muted hover:bg-page/50'}`}
+            className={`flex-1 px-2 py-2.5 sm:py-3 text-xs sm:text-sm font-bold text-center rounded-xl transition ${activeTab === 'VARIABLE' ? 'bg-surface text-ink shadow' : 'text-muted hover:text-muted hover:bg-page/50'}`}
           >
-            Contas Variáveis (Boletos/Avulsas)
+            Contas Variáveis <span className="hidden sm:inline">(Boletos/Avulsas)</span>
           </button>
         </div>
 
@@ -222,80 +223,159 @@ export default function PayablesPage() {
           </div>
         </div>
         
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead className="bg-page/50 text-muted uppercase tracking-wider text-xs">
-              <tr>
-                <th className="px-6 py-3 font-semibold">Vencimento</th>
-                <th className="px-6 py-3 font-semibold">Descrição</th>
-                <th className="px-6 py-3 font-semibold">Tipo</th>
-                <th className="px-6 py-3 font-semibold">Status</th>
-                <th className="px-6 py-3 font-semibold text-right">Valor</th>
-                <th className="px-6 py-3 font-semibold text-center">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line text-muted">
-              {loading && payables.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-10 text-center text-muted">
-                    <div className="flex justify-center">
-                      <PdvLojistaLoader mode="loader" size={44} label="Carregando contas a pagar…" />
-                    </div>
-                  </td>
-                </tr>
-              ) : filtered.length === 0 ? (
-                <tr><td colSpan={6} className="px-6 py-8 text-center text-muted">Nenhuma conta encontrada.</td></tr>
-              ) : filtered.map(p => {
-                const isOverdue = p.status === 'PENDING' && new Date(p.dueDate) < new Date(new Date().setHours(0,0,0,0));
-                return (
-                  <tr key={p.id} className="hover:bg-surface transition-colors">
-                    <td className="px-6 py-3">
-                      <div className={`flex items-center gap-1.5 ${isOverdue ? 'text-brand font-bold' : ''}`}>
-                        <Calendar size={14} />
-                        {new Date(p.dueDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
+        {loading && payables.length === 0 ? (
+          <div className="px-6 py-10 text-center text-muted flex justify-center">
+            <PdvLojistaLoader mode="loader" size={44} label="Carregando contas a pagar…" />
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="px-6 py-10 text-center text-muted text-sm">
+            Nenhuma conta encontrada para este período.
+          </div>
+        ) : (
+          <>
+            {/* Cards Mobile (Portrait e Paisagem Touch) */}
+            <div className="retail-mobile-only p-3">
+              <div className="retail-mobile-cards-grid">
+                {filtered.map(p => {
+                  const isOverdue = p.status === 'PENDING' && new Date(p.dueDate) < new Date(new Date().setHours(0,0,0,0));
+                  return (
+                    <div
+                      key={p.id}
+                      className="rounded-2xl border border-line bg-page p-4 flex flex-col gap-3"
+                    >
+                      <div className="flex items-start justify-between gap-3 min-w-0">
+                        <div className="min-w-0">
+                          <div className="font-bold text-ink text-sm break-words">{p.description}</div>
+                          {p.supplier && (
+                            <div className="text-xs text-muted mt-0.5 truncate">
+                              Fornecedor: {p.supplier.name}
+                            </div>
+                          )}
+                        </div>
+                        <div className="font-black text-ink text-base tabular-nums shrink-0">
+                          {formatCurrency(p.amount)}
+                        </div>
                       </div>
-                    </td>
-                    <td className="px-6 py-3">
-                      <div className="font-semibold text-ink">{p.description}</div>
-                      {p.supplier && <div className="text-xs text-muted">Fornecedor: {p.supplier.name}</div>}
-                    </td>
-                    <td className="px-6 py-3">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${p.type === 'FIXED' ? 'bg-support text-brand' : 'bg-support text-brand'}`}>
-                        {p.type === 'FIXED' ? 'Fixo' : 'Variável'}
-                      </span>
-                      {p.isRecurring && <span className="ml-2 text-xs text-muted" data-tooltip={p.recurrenceId ? 'Série mensal com antecipação' : 'Recorrência anterior à antecipação'}>↺ Mensal</span>}
-                    </td>
-                    <td className="px-6 py-3">
-                      {p.status === 'PAID' ? (
-                        <span className="flex items-center gap-1 text-brand font-medium"><CheckCircle2 size={14}/> Pago</span>
-                      ) : (
-                        <span className="flex items-center gap-1 text-brand font-medium"><AlertCircle size={14}/> Pendente</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-3 text-right font-bold text-ink">
-                      {formatCurrency(p.amount)}
-                    </td>
-                    <td className="px-6 py-3">
-                      <div className="flex items-center justify-center gap-2">
+
+                      <div className="flex flex-wrap items-center gap-2 text-xs">
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border ${isOverdue ? 'bg-support border-brand text-brand font-bold' : 'bg-surface border-line text-muted font-medium'}`}>
+                          <Calendar size={12} />
+                          {new Date(p.dueDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
+                          {isOverdue && ' · Vencida'}
+                        </span>
+                        <span className="px-2 py-1 rounded-lg bg-support text-brand text-[10px] font-bold uppercase">
+                          {p.type === 'FIXED' ? 'Fixo' : 'Variável'}
+                          {p.isRecurring ? ' · ↺ Mensal' : ''}
+                        </span>
+                        {p.status === 'PAID' ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-support border border-brand text-brand font-semibold">
+                            <CheckCircle2 size={13} /> Pago
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface border border-line text-ink font-semibold">
+                            <AlertCircle size={13} /> Pendente
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="pt-2.5 border-t border-line flex items-center justify-end gap-2 flex-wrap">
                         {p.status === 'PENDING' && (
-                          <button disabled={!!busyId} onClick={() => handlePay(p.id)} className="px-3 py-1 bg-support text-brand hover:bg-support rounded font-bold transition disabled:opacity-40">
-                            {busyId === p.id ? 'Aguarde...' : 'Baixar'}
+                          <button
+                            disabled={!!busyId}
+                            onClick={() => handlePay(p.id)}
+                            className="flex-1 min-h-[40px] px-3 py-1.5 bg-brand text-on-brand hover:bg-brand-hover rounded-xl text-xs font-bold transition disabled:opacity-40"
+                          >
+                            {busyId === p.id ? 'Aguarde...' : 'Baixar Conta'}
                           </button>
                         )}
-                        <button disabled={!!busyId} onClick={() => { setPayableToEdit(p); setIsModalOpen(true); }} className="px-3 py-1 bg-surface text-muted hover:bg-support rounded transition disabled:opacity-40">
+                        <button
+                          disabled={!!busyId}
+                          onClick={() => { setPayableToEdit(p); setIsModalOpen(true); }}
+                          className="min-h-[40px] px-3.5 py-1.5 bg-surface border border-line text-ink hover:bg-support rounded-xl text-xs font-semibold transition disabled:opacity-40"
+                        >
                           Editar
                         </button>
-                        <button disabled={!!busyId} onClick={() => handleDelete(p.id)} className="px-3 py-1 bg-support text-brand hover:bg-support rounded transition disabled:opacity-40">
+                        <button
+                          disabled={!!busyId}
+                          onClick={() => handleDelete(p.id)}
+                          className="min-h-[40px] px-3.5 py-1.5 bg-support text-brand hover:bg-support rounded-xl text-xs font-semibold transition disabled:opacity-40"
+                        >
                           Excluir
                         </button>
                       </div>
-                    </td>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Tabela Desktop */}
+            <div className="retail-desktop-only overflow-x-auto">
+              <table className="w-full text-left text-sm whitespace-nowrap">
+                <thead className="bg-page/50 text-muted uppercase tracking-wider text-xs">
+                  <tr>
+                    <th className="px-6 py-3 font-semibold">Vencimento</th>
+                    <th className="px-6 py-3 font-semibold">Descrição</th>
+                    <th className="px-6 py-3 font-semibold">Tipo</th>
+                    <th className="px-6 py-3 font-semibold">Status</th>
+                    <th className="px-6 py-3 font-semibold text-right">Valor</th>
+                    <th className="px-6 py-3 font-semibold text-center">Ações</th>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                </thead>
+                <tbody className="divide-y divide-line text-muted">
+                  {filtered.map(p => {
+                    const isOverdue = p.status === 'PENDING' && new Date(p.dueDate) < new Date(new Date().setHours(0,0,0,0));
+                    return (
+                      <tr key={p.id} className="hover:bg-surface transition-colors">
+                        <td className="px-6 py-3">
+                          <div className={`flex items-center gap-1.5 ${isOverdue ? 'text-brand font-bold' : ''}`}>
+                            <Calendar size={14} />
+                            {new Date(p.dueDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
+                          </div>
+                        </td>
+                        <td className="px-6 py-3">
+                          <div className="font-semibold text-ink">{p.description}</div>
+                          {p.supplier && <div className="text-xs text-muted">Fornecedor: {p.supplier.name}</div>}
+                        </td>
+                        <td className="px-6 py-3">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-support text-brand">
+                            {p.type === 'FIXED' ? 'Fixo' : 'Variável'}
+                          </span>
+                          {p.isRecurring && <span className="ml-2 text-xs text-muted" data-tooltip={p.recurrenceId ? 'Série mensal com antecipação' : 'Recorrência anterior à antecipação'}>↺ Mensal</span>}
+                        </td>
+                        <td className="px-6 py-3">
+                          {p.status === 'PAID' ? (
+                            <span className="flex items-center gap-1 text-brand font-medium"><CheckCircle2 size={14}/> Pago</span>
+                          ) : (
+                            <span className="flex items-center gap-1 text-brand font-medium"><AlertCircle size={14}/> Pendente</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-3 text-right font-bold text-ink">
+                          {formatCurrency(p.amount)}
+                        </td>
+                        <td className="px-6 py-3">
+                          <div className="flex items-center justify-center gap-2">
+                            {p.status === 'PENDING' && (
+                              <button disabled={!!busyId} onClick={() => handlePay(p.id)} className="px-3 py-1 bg-support text-brand hover:bg-support rounded font-bold transition disabled:opacity-40">
+                                {busyId === p.id ? 'Aguarde...' : 'Baixar'}
+                              </button>
+                            )}
+                            <button disabled={!!busyId} onClick={() => { setPayableToEdit(p); setIsModalOpen(true); }} className="px-3 py-1 bg-surface text-muted hover:bg-support rounded transition disabled:opacity-40">
+                              Editar
+                            </button>
+                            <button disabled={!!busyId} onClick={() => handleDelete(p.id)} className="px-3 py-1 bg-support text-brand hover:bg-support rounded transition disabled:opacity-40">
+                              Excluir
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
       </div>
 
       <AddPayableModal 

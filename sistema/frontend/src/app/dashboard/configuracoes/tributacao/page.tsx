@@ -181,32 +181,34 @@ export default function TributacaoPage() {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-          <FileText className="text-brand" size={30} />
-          Grupos Tributários
+    <div className="space-y-6 animate-in fade-in duration-300 min-w-0">
+      <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-3">
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight flex items-center gap-3 min-w-0">
+          <FileText className="text-brand shrink-0" size={28} />
+          <span>Grupos Tributários</span>
         </h1>
-        <div className="flex gap-3">
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2.5 w-full lg:w-auto">
           <button
             onClick={handleRestoreDefaults}
             disabled={restoring}
-            className="bg-surface hover:bg-support text-muted px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 transition active:scale-95 disabled:opacity-50"
+            className="bg-surface hover:bg-support text-muted border border-line px-3.5 sm:px-5 py-2.5 min-h-[44px] rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-50"
           >
             {restoring ? <PdvLojistaLoader mode="loader" compact size={18} label="Restaurando padrões" /> : <Save size={18} />}
-            {restoring ? 'Restaurando...' : 'Restaurar Padrões'}
+            <span>{restoring ? 'Restaurando...' : 'Restaurar Padrões'}</span>
           </button>
           <button
             onClick={() => setIsExportModalOpen(true)}
-            className="bg-surface hover:bg-support text-muted px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 transition active:scale-95"
+            className="bg-surface hover:bg-support text-muted border border-line px-3.5 sm:px-5 py-2.5 min-h-[44px] rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition active:scale-95"
           >
-            <Download size={18} /> Exportar XML
+            <Download size={18} />
+            <span>Exportar XML</span>
           </button>
           <button
             onClick={openCreate}
-            className="bg-brand hover:bg-brand text-on-brand px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 transition active:scale-95 hover:text-on-brand"
+            className="col-span-2 sm:col-span-1 bg-brand hover:bg-brand-hover text-on-brand px-5 py-2.5 min-h-[44px] rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition active:scale-95 hover:text-on-brand"
           >
-            <Plus size={18} /> Novo Grupo
+            <Plus size={18} />
+            <span>Novo Grupo</span>
           </button>
         </div>
       </div>
@@ -231,17 +233,17 @@ export default function TributacaoPage() {
       ) : (
         <div className="space-y-3">
           {grupos.map(g => (
-            <div key={g.id} className="bg-page border border-line hover:border-line rounded-2xl p-5 flex items-center gap-4 transition-colors group">
+            <div key={g.id} className="bg-page border border-line hover:border-line rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-3.5 sm:gap-4 transition-colors group">
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-3 mb-2">
-                  <span className="font-bold text-ink text-lg">{g.nome}</span>
+                <div className="flex flex-wrap items-center gap-2 mb-2">
+                  <span className="font-bold text-ink text-base sm:text-lg break-words">{g.nome}</span>
                   {getGrupoBadge(g.nome, g.csosn)}
                   {g.ativo
-                    ? <span className="text-[10px] bg-support border border-brand text-brand px-2 py-0.5 rounded-full">Ativo</span>
-                    : <span className="text-[10px] bg-surface border border-line text-muted px-2 py-0.5 rounded-full">Inativo</span>
+                    ? <span className="inline-flex items-center gap-1 text-[10px] bg-support border border-brand text-brand px-2 py-0.5 rounded-full font-bold"><CheckCircle size={11} /> Ativo</span>
+                    : <span className="inline-flex items-center gap-1 text-[10px] bg-surface border border-line text-muted px-2 py-0.5 rounded-full font-bold"><X size={11} /> Inativo</span>
                   }
                 </div>
-                <div className="flex flex-wrap gap-3 text-xs font-mono mb-2.5">
+                <div className="flex flex-wrap gap-2 text-xs font-mono mb-2.5">
                   <span className="bg-support border border-brand text-brand px-2 py-1 rounded-lg">CSOSN: {g.csosn || '—'}</span>
                   <span className="bg-support border border-brand text-brand px-2 py-1 rounded-lg">CFOP: {g.cfop}</span>
                   <span className="bg-surface border border-line text-muted px-2 py-1 rounded-lg">CST PIS: {g.cstPis}</span>
@@ -267,16 +269,33 @@ export default function TributacaoPage() {
                   </div>
                 )}
               </div>
-              <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button onClick={() => openEdit(g)} className="p-2 bg-surface hover:bg-brand rounded-xl transition text-muted hover:text-ink cursor-pointer hover:text-on-brand" data-tooltip="Editar Grupo e Categorias">
+              <div className="flex items-center justify-end gap-2 pt-2.5 sm:pt-0 border-t sm:border-t-0 border-line opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100 transition-opacity shrink-0">
+                <button
+                  onClick={() => openEdit(g)}
+                  aria-label={`Editar grupo ${g.nome}`}
+                  className="px-3 py-2 sm:p-2 min-h-[40px] bg-surface hover:bg-brand rounded-xl transition text-ink sm:text-muted cursor-pointer hover:text-on-brand inline-flex items-center gap-1.5 text-xs font-bold"
+                  data-tooltip="Editar Grupo e Categorias"
+                >
                   <Pencil size={16} />
+                  <span className="sm:hidden">Editar</span>
                 </button>
                 {!g.isPadrao ? (
-                  <button onClick={() => handleDelete(g)} className="p-2 bg-surface hover:bg-support rounded-xl transition text-muted hover:text-brand cursor-pointer" data-tooltip="Remover Grupo">
+                  <button
+                    onClick={() => handleDelete(g)}
+                    aria-label={`Remover grupo ${g.nome}`}
+                    className="px-3 py-2 sm:p-2 min-h-[40px] bg-surface hover:bg-support rounded-xl transition text-muted hover:text-brand cursor-pointer inline-flex items-center gap-1.5 text-xs font-bold"
+                    data-tooltip="Remover Grupo"
+                  >
                     <Trash2 size={16} />
+                    <span className="sm:hidden">Excluir</span>
                   </button>
                 ) : (
-                  <button disabled className="p-2 bg-page border border-line rounded-xl text-muted cursor-not-allowed" data-tooltip="Perfis fiscais padrão do sistema não podem ser excluídos">
+                  <button
+                    disabled
+                    aria-label="Perfil fiscal padrão protegido"
+                    className="p-2 min-h-[40px] min-w-[40px] inline-flex items-center justify-center bg-page border border-line rounded-xl text-muted opacity-60 cursor-not-allowed"
+                    data-tooltip="Perfis fiscais padrão do sistema não podem ser excluídos"
+                  >
                     <Trash2 size={16} />
                   </button>
                 )}
@@ -288,16 +307,16 @@ export default function TributacaoPage() {
 
       {/* Modal Criar/Editar */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/80 backdrop-blur-sm p-4">
-          <div className="bg-page border border-line rounded-3xl w-full max-w-xl shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center p-6 border-b border-line">
+        <div className="fixed inset-0 z-[150] flex items-end sm:items-center justify-center bg-ink/80 backdrop-blur-sm p-0 sm:p-4">
+          <div className="bg-page border border-line rounded-t-3xl sm:rounded-3xl w-full max-w-xl shadow-2xl max-h-[92dvh] flex flex-col overflow-hidden">
+            <div className="flex justify-between items-center px-5 py-4 sm:p-6 border-b border-line shrink-0">
               <h3 className="text-lg font-bold text-ink">{editing ? 'Editar Grupo Tributário' : 'Novo Grupo Tributário'}</h3>
-              <button onClick={() => setModalOpen(false)} className="p-2 bg-surface hover:bg-support rounded-full transition text-muted hover:text-ink">
+              <button onClick={() => setModalOpen(false)} aria-label="Fechar" className="p-2.5 bg-surface hover:bg-support rounded-full transition text-muted hover:text-ink">
                 <X size={18} />
               </button>
             </div>
 
-            <div className="p-6 space-y-5">
+            <div className="flex-1 min-h-0 overflow-y-auto p-5 sm:p-6 space-y-5">
               <div>
                 <label className={labelCls}>Nome do Grupo *</label>
                 <input className={inputCls} value={form.nome} onChange={e => f('nome', e.target.value)} placeholder="Ex: TRIBUTADOS - Consumidor Final SP" />
@@ -431,11 +450,11 @@ export default function TributacaoPage() {
               </div>
             </div>
 
-            <div className="px-6 pb-6">
+            <div className="shrink-0 px-5 sm:px-6 pt-3 pb-[max(16px,env(safe-area-inset-bottom))] border-t border-line bg-page">
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="w-full py-4 rounded-xl font-bold text-on-brand bg-brand hover:bg-brand disabled:opacity-50 transition active:scale-95 flex items-center justify-center gap-2 hover:text-on-brand"
+                className="w-full py-3.5 rounded-xl font-bold text-on-brand bg-brand hover:bg-brand-hover disabled:opacity-50 transition active:scale-95 flex items-center justify-center gap-2 hover:text-on-brand"
               >
                 {saving ? <PdvLojistaLoader mode="loader" compact size={18} label="Salvando grupo" /> : <Save size={18} />}
                 {saving ? 'Salvando...' : (editing ? 'Salvar Alterações' : 'Criar Grupo')}

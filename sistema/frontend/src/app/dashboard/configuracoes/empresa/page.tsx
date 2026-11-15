@@ -27,6 +27,19 @@ export default function EmpresaConfigPage() {
       ? tab
       : 'dados';
   const [activeTab, setActiveTab] = useState(validTab);
+  const tabsRailRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const rail = tabsRailRef.current;
+    if (!rail) return;
+    const activeBtn = rail.querySelector<HTMLElement>('[data-active-tab="true"]');
+    if (!activeBtn) return;
+    const targetLeft = Math.max(
+      0,
+      activeBtn.offsetLeft - (rail.clientWidth - activeBtn.offsetWidth) / 2,
+    );
+    rail.scrollTo({ left: targetLeft, behavior: 'smooth' });
+  }, [activeTab]);
 
   useEffect(() => {
     setActiveTab(validTab);
@@ -196,15 +209,15 @@ export default function EmpresaConfigPage() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-          <Building2 className="text-brand" size={30} />
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight flex items-center gap-3">
+          <Building2 className="text-brand shrink-0" size={28} />
           Configurações da Empresa
         </h1>
         <button
           onClick={handleSave}
           disabled={saving}
-          className="bg-brand hover:bg-brand disabled:opacity-50 text-on-brand px-6 py-2.5 rounded-xl font-bold flex items-center gap-2 transition active:scale-95 hover:text-on-brand"
+          className="w-full sm:w-auto justify-center bg-brand hover:bg-brand disabled:opacity-50 text-on-brand px-6 py-2.5 rounded-xl font-bold flex items-center gap-2 transition active:scale-95 hover:text-on-brand"
         >
           {saving ? <PdvLojistaLoader mode="loader" compact size={18} label="Salvando configurações" /> : <Save size={18} />}
           {saving ? 'Salvando...' : 'Salvar Alterações'}
@@ -212,10 +225,14 @@ export default function EmpresaConfigPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-page border border-line rounded-2xl p-1 overflow-x-auto">
+      <div
+        ref={tabsRailRef}
+        className="flex gap-1 bg-page border border-line rounded-2xl p-1 overflow-x-auto max-w-full"
+      >
         {activeTabs.map(tab => (
           <button
             key={tab.id}
+            data-active-tab={activeTab === tab.id ? 'true' : 'false'}
             onClick={() => {
               setActiveTab(tab.id);
               navigate(

@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { api } from "@/lib/api";
-import { Shield, ShieldAlert, CheckCircle2, XCircle, Plus, KeyRound, Lock, Eye, EyeOff } from "lucide-react";
+import { Shield, ShieldAlert, CheckCircle2, XCircle, Plus, KeyRound, Lock, Eye, EyeOff, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import UserModal from "@/components/UserModal";
 import OperatorsManagementModal from "@/components/OperatorsManagementModal";
@@ -108,36 +108,36 @@ export default function UsersPage() {
 
   return (
     <div className="w-full min-w-0 space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold">Gestão de Equipe</h1>
           <p className="text-muted text-sm mt-1">Gerencie os acessos do seu estabelecimento</p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2.5 w-full lg:w-auto">
           <button
             onClick={() => setOperatorsModalOpen(true)}
-            className="bg-surface hover:bg-support border border-line text-brand px-4 py-2 rounded-xl flex items-center gap-2 transition-all active:scale-95 cursor-pointer text-sm font-semibold shadow-sm"
+            className="col-span-2 sm:col-span-1 bg-surface hover:bg-support border border-line text-brand px-4 py-2.5 min-h-[44px] rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer text-xs sm:text-sm font-semibold shadow-sm"
             data-tooltip="Gerenciar operadores e PINs de seleção no Caixa (PDV)"
           >
             <Shield size={16} /> Operadores do PDV (PINs)
           </button>
           <button
             onClick={() => setCashierPinModalOpen(true)}
-            className="bg-surface hover:bg-support border border-line text-brand px-4 py-2 rounded-xl flex items-center gap-2 transition-all active:scale-95 cursor-pointer text-sm font-semibold shadow-sm"
+            className="bg-surface hover:bg-support border border-line text-brand px-3.5 sm:px-4 py-2.5 min-h-[44px] rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer text-xs sm:text-sm font-semibold shadow-sm"
             data-tooltip="Configurar PIN do Caixa para desbloqueio e visualização no PDV"
           >
             <KeyRound size={16} /> PIN do Caixa
           </button>
           <button
             onClick={() => setPinModalOpen(true)}
-            className="bg-surface hover:bg-support border border-line text-brand px-4 py-2 rounded-xl flex items-center gap-2 transition-all active:scale-95 cursor-pointer text-sm font-semibold shadow-sm"
+            className="bg-surface hover:bg-support border border-line text-brand px-3.5 sm:px-4 py-2.5 min-h-[44px] rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer text-xs sm:text-sm font-semibold shadow-sm"
             data-tooltip="Configurar PIN de desconto para o PDV"
           >
             <KeyRound size={16} /> PIN de Desconto
           </button>
           <button
             onClick={handleOpenModal}
-            className="bg-brand hover:bg-brand text-on-brand px-4 py-2 rounded-xl flex items-center gap-2 transition-all shadow-lg shadow-line active:scale-95 text-sm font-bold cursor-pointer hover:text-on-brand"
+            className="col-span-2 sm:col-span-1 bg-brand hover:bg-brand-hover text-on-brand px-4 py-2.5 min-h-[44px] rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-line active:scale-95 text-sm font-bold cursor-pointer hover:text-on-brand"
           >
             <Plus size={18} /> Novo Colaborador
           </button>
@@ -150,79 +150,158 @@ export default function UsersPage() {
         </div>
       ) : (
         <div className="bg-page/50 border border-line rounded-2xl overflow-hidden backdrop-blur-md">
-          <div className="overflow-x-auto custom-scrollbar">
-            <table className="w-full min-w-[560px] text-left bg-transparent border-collapse">
-              <thead>
-                <tr className="border-b border-line text-muted text-sm">
-                  <th className="p-4 font-medium whitespace-nowrap">Colaborador</th>
-                  <th className="p-4 font-medium whitespace-nowrap">Função</th>
-                  <th className="p-4 font-medium whitespace-nowrap">Status do Acesso</th>
-                  <th className="p-4 font-medium whitespace-nowrap text-right pr-6">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line">
-                {users.map((u) => (
-                  <tr key={u.id} className="hover:bg-surface transition-colors cursor-pointer group" onClick={() => handleRowClick(u)}>
-                    <td className="p-4 whitespace-nowrap">
-                      <div className="flex items-center gap-3">
-                        <OperatorAvatarThumb
-                          name={u.name}
-                          operatorId={u.id}
-                          imageUrl={u.imageUrl}
-                          size="lg"
-                          className="border-brand"
-                        />
-                        <div>
-                          <p className="font-semibold text-ink">{u.name}</p>
-                          <p className="text-sm text-muted">{u.email}</p>
+          {users.length === 0 ? (
+            <div className="p-8 text-center text-muted">Nenhum colaborador encontrado.</div>
+          ) : (
+            <>
+              {/* Cards Mobile (Portrait e Paisagem Touch) */}
+              <div className="retail-mobile-only p-3">
+                <div className="retail-mobile-cards-grid">
+                  {users.map((u) => (
+                    <div
+                      key={u.id}
+                      onClick={() => handleRowClick(u)}
+                      className="rounded-2xl border border-line bg-page p-4 flex flex-col gap-3 transition-colors hover:border-brand cursor-pointer"
+                    >
+                      <div className="flex items-start justify-between gap-3 min-w-0">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <OperatorAvatarThumb
+                            name={u.name}
+                            operatorId={u.id}
+                            imageUrl={u.imageUrl}
+                            size="lg"
+                            className="border-brand shrink-0"
+                          />
+                          <div className="min-w-0">
+                            <p className="font-semibold text-ink truncate">{u.name}</p>
+                            <p className="text-xs text-muted truncate">{u.email}</p>
+                          </div>
                         </div>
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface border border-line text-xs font-semibold text-muted shrink-0">
+                          <Pencil size={12} />
+                          <span>Editar</span>
+                        </span>
                       </div>
-                    </td>
-                    <td className="p-4 whitespace-nowrap">
-                      {u.role === "admin" ? (
-                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-md bg-support text-brand border border-brand whitespace-nowrap">
-                          <ShieldAlert size={14} /> Admin
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-md bg-support text-muted border border-line whitespace-nowrap">
-                          <Shield size={14} /> Operador de Caixa
-                        </span>
-                      )}
-                    </td>
-                    <td className="p-4 whitespace-nowrap">
-                      {u.active ? (
-                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-md bg-support text-brand border border-brand whitespace-nowrap">
-                          <CheckCircle2 size={14} /> Acesso Liberado
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-md bg-support text-brand border border-brand whitespace-nowrap">
-                          <XCircle size={14} /> Acesso Bloqueado
-                        </span>
-                      )}
-                    </td>
-                    <td className="p-4 whitespace-nowrap text-right pr-6" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        onClick={() => toggleStatus(u.id, u.active)}
-                        disabled={u.role === "admin"}
-                        className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition-all whitespace-nowrap ${
-                          u.role === "admin"
-                            ? "opacity-30 cursor-not-allowed border-line bg-page"
-                            : u.active
-                            ? "hover:bg-support text-brand border-brand hover:border-brand"
-                            : "hover:bg-support text-brand border-brand hover:border-brand"
-                        }`}
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        {u.role === "admin" ? (
+                          <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-md bg-support text-brand border border-brand whitespace-nowrap">
+                            <ShieldAlert size={13} /> Admin
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-md bg-surface text-muted border border-line whitespace-nowrap">
+                            <Shield size={13} /> Operador de Caixa
+                          </span>
+                        )}
+
+                        {u.active ? (
+                          <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-md bg-support text-brand border border-brand whitespace-nowrap">
+                            <CheckCircle2 size={13} /> Acesso Liberado
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-md bg-surface text-muted border border-line whitespace-nowrap">
+                            <XCircle size={13} /> Acesso Bloqueado
+                          </span>
+                        )}
+                      </div>
+
+                      <div
+                        className="pt-2.5 border-t border-line flex items-center justify-end"
+                        onClick={(e) => e.stopPropagation()}
                       >
-                        {u.active ? "Bloquear Acesso" : "Liberar Acesso"}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {users.length === 0 && (
-                  <tr><td colSpan={4} className="p-8 text-center text-muted">Nenhum colaborador encontrado.</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                        <button
+                          type="button"
+                          onClick={() => toggleStatus(u.id, u.active)}
+                          disabled={u.role === "admin"}
+                          className={`w-full min-h-[42px] text-xs font-bold px-3 py-2 rounded-xl border transition-all flex items-center justify-center gap-1.5 ${
+                            u.role === "admin"
+                              ? "opacity-45 cursor-not-allowed border-line bg-surface text-muted"
+                              : "hover:bg-support text-brand border-brand"
+                          }`}
+                        >
+                          {u.role === "admin"
+                            ? "Administrador principal (acesso fixo)"
+                            : u.active
+                              ? "Bloquear Acesso"
+                              : "Liberar Acesso"}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Tabela Desktop */}
+              <div className="retail-desktop-only overflow-x-auto custom-scrollbar">
+                <table className="w-full min-w-[560px] text-left bg-transparent border-collapse">
+                  <thead>
+                    <tr className="border-b border-line text-muted text-sm">
+                      <th className="p-4 font-medium whitespace-nowrap">Colaborador</th>
+                      <th className="p-4 font-medium whitespace-nowrap">Função</th>
+                      <th className="p-4 font-medium whitespace-nowrap">Status do Acesso</th>
+                      <th className="p-4 font-medium whitespace-nowrap text-right pr-6">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-line">
+                    {users.map((u) => (
+                      <tr key={u.id} className="hover:bg-surface transition-colors cursor-pointer group" onClick={() => handleRowClick(u)}>
+                        <td className="p-4 whitespace-nowrap">
+                          <div className="flex items-center gap-3">
+                            <OperatorAvatarThumb
+                              name={u.name}
+                              operatorId={u.id}
+                              imageUrl={u.imageUrl}
+                              size="lg"
+                              className="border-brand"
+                            />
+                            <div>
+                              <p className="font-semibold text-ink">{u.name}</p>
+                              <p className="text-sm text-muted">{u.email}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-4 whitespace-nowrap">
+                          {u.role === "admin" ? (
+                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-md bg-support text-brand border border-brand whitespace-nowrap">
+                              <ShieldAlert size={14} /> Admin
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-md bg-support text-muted border border-line whitespace-nowrap">
+                              <Shield size={14} /> Operador de Caixa
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-4 whitespace-nowrap">
+                          {u.active ? (
+                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-md bg-support text-brand border border-brand whitespace-nowrap">
+                              <CheckCircle2 size={14} /> Acesso Liberado
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-md bg-surface text-muted border border-line whitespace-nowrap">
+                              <XCircle size={14} /> Acesso Bloqueado
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-4 whitespace-nowrap text-right pr-6" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={() => toggleStatus(u.id, u.active)}
+                            disabled={u.role === "admin"}
+                            className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition-all whitespace-nowrap ${
+                              u.role === "admin"
+                                ? "opacity-30 cursor-not-allowed border-line bg-page"
+                                : "hover:bg-support text-brand border-brand hover:border-brand"
+                            }`}
+                          >
+                            {u.active ? "Bloquear Acesso" : "Liberar Acesso"}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
           <div className="p-4 bg-page border-t border-line text-xs text-muted flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
             <span>Equipe: {users.length} {users.length === 1 ? "funcionário cadastrado" : "funcionários cadastrados"} (fotos exibidas no topo do PDV)</span>
             <div className="flex flex-wrap items-center gap-4">
@@ -239,8 +318,8 @@ export default function UsersPage() {
 
       {/* Modal de PIN do Caixa */}
       {cashierPinModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-page border border-line rounded-2xl w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-[150] flex items-end sm:items-center justify-center bg-ink/70 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200">
+          <div className="bg-page border border-line rounded-t-3xl sm:rounded-2xl w-full max-w-sm shadow-2xl max-h-[92dvh] overflow-y-auto pb-[env(safe-area-inset-bottom)] animate-in zoom-in-95 duration-200">
             <div className="p-6 border-b border-line">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-support flex items-center justify-center">
@@ -319,8 +398,8 @@ export default function UsersPage() {
 
       {/* Modal de PIN de Desconto */}
       {pinModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-page border border-line rounded-2xl w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-[150] flex items-end sm:items-center justify-center bg-ink/70 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200">
+          <div className="bg-page border border-line rounded-t-3xl sm:rounded-2xl w-full max-w-sm shadow-2xl max-h-[92dvh] overflow-y-auto pb-[env(safe-area-inset-bottom)] animate-in zoom-in-95 duration-200">
             <div className="p-6 border-b border-line">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-support flex items-center justify-center">

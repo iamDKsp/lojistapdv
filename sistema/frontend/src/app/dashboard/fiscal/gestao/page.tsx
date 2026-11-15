@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import {
@@ -142,6 +142,20 @@ export default function FiscalManagementPage() {
     const savedEmail = localStorage.getItem('accounting_email') || '';
     if (savedEmail) setAccountingEmail(savedEmail);
   }, [applyPreset]);
+
+  const statusRailRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const rail = statusRailRef.current;
+    if (!rail) return;
+    const activeBtn = rail.querySelector<HTMLElement>('[data-active-status="true"]');
+    if (!activeBtn) return;
+    const targetLeft = Math.max(
+      0,
+      activeBtn.offsetLeft - (rail.clientWidth - activeBtn.offsetWidth) / 2,
+    );
+    rail.scrollTo({ left: targetLeft, behavior: 'smooth' });
+  }, [statusFilter]);
 
   // ── Buscar Resumo Fiscal ───────────────────────────────────────────────────
   const fetchSummary = useCallback(async () => {
@@ -578,10 +592,13 @@ export default function FiscalManagementPage() {
             />
           </div>
 
-          <div className="flex items-center gap-3 w-full md:w-auto overflow-x-auto">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full md:w-auto min-w-0">
             {/* Filtro Status */}
-            <div className="flex items-center gap-1.5 bg-page border border-line p-1 rounded-xl text-xs">
-              <span className="text-muted font-bold px-2">Status:</span>
+            <div
+              ref={statusRailRef}
+              className="flex items-center gap-1.5 bg-page border border-line p-1 rounded-xl text-xs overflow-x-auto max-w-full"
+            >
+              <span className="text-muted font-bold px-2 shrink-0">Status:</span>
               {[
                 { id: 'all', label: 'Todos' },
                 { id: 'autorizada', label: 'Autorizadas' },
@@ -591,8 +608,19 @@ export default function FiscalManagementPage() {
               ].map(st => (
                 <button
                   key={st.id}
-                  onClick={() => { setStatusFilter(st.id); setPage(1); }}
-                  className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
+                  data-active-status={statusFilter === st.id ? 'true' : 'false'}
+                  onClick={() => {
+                    setStatusFilter(st.id);
+                    setPage(1);
+                  }}
+                  onFocus={e =>
+                    e.currentTarget.scrollIntoView({
+                      behavior: 'smooth',
+                      block: 'nearest',
+                      inline: 'center',
+                    })
+                  }
+                  className={`px-2.5 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap shrink-0 ${
                     statusFilter === st.id ? 'bg-brand text-on-brand' : 'text-muted hover:text-ink'
                   }`}
                 >
@@ -602,7 +630,7 @@ export default function FiscalManagementPage() {
             </div>
 
             {/* Filtro Origem */}
-            <div className="w-44">
+            <div className="w-full sm:w-44 shrink-0">
               <RetailSelect
                 value={sourceFilter}
                 onChange={e => { setSourceFilter(e.target.value); setPage(1); }}

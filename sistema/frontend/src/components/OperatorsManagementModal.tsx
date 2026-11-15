@@ -146,9 +146,9 @@ export default function OperatorsManagementModal({ onClose }: OperatorsManagemen
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
-      <div className="bg-page border border-line w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden animate-[slideUp_0.3s_ease-out]">
-        <div className="flex items-center justify-between p-5 border-b border-line">
+    <div className="fixed inset-0 z-[150] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-ink/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
+      <div className="bg-page border border-line w-full max-w-2xl max-h-[92dvh] flex flex-col rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden animate-[slideUp_0.3s_ease-out]">
+        <div className="shrink-0 flex items-center justify-between p-5 border-b border-line">
           <h2 className="text-lg font-bold text-ink">
             {showForm ? (editId ? "Editar Colaborador" : "Novo Colaborador") : "Colaboradores do Caixa"}
           </h2>
@@ -158,7 +158,7 @@ export default function OperatorsManagementModal({ onClose }: OperatorsManagemen
         </div>
 
         {showForm ? (
-          <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          <form onSubmit={handleSubmit} className="flex-1 min-h-0 overflow-y-auto p-5 pb-[max(20px,env(safe-area-inset-bottom))] space-y-4">
             <div className="flex items-center gap-4 p-3.5 bg-surface rounded-2xl border border-line">
               <div className="w-16 h-16 rounded-full bg-page border-2 border-brand flex items-center justify-center overflow-hidden shrink-0">
                 {imageUrl ? (
@@ -298,8 +298,8 @@ export default function OperatorsManagementModal({ onClose }: OperatorsManagemen
             </div>
           </form>
         ) : (
-          <div className="p-5">
-            <div className="flex justify-between items-center mb-4">
+          <div className="flex-1 min-h-0 overflow-y-auto p-5 pb-[max(20px,env(safe-area-inset-bottom))]">
+            <div className="flex justify-between items-center gap-3 mb-4">
               <p className="text-muted text-sm">
                 Esses colaboradores aparecem nos ícones superiores do PDV para troca rápida de caixa.
               </p>

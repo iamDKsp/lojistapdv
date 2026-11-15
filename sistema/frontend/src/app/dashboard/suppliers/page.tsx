@@ -191,7 +191,7 @@ export default function SuppliersPage() {
                         <Phone size={10} /> {sup.whatsapp || 'Sem número'}
                       </span>
                     </div>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+                    <div className="flex items-center gap-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100 transition shrink-0">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -199,7 +199,8 @@ export default function SuppliersPage() {
                           setFormData(sup);
                           setShowModal(true);
                         }}
-                        className="p-1.5 text-muted hover:text-ink bg-surface rounded-lg"
+                        aria-label={`Editar fornecedor ${sup.name}`}
+                        className="p-2 text-muted hover:text-ink bg-surface rounded-lg"
                       >
                         <Edit size={14} />
                       </button>
@@ -208,7 +209,8 @@ export default function SuppliersPage() {
                           e.stopPropagation();
                           handleDelete(sup.id);
                         }}
-                        className="p-1.5 text-muted hover:text-brand bg-surface rounded-lg"
+                        aria-label={`Excluir fornecedor ${sup.name}`}
+                        className="p-2 text-muted hover:text-brand bg-surface rounded-lg"
                       >
                         <Trash size={14} />
                       </button>
@@ -234,10 +236,10 @@ export default function SuppliersPage() {
       )}
 
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/60 p-4">
+        <div className="fixed inset-0 z-[150] flex items-end sm:items-center justify-center bg-ink/60 p-0 sm:p-4">
           <form
             onSubmit={handleSave}
-            className="bg-page border border-line w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl"
+            className="bg-page border border-line w-full max-w-sm rounded-t-3xl sm:rounded-2xl overflow-hidden shadow-2xl pb-[env(safe-area-inset-bottom)]"
           >
             <div className="p-5 border-b border-line flex justify-between items-center">
               <h2 className="font-bold text-ink">
@@ -442,7 +444,8 @@ function SupplierCatalog({ supplier, onUpdate }: { supplier: any; onUpdate: () =
               </div>
               <button
                 onClick={() => handleRemove(sp.productId)}
-                className="text-muted hover:text-brand p-2 opacity-0 group-hover:opacity-100 transition"
+                aria-label={`Remover ${sp.product.name} do fornecedor`}
+                className="text-muted hover:text-brand p-2.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100 transition shrink-0"
               >
                 <Trash size={16} />
               </button>

@@ -357,12 +357,12 @@ export default function CategoriesPage() {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2.5 w-full sm:w-auto">
           <button
             type="button"
             disabled={bulkLoading}
             onClick={handlePopulateShowcase}
-            className="bg-support hover:bg-surface text-brand border border-brand px-4 py-3 rounded-xl font-extrabold flex items-center gap-2 transition-all text-xs sm:text-sm disabled:opacity-60"
+            className="w-full sm:w-auto justify-center bg-support hover:bg-surface text-brand border border-brand px-4 py-3 rounded-xl font-extrabold flex items-center gap-2 transition-all text-xs sm:text-sm disabled:opacity-60"
             title="Cria todas as 28 categorias de ícones e completa até ter no mínimo 10 grupos de produtos em cada uma"
           >
             <Wand2 size={17} />
@@ -372,7 +372,7 @@ export default function CategoriesPage() {
           <button
             type="button"
             onClick={() => openCreateModal()}
-            className="bg-brand hover:bg-brand text-on-brand px-5 py-3 rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg active:scale-95 text-sm hover:text-on-brand"
+            className="w-full sm:w-auto justify-center bg-brand hover:bg-brand-hover text-on-brand px-5 py-3 rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg active:scale-95 text-sm hover:text-on-brand"
           >
             <Plus size={18} />
             Nova Categoria
@@ -558,7 +558,7 @@ export default function CategoriesPage() {
         </div>
       </div>
 
-      {/* Tabela de Categorias */}
+      {/* Lista Mobile + Tabela Desktop de Categorias */}
       <div className="bg-page border border-line rounded-2xl overflow-hidden shadow-2xl">
         {loading ? (
           <div className="flex justify-center p-10">
@@ -568,36 +568,15 @@ export default function CategoriesPage() {
               label="Carregando categorias…"
             />
           </div>
+        ) : filteredCategories.length === 0 ? (
+          <div className="p-8 text-center text-muted">
+            Nenhuma categoria encontrada para o filtro selecionado.
+          </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="bg-surface text-muted text-xs border-b border-line">
-                <tr>
-                  <th className="px-6 py-4 font-extrabold uppercase tracking-wider">
-                    Categoria & Ícone no PDV
-                  </th>
-                  <th className="px-6 py-4 font-extrabold uppercase tracking-wider">
-                    Volume no Catálogo
-                  </th>
-                  <th className="px-6 py-4 font-extrabold uppercase tracking-wider">
-                    Status no PDV (Ativar / Desativar)
-                  </th>
-                  <th className="px-6 py-4 font-extrabold uppercase tracking-wider">
-                    Tributação Padrão (NFC-e)
-                  </th>
-                  <th className="px-6 py-4 font-extrabold uppercase tracking-wider text-right">
-                    Ações
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line">
-                {filteredCategories.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="p-8 text-center text-muted">
-                      Nenhuma categoria encontrada para o filtro selecionado.
-                    </td>
-                  </tr>
-                )}
+          <>
+            {/* Cards Mobile (Portrait e Paisagem Touch) */}
+            <div className="retail-mobile-only p-3">
+              <div className="retail-mobile-cards-grid">
                 {filteredCategories.map((cat) => {
                   const resolvedIconId = resolveCategoryIconId({
                     explicitIcon: cat.icon,
@@ -610,16 +589,16 @@ export default function CategoriesPage() {
                   const productCount = Number(cat._count?.products ?? 0);
 
                   return (
-                    <tr
+                    <div
                       key={cat.id}
-                      className={`hover:bg-surface transition-colors ${
-                        isActive ? "" : "opacity-75"
+                      className={`rounded-2xl border border-line bg-page p-4 flex flex-col gap-3 transition-colors ${
+                        isActive ? "" : "opacity-80"
                       }`}
                     >
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3.5">
+                      <div className="flex items-start justify-between gap-3 min-w-0">
+                        <div className="flex items-center gap-3 min-w-0">
                           <div
-                            className={`w-12 h-12 rounded-xl border flex items-center justify-center shrink-0 transition-colors ${
+                            className={`w-11 h-11 rounded-xl border flex items-center justify-center shrink-0 transition-colors ${
                               isActive
                                 ? "border-brand bg-support"
                                 : "border-line bg-surface"
@@ -630,19 +609,19 @@ export default function CategoriesPage() {
                               iconId={cat.icon}
                               categoryId={cat.id}
                               categoryName={cat.name}
-                              size={30}
+                              size={26}
                             />
                           </div>
-                          <div>
-                            <div className="font-extrabold text-ink text-base leading-tight flex items-center gap-2">
-                              <span>{cat.name}</span>
+                          <div className="min-w-0">
+                            <div className="font-extrabold text-ink text-sm leading-tight flex flex-wrap items-center gap-1.5">
+                              <span className="truncate max-w-full">{cat.name}</span>
                               {!isActive && (
                                 <span className="px-2 py-0.5 rounded-full bg-surface border border-line text-muted text-[10px] font-extrabold uppercase">
                                   Oculta
                                 </span>
                               )}
                             </div>
-                            <div className="text-xs text-muted font-semibold mt-1 flex items-center gap-1.5">
+                            <div className="text-xs text-muted font-semibold mt-1 flex flex-wrap items-center gap-1.5">
                               <span>{iconDef.label}</span>
                               <span
                                 className={`px-1.5 py-0.5 rounded text-[10px] font-extrabold uppercase ${
@@ -656,40 +635,47 @@ export default function CategoriesPage() {
                             </div>
                           </div>
                         </div>
-                      </td>
 
-                      <td className="px-6 py-4">
-                        <div className="inline-flex flex-col">
-                          <span className="text-sm font-extrabold text-ink">
+                        <div className="text-right shrink-0">
+                          <span className="text-xs font-extrabold text-ink block tabular-nums">
                             {groupCount} {groupCount === 1 ? "grupo" : "grupos"}
                           </span>
-                          <span className="text-xs text-muted font-semibold">
-                            {productCount}{" "}
-                            {productCount === 1 ? "variação" : "variações"}
+                          <span className="text-[11px] text-muted font-semibold block tabular-nums">
+                            {productCount} {productCount === 1 ? "var." : "vars."}
                           </span>
                         </div>
-                      </td>
+                      </div>
 
-                      <td className="px-6 py-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-line text-xs">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-muted">
+                          NFC-e:
+                        </span>
+                        {cat.grupoTributacao ? (
+                          <span className="bg-support border border-brand text-brand px-2.5 py-0.5 rounded-full text-xs font-semibold truncate max-w-full">
+                            {cat.grupoTributacao.nome}
+                          </span>
+                        ) : (
+                          <span className="text-muted text-xs">
+                            Padrão do produto
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between gap-2 pt-2.5 border-t border-line">
                         <button
                           type="button"
                           disabled={togglingId === cat.id}
                           onClick={() => handleToggleActive(cat)}
                           role="switch"
                           aria-checked={isActive}
-                          className={`inline-flex items-center gap-2.5 px-3 py-1.5 rounded-full border text-xs font-extrabold transition-all cursor-pointer ${
+                          className={`min-h-[40px] inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-extrabold transition-all cursor-pointer ${
                             isActive
                               ? "bg-support border-brand text-brand"
                               : "bg-surface border-line text-muted hover:text-ink"
                           }`}
-                          title={
-                            isActive
-                              ? "Clique para desativar e ocultar esta categoria no PDV"
-                              : "Clique para ativar e exibir esta categoria no PDV"
-                          }
                         >
                           <span
-                            className={`w-8 h-4 rounded-full p-0.5 flex items-center transition-colors ${
+                            className={`w-8 h-4 rounded-full p-0.5 flex items-center transition-colors shrink-0 ${
                               isActive ? "bg-brand justify-end" : "bg-line justify-start"
                             }`}
                           >
@@ -709,53 +695,215 @@ export default function CategoriesPage() {
                             )}
                           </span>
                         </button>
-                      </td>
 
-                      <td className="px-6 py-4 text-muted">
-                        {cat.grupoTributacao ? (
-                          <span className="bg-support border border-brand text-brand px-3 py-1 rounded-full text-xs font-semibold">
-                            {cat.grupoTributacao.nome}
-                          </span>
-                        ) : (
-                          <span className="text-muted text-xs">
-                            Padrão do produto
-                          </span>
-                        )}
-                      </td>
-
-                      <td className="px-6 py-4 text-right space-x-1.5">
-                        <button
-                          type="button"
-                          onClick={() => openEditModal(cat)}
-                          className="p-2 text-muted hover:text-brand hover:bg-support rounded-lg transition-colors inline-block"
-                          data-tooltip="Abrir no Estúdio de Categoria"
-                          aria-label="Editar categoria"
-                        >
-                          <Edit3 size={18} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(cat)}
-                          className="p-2 text-muted hover:text-brand hover:bg-support rounded-lg transition-colors inline-block"
-                          data-tooltip="Excluir categoria"
-                          aria-label="Excluir categoria"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </td>
-                    </tr>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => openEditModal(cat)}
+                            className="min-w-[40px] min-h-[40px] px-2.5 rounded-xl border border-line bg-surface text-ink hover:text-brand hover:bg-support transition-colors inline-flex items-center justify-center gap-1 text-xs font-bold"
+                            aria-label={`Editar categoria ${cat.name}`}
+                          >
+                            <Edit3 size={16} />
+                            <span>Editar</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(cat)}
+                            className="min-w-[40px] min-h-[40px] rounded-xl border border-line bg-surface text-muted hover:text-brand hover:bg-support transition-colors inline-flex items-center justify-center"
+                            aria-label={`Excluir categoria ${cat.name}`}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
+              </div>
+            </div>
+
+            {/* Tabela Desktop */}
+            <div className="retail-desktop-only overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-surface text-muted text-xs border-b border-line">
+                  <tr>
+                    <th className="px-6 py-4 font-extrabold uppercase tracking-wider">
+                      Categoria & Ícone no PDV
+                    </th>
+                    <th className="px-6 py-4 font-extrabold uppercase tracking-wider">
+                      Volume no Catálogo
+                    </th>
+                    <th className="px-6 py-4 font-extrabold uppercase tracking-wider">
+                      Status no PDV (Ativar / Desativar)
+                    </th>
+                    <th className="px-6 py-4 font-extrabold uppercase tracking-wider">
+                      Tributação Padrão (NFC-e)
+                    </th>
+                    <th className="px-6 py-4 font-extrabold uppercase tracking-wider text-right">
+                      Ações
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-line">
+                  {filteredCategories.map((cat) => {
+                    const resolvedIconId = resolveCategoryIconId({
+                      explicitIcon: cat.icon,
+                      categoryId: cat.id,
+                      categoryName: cat.name,
+                    });
+                    const iconDef = getCategoryIconDefinition(resolvedIconId);
+                    const isActive = cat.active !== false;
+                    const groupCount = Number(cat._count?.retailGroups ?? 0);
+                    const productCount = Number(cat._count?.products ?? 0);
+
+                    return (
+                      <tr
+                        key={cat.id}
+                        className={`hover:bg-surface transition-colors ${
+                          isActive ? "" : "opacity-75"
+                        }`}
+                      >
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3.5">
+                            <div
+                              className={`w-12 h-12 rounded-xl border flex items-center justify-center shrink-0 transition-colors ${
+                                isActive
+                                  ? "border-brand bg-support"
+                                  : "border-line bg-surface"
+                              }`}
+                              title={`Ícone: ${iconDef.label}`}
+                            >
+                              <CategoryIconBadge
+                                iconId={cat.icon}
+                                categoryId={cat.id}
+                                categoryName={cat.name}
+                                size={30}
+                              />
+                            </div>
+                            <div>
+                              <div className="font-extrabold text-ink text-base leading-tight flex items-center gap-2">
+                                <span>{cat.name}</span>
+                                {!isActive && (
+                                  <span className="px-2 py-0.5 rounded-full bg-surface border border-line text-muted text-[10px] font-extrabold uppercase">
+                                    Oculta
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-xs text-muted font-semibold mt-1 flex items-center gap-1.5">
+                                <span>{iconDef.label}</span>
+                                <span
+                                  className={`px-1.5 py-0.5 rounded text-[10px] font-extrabold uppercase ${
+                                    iconDef.group === "bonus"
+                                      ? "bg-support text-brand border border-brand"
+                                      : "bg-surface text-muted border border-line"
+                                  }`}
+                                >
+                                  {iconDef.group === "bonus" ? "Bônus" : "Loja"}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+
+                        <td className="px-6 py-4">
+                          <div className="inline-flex flex-col">
+                            <span className="text-sm font-extrabold text-ink">
+                              {groupCount} {groupCount === 1 ? "grupo" : "grupos"}
+                            </span>
+                            <span className="text-xs text-muted font-semibold">
+                              {productCount}{" "}
+                              {productCount === 1 ? "variação" : "variações"}
+                            </span>
+                          </div>
+                        </td>
+
+                        <td className="px-6 py-4">
+                          <button
+                            type="button"
+                            disabled={togglingId === cat.id}
+                            onClick={() => handleToggleActive(cat)}
+                            role="switch"
+                            aria-checked={isActive}
+                            className={`inline-flex items-center gap-2.5 px-3 py-1.5 rounded-full border text-xs font-extrabold transition-all cursor-pointer ${
+                              isActive
+                                ? "bg-support border-brand text-brand"
+                                : "bg-surface border-line text-muted hover:text-ink"
+                            }`}
+                            title={
+                              isActive
+                                ? "Clique para desativar e ocultar esta categoria no PDV"
+                                : "Clique para ativar e exibir esta categoria no PDV"
+                            }
+                          >
+                            <span
+                              className={`w-8 h-4 rounded-full p-0.5 flex items-center transition-colors ${
+                                isActive ? "bg-brand justify-end" : "bg-line justify-start"
+                              }`}
+                            >
+                              <span className="w-3 h-3 rounded-full bg-page block shadow-sm" />
+                            </span>
+                            <span className="flex items-center gap-1">
+                              {isActive ? (
+                                <>
+                                  <CheckCircle2 size={13} />
+                                  Ativa no PDV
+                                </>
+                              ) : (
+                                <>
+                                  <EyeOff size={13} />
+                                  Inativa
+                                </>
+                              )}
+                            </span>
+                          </button>
+                        </td>
+
+                        <td className="px-6 py-4 text-muted">
+                          {cat.grupoTributacao ? (
+                            <span className="bg-support border border-brand text-brand px-3 py-1 rounded-full text-xs font-semibold">
+                              {cat.grupoTributacao.nome}
+                            </span>
+                          ) : (
+                            <span className="text-muted text-xs">
+                              Padrão do produto
+                            </span>
+                          )}
+                        </td>
+
+                        <td className="px-6 py-4 text-right space-x-1.5">
+                          <button
+                            type="button"
+                            onClick={() => openEditModal(cat)}
+                            className="p-2 text-muted hover:text-brand hover:bg-support rounded-lg transition-colors inline-block"
+                            data-tooltip="Abrir no Estúdio de Categoria"
+                            aria-label="Editar categoria"
+                          >
+                            <Edit3 size={18} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(cat)}
+                            className="p-2 text-muted hover:text-brand hover:bg-support rounded-lg transition-colors inline-block"
+                            data-tooltip="Excluir categoria"
+                            aria-label="Excluir categoria"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 
       {/* Modal Expandido: Estúdio de Categoria (2 Colunas) */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/60 backdrop-blur-sm p-3 sm:p-6 overflow-y-auto">
-          <div className="bg-page border border-line rounded-3xl w-full max-w-5xl shadow-2xl animate-in zoom-in-95 duration-200 my-auto max-h-[94vh] flex flex-col overflow-hidden">
+        <div className="fixed inset-0 z-[150] flex items-end sm:items-center justify-center bg-ink/60 backdrop-blur-sm p-0 sm:p-6">
+          <div className="bg-page border border-line rounded-t-3xl sm:rounded-3xl w-full max-w-5xl shadow-2xl animate-in zoom-in-95 duration-200 max-h-[92dvh] sm:max-h-[94dvh] flex flex-col overflow-hidden">
             {/* Cabeçalho do Modal */}
             <div className="px-6 py-4 border-b border-line bg-surface flex items-center justify-between gap-4">
               <div className="flex items-center gap-3.5">
@@ -798,8 +946,9 @@ export default function CategoriesPage() {
             {/* Corpo do Estúdio em 2 Colunas */}
             <form
               onSubmit={handleSubmit}
-              className="flex-1 overflow-y-auto p-6 space-y-6"
+              className="flex-1 min-h-0 flex flex-col overflow-hidden"
             >
+              <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-6">
               {/* Barra Superior de Modelos Rápidos (28 Categorias do Catálogo) */}
               <div className="bg-surface border border-line rounded-2xl p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
@@ -1007,28 +1156,29 @@ export default function CategoriesPage() {
                     onSuggestName={(suggested) => setName(suggested)}
                   />
                 </div>
+                </div>
               </div>
 
               {/* Rodapé do Modal */}
-              <div className="pt-4 border-t border-line flex flex-wrap items-center justify-between gap-3">
-                <div className="text-xs text-muted font-semibold">
+              <div className="shrink-0 px-4 sm:px-6 pt-3 pb-[max(14px,env(safe-area-inset-bottom))] border-t border-line bg-surface flex flex-wrap items-center justify-between gap-3">
+                <div className="hidden sm:block text-xs text-muted font-semibold">
                   {editingCategory
                     ? "As alterações de ícone e status entram em vigor imediatamente no PDV."
                     : "Dica: Use as sugestões no topo do modal para preencher nome e ícone com 1 clique."}
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(false)}
-                    className="px-5 py-2.5 rounded-xl border border-line bg-surface text-muted hover:text-ink font-bold text-sm transition-colors"
+                    className="flex-1 sm:flex-initial px-5 py-2.5 min-h-[42px] rounded-xl border border-line bg-page text-muted hover:text-ink font-bold text-sm transition-colors"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
                     disabled={savingModal}
-                    className="px-6 py-2.5 rounded-xl bg-brand hover:bg-brand text-on-brand font-extrabold text-sm transition-all shadow-lg disabled:opacity-60 hover:text-on-brand"
+                    className="flex-1 sm:flex-initial px-6 py-2.5 min-h-[42px] rounded-xl bg-brand hover:bg-brand-hover text-on-brand font-extrabold text-sm transition-all shadow-lg disabled:opacity-60 hover:text-on-brand"
                   >
                     {savingModal
                       ? "Salvando..."

@@ -305,6 +305,7 @@ export function RetailLayout() {
   const [mobileNavHidden, setMobileNavHidden] = useState(false);
   const [hasSysInitSession, setHasSysInitSession] = useState(false);
   const canvasRef = useRef<HTMLElement | null>(null);
+  const subNavBarRef = useRef<HTMLElement | null>(null);
   const scrollPosMapRef = useRef<WeakMap<EventTarget, number>>(new WeakMap());
   const touchStartYRef = useRef<number | null>(null);
   const touchStartXRef = useRef<number | null>(null);
@@ -343,6 +344,23 @@ export function RetailLayout() {
   useEffect(() => {
     setLogoLoadError(false);
   }, [tenantLogoUrl]);
+
+  useEffect(() => {
+    const bar = subNavBarRef.current;
+    if (!bar) return;
+    const raf = window.requestAnimationFrame(() => {
+      const activePill = bar.querySelector<HTMLElement>(
+        ".retail-subnav-pill.is-active",
+      );
+      if (!activePill) return;
+      const targetLeft = Math.max(
+        0,
+        activePill.offsetLeft - (bar.clientWidth - activePill.offsetWidth) / 2,
+      );
+      bar.scrollTo({ left: targetLeft, behavior: "smooth" });
+    });
+    return () => window.cancelAnimationFrame(raf);
+  }, [location.pathname, location.search]);
 
   useEffect(() => {
     setMenuOpen(false);
@@ -1495,6 +1513,7 @@ export function RetailLayout() {
 
               {subNavTabs.length > 0 && (
                   <nav
+                    ref={subNavBarRef}
                     className="retail-subnav-bar management-section-tabs"
                     aria-label="Seções do módulo"
                   >

@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { CategoriesService } from './categories.service';
 import { TenantConnectionManager } from '../prisma/tenant-prisma.service';
 import { TenantContextService } from '../prisma/tenant-context.service';
+import { ProductsService } from '../products/products.service';
 
 describe('CategoriesService', () => {
   let service: CategoriesService;
@@ -11,6 +12,7 @@ describe('CategoriesService', () => {
       providers: [CategoriesService,
         { provide: TenantConnectionManager, useValue: {} },
         { provide: TenantContextService, useValue: {} },
+        { provide: ProductsService, useValue: {} },
       ],
     }).compile();
 

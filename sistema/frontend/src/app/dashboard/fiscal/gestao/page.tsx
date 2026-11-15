@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { PdvLojistaLoader, RetailDatePicker, RetailSelect } from '@/components/ui';
+import { OperatorInlineBadge, StockItemThumb } from '@/components/EntityPhotos';
 
 interface FiscalSummary {
   periodo: { startDate: string | null; endDate: string | null };
@@ -43,7 +44,11 @@ interface FiscalSummary {
 }
 
 interface FiscalSaleItem {
+  productId?: string | null;
   name: string;
+  size?: string | null;
+  color?: string | null;
+  imageUrl?: string | null;
   quantity: number;
   priceUnit: number;
   subtotal: number;
@@ -69,7 +74,9 @@ interface FiscalSale {
   consumidorCpf: string | null;
   consumidorNome: string | null;
   createdAt: string;
+  operatorId?: string | null;
   operatorName: string;
+  operatorImageUrl?: string | null;
   payments: FiscalPayment[];
   itemsCount: number;
   itemsSummary: string;
@@ -624,9 +631,10 @@ export default function FiscalManagementPage() {
             <table className="w-full text-left min-w-[950px]">
               <thead className="bg-page text-muted text-xs uppercase tracking-wider">
                 <tr>
-                  <th className="px-4 py-3 font-semibold">Data / Hora</th>
+                  <th className="px-4 py-3 font-semibold">Data / Operador</th>
                   <th className="px-3 py-3 font-semibold text-center">Nota / Série</th>
                   <th className="px-3 py-3 font-semibold text-center">Origem</th>
+                  <th className="px-3 py-3 font-semibold">Itens na Nota</th>
                   <th className="px-3 py-3 font-semibold">Consumidor</th>
                   <th className="px-3 py-3 font-semibold text-center">Forma Pagamento</th>
                   <th className="px-3 py-3 font-semibold text-right">Valor Nota</th>
@@ -637,10 +645,20 @@ export default function FiscalManagementPage() {
               <tbody className="divide-y divide-line text-xs">
                 {sales.map(sale => (
                   <tr key={sale.id} className="hover:bg-surface transition-colors">
-                    <td className="px-4 py-3 text-muted font-mono text-[11px]">
-                      {new Date(sale.createdAt).toLocaleString('pt-BR')}
+                    <td className="px-4 py-3 text-muted font-mono text-[11px] whitespace-nowrap">
+                      <div>{new Date(sale.createdAt).toLocaleString('pt-BR')}</div>
+                      {sale.operatorName && (
+                        <div className="mt-1 font-sans max-w-[140px]">
+                          <OperatorInlineBadge
+                            name={sale.operatorName}
+                            operatorId={sale.operatorId}
+                            imageUrl={sale.operatorImageUrl}
+                            size="xs"
+                          />
+                        </div>
+                      )}
                     </td>
-                    <td className="px-3 py-3 text-center">
+                    <td className="px-3 py-3 text-center whitespace-nowrap">
                       {sale.nfceNumero ? (
                         <span className="font-mono font-bold text-ink">
                           Nº {sale.nfceNumero} <span className="text-muted font-normal">/ S{sale.nfceSerie || 1}</span>
@@ -649,7 +667,7 @@ export default function FiscalManagementPage() {
                         <span className="text-muted">-</span>
                       )}
                     </td>
-                    <td className="px-3 py-3 text-center">
+                    <td className="px-3 py-3 text-center whitespace-nowrap">
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                         sale.source === 'ajuste_fiscal'
                           ? 'bg-support text-brand border border-brand'
@@ -657,6 +675,32 @@ export default function FiscalManagementPage() {
                       }`}>
                         {sale.source === 'ajuste_fiscal' ? 'Ajuste Fiscal' : 'PDV'}
                       </span>
+                    </td>
+                    <td className="px-3 py-3 max-w-[210px]">
+                      {sale.itemsDetail && sale.itemsDetail.length > 0 ? (
+                        <div className="space-y-1">
+                          {sale.itemsDetail.slice(0, 2).map((item, iIdx) => (
+                            <div key={iIdx} className="flex items-center gap-1.5 min-w-0">
+                              <StockItemThumb
+                                imageUrl={item.imageUrl}
+                                alt={item.name}
+                                size="xs"
+                              />
+                              <span className="font-bold text-brand shrink-0">
+                                {item.quantity}x
+                              </span>
+                              <span className="text-ink truncate">{item.name}</span>
+                            </div>
+                          ))}
+                          {sale.itemsDetail.length > 2 && (
+                            <span className="text-[10px] font-bold text-brand">
+                              +{sale.itemsDetail.length - 2} mais
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-muted truncate block">{sale.itemsSummary || '-'}</span>
+                      )}
                     </td>
                     <td className="px-3 py-3 text-muted">
                       <p className="font-semibold">{sale.consumidorNome || 'Consumidor Não Identificado'}</p>
@@ -762,8 +806,13 @@ export default function FiscalManagementPage() {
                   </p>
                 </div>
                 <div>
-                  <p className="text-muted uppercase font-bold text-[10px]">Operador</p>
-                  <p className="text-ink font-semibold mt-1">{selectedSale.operatorName}</p>
+                  <p className="text-muted uppercase font-bold text-[10px] mb-1">Operador</p>
+                  <OperatorInlineBadge
+                    name={selectedSale.operatorName || 'Operador'}
+                    operatorId={selectedSale.operatorId}
+                    imageUrl={selectedSale.operatorImageUrl}
+                    size="sm"
+                  />
                 </div>
               </div>
 
@@ -844,12 +893,23 @@ export default function FiscalManagementPage() {
                 {selectedSale.itemsDetail && selectedSale.itemsDetail.length > 0 ? (
                   <div className="bg-page rounded-xl border border-line overflow-hidden divide-y divide-line">
                     {selectedSale.itemsDetail.map((item, idx) => (
-                      <div key={idx} className="p-2.5 flex items-center justify-between text-[11px]">
-                        <div>
-                          <p className="text-ink font-semibold">{item.name}</p>
-                          <p className="text-muted">{item.quantity}x a R$ {item.priceUnit.toFixed(2)}</p>
+                      <div key={idx} className="p-2.5 flex items-center justify-between gap-3 text-[11px]">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <StockItemThumb
+                            imageUrl={item.imageUrl}
+                            alt={item.name}
+                            size="sm"
+                          />
+                          <div className="min-w-0">
+                            <p className="text-ink font-semibold truncate">{item.name}</p>
+                            <p className="text-muted">
+                              {item.quantity}x a R$ {item.priceUnit.toFixed(2)}
+                              {item.size ? ` · Tam ${item.size}` : ''}
+                              {item.color ? ` · ${item.color}` : ''}
+                            </p>
+                          </div>
                         </div>
-                        <span className="text-brand font-mono font-bold">R$ {item.subtotal.toFixed(2)}</span>
+                        <span className="text-brand font-mono font-bold shrink-0">R$ {item.subtotal.toFixed(2)}</span>
                       </div>
                     ))}
                   </div>

@@ -11,21 +11,36 @@ import {
   Clock, TrendingUp, TrendingDown, Minus, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { PdvLojistaLoader } from '@/components/ui';
+import { useAuthStore } from '@/store/auth';
+import { useShift } from '@/contexts/ShiftContext';
+import { OperatorInlineBadge, StockItemThumb } from '@/components/EntityPhotos';
 
 // ── Tipos ───────────────────────────────────────────────────────────────────
 
 interface Category { id: string; name: string; }
-interface Product { id: string; name: string; shortCode: string; category: { name: string }; unit: string; stock: number; }
+interface Product {
+  id: string;
+  name: string;
+  shortCode: string;
+  category: { name: string };
+  unit: string;
+  stock: number;
+  imageUrl?: string | null;
+  retailGroup?: { imageUrl?: string | null } | null;
+}
 interface ImportRow { productId: string; name: string; category: string; unit: string; shortCode: string; before: number; counted: number | null; }
-interface ImportResult { productId: string; name: string; before: number; after: number; }
+interface ImportResult { productId: string; name: string; imageUrl?: string | null; before: number; after: number; }
 interface HistorySession {
   sessionId: string;
   date: string;
+  operatorId?: string | null;
+  operatorName?: string | null;
+  operatorImageUrl?: string | null;
   totalProducts: number;
   increases: number;
   decreases: number;
   unchanged: number;
-  items: { name: string; before: number; after: number; diff: number }[];
+  items: { productId?: string; name: string; imageUrl?: string | null; before: number; after: number; diff: number }[];
 }
 
 type ScopeMode = 'all' | 'category' | 'manual';
@@ -68,6 +83,8 @@ function StepIndicator({ current }: { current: Step }) {
 // ── Componente Principal ─────────────────────────────────────────────────────
 
 export default function StockCountPage() {
+  const { user } = useAuthStore();
+  const { operator: activeOperator } = useShift();
   const [step, setStep] = useState<Step>(1);
 
   // Escopo
@@ -123,6 +140,11 @@ export default function StockCountPage() {
     const term = normalizeStr(productSearch);
     return products.filter(p => normalizeStr(`${p.name} ${p.shortCode || ''}`).includes(term));
   }, [products, productSearch]);
+
+  const productById = useMemo(
+    () => new Map(products.map(p => [p.id, p])),
+    [products],
+  );
 
   // ── Step 1 → 2: busca produtos do escopo ──────────────────────────────
 
@@ -253,7 +275,19 @@ export default function StockCountPage() {
             <p className="text-muted text-sm mt-0.5">Exporte, conte e importe os valores corretos</p>
           </div>
         </div>
-        <StepIndicator current={step} />
+        <div className="flex flex-wrap items-center gap-3">
+          {(activeOperator?.name || user?.name) && (
+            <OperatorInlineBadge
+              label="Responsável:"
+              name={activeOperator?.name || user?.name}
+              operatorId={activeOperator?.id || user?.id}
+              imageUrl={activeOperator?.imageUrl || user?.imageUrl}
+              variant="pill"
+              size="xs"
+            />
+          )}
+          <StepIndicator current={step} />
+        </div>
       </div>
 
       {/* ── STEP 1: Escopo ─────────────────────────────────────────────── */}
@@ -348,6 +382,7 @@ export default function StockCountPage() {
                         setSelectedProducts(next);
                       }} className={`flex items-center gap-3 w-full p-2.5 rounded-lg text-sm text-left transition-all border ${selected ? 'border-brand bg-support text-ink' : 'border-line bg-page/50 text-muted hover:border-line'}`}>
                         {selected ? <CheckSquare size={16} className="text-brand shrink-0" /> : <Square size={16} className="shrink-0" />}
+                        <StockItemThumb product={p} alt={p.name} size="sm" />
                         <div className="flex-1 min-w-0">
                           <p className="font-medium truncate">{p.name}</p>
                           <p className="text-xs text-muted">{p.category?.name} • Estoque: {p.stock} {p.unit}</p>
@@ -420,7 +455,17 @@ export default function StockCountPage() {
                   {exportedProducts.map(p => (
                     <tr key={p.id} className="hover:bg-surface">
                       <td className="px-4 py-2.5 font-mono text-xs text-muted">{p.shortCode || '—'}</td>
-                      <td className="px-4 py-2.5 text-muted font-medium">{p.name}</td>
+                      <td className="px-4 py-2.5 text-ink font-medium">
+                        <div className="flex items-center gap-2.5">
+                          <StockItemThumb
+                            imageUrl={p.imageUrl}
+                            product={productById.get(p.id)}
+                            alt={p.name}
+                            size="xs"
+                          />
+                          <span>{p.name}</span>
+                        </div>
+                      </td>
                       <td className="px-4 py-2.5 text-muted">{p.category}</td>
                       <td className="px-4 py-2.5 text-muted">{p.unit}</td>
                       <td className="px-4 py-2.5 text-right font-bold text-muted">{p.stock}</td>
@@ -469,7 +514,17 @@ export default function StockCountPage() {
                       const diff = r.after - r.before;
                       return (
                         <tr key={r.productId} className="hover:bg-surface">
-                          <td className="px-4 py-2.5 text-muted font-medium">{r.name}</td>
+                          <td className="px-4 py-2.5 text-ink font-medium">
+                            <div className="flex items-center gap-2.5">
+                              <StockItemThumb
+                                imageUrl={r.imageUrl}
+                                product={productById.get(r.productId)}
+                                alt={r.name}
+                                size="xs"
+                              />
+                              <span>{r.name}</span>
+                            </div>
+                          </td>
                           <td className="px-4 py-2.5 text-right text-muted">{r.before}</td>
                           <td className="px-4 py-2.5 text-right font-bold text-ink">{r.after}</td>
                           <td className={`px-4 py-2.5 text-right font-bold ${diff > 0 ? 'text-brand' : diff < 0 ? 'text-brand' : 'text-muted'}`}>
@@ -534,7 +589,16 @@ export default function StockCountPage() {
                         return (
                           <tr key={r.productId} className={`hover:bg-surface ${!willUpdate ? 'opacity-40' : ''}`}>
                             <td className="px-4 py-2.5 font-mono text-xs text-muted">{r.shortCode || '—'}</td>
-                            <td className="px-4 py-2.5 text-muted font-medium">{r.name}</td>
+                            <td className="px-4 py-2.5 text-ink font-medium">
+                              <div className="flex items-center gap-2.5">
+                                <StockItemThumb
+                                  product={productById.get(r.productId)}
+                                  alt={r.name}
+                                  size="xs"
+                                />
+                                <span>{r.name}</span>
+                              </div>
+                            </td>
                             <td className="px-4 py-2.5 text-right text-muted">{r.before}</td>
                             <td className={`px-4 py-2.5 text-right font-bold ${willUpdate ? 'text-ink' : 'text-muted italic text-xs'}`}>
                               {willUpdate ? r.counted : '— ignorado —'}
@@ -623,9 +687,21 @@ export default function StockCountPage() {
                       <span className="text-brand font-bold text-sm">#{history.length - idx}</span>
                     </div>
 
-                    {/* Data e hora */}
+                    {/* Data, hora e operador */}
                     <div className="flex-1 min-w-0">
-                      <p className="font-bold text-ink text-sm">{dateStr} às {timeStr}</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-bold text-ink text-sm">{dateStr} às {timeStr}</p>
+                        {session.operatorName && (
+                          <OperatorInlineBadge
+                            label="Por:"
+                            name={session.operatorName}
+                            operatorId={session.operatorId}
+                            imageUrl={session.operatorImageUrl}
+                            size="xs"
+                            variant="pill"
+                          />
+                        )}
+                      </div>
                       <p className="text-xs text-muted mt-0.5">{session.totalProducts} produto(s) ajustado(s)</p>
                     </div>
 
@@ -667,7 +743,17 @@ export default function StockCountPage() {
                         <tbody className="divide-y divide-line">
                           {session.items.map((item, i) => (
                             <tr key={i} className="hover:bg-surface">
-                              <td className="px-4 py-2.5 text-muted font-medium">{item.name}</td>
+                              <td className="px-4 py-2.5 text-ink font-medium">
+                                <div className="flex items-center gap-2.5">
+                                  <StockItemThumb
+                                    imageUrl={item.imageUrl}
+                                    product={item.productId ? productById.get(item.productId) : undefined}
+                                    alt={item.name}
+                                    size="xs"
+                                  />
+                                  <span>{item.name}</span>
+                                </div>
+                              </td>
                               <td className="px-4 py-2.5 text-right text-muted">{item.before}</td>
                               <td className="px-4 py-2.5 text-right font-bold text-ink">{item.after}</td>
                               <td className={`px-4 py-2.5 text-right font-bold ${item.diff > 0 ? 'text-brand' : item.diff < 0 ? 'text-brand' : 'text-muted'}`}>

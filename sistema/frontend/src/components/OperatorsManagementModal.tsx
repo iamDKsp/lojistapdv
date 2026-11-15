@@ -5,6 +5,7 @@ import { api } from "@/lib/api";
 import { getFullUrl } from "@/lib/getFullUrl";
 import { toast } from "sonner";
 import { PdvLojistaLoader, RetailSwitch } from "@/components/ui";
+import { OperatorAvatarThumb } from "@/components/EntityPhotos";
 
 interface Operator {
   id: string;
@@ -337,17 +338,13 @@ export default function OperatorsManagementModal({ onClose }: OperatorsManagemen
                       className="flex-1 flex items-center gap-3 cursor-pointer"
                       onClick={() => handleEdit(op)}
                     >
-                      <div className="w-11 h-11 rounded-full bg-support border border-brand flex items-center justify-center overflow-hidden shrink-0">
-                        {op.imageUrl ? (
-                          <img
-                            src={getFullUrl(op.imageUrl)}
-                            alt={op.name}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <UserRound className="text-brand" size={20} />
-                        )}
-                      </div>
+                      <OperatorAvatarThumb
+                        name={op.name}
+                        operatorId={op.id}
+                        imageUrl={op.imageUrl}
+                        size="lg"
+                        className="w-11 h-11 border-brand"
+                      />
                       <div className="flex flex-col">
                         <span className="font-bold text-ink text-base flex items-center gap-2 flex-wrap">
                           {op.name}

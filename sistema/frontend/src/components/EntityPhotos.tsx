@@ -248,6 +248,7 @@ const STOCK_THUMB_ROUNDED_CLASSES = {
 
 export interface StockItemThumbProps {
   name?: string | null;
+  alt?: string | null;
   imageUrl?: string | null;
   fallbackImageUrl?: string | null;
   product?: any;
@@ -258,6 +259,7 @@ export interface StockItemThumbProps {
 
 export function StockItemThumb({
   name,
+  alt,
   imageUrl,
   fallbackImageUrl,
   product,
@@ -283,16 +285,18 @@ export function StockItemThumb({
   const sizeCfg = STOCK_THUMB_SIZE_CLASSES[size] || STOCK_THUMB_SIZE_CLASSES.sm;
   const roundedClass =
     STOCK_THUMB_ROUNDED_CLASSES[rounded] || STOCK_THUMB_ROUNDED_CLASSES.md;
+  const resolvedLabel =
+    alt || name || product?.name || product?.productName || undefined;
 
   return (
     <span
-      title={name || product?.name || product?.productName || undefined}
+      title={resolvedLabel}
       className={`inline-flex items-center justify-center bg-page border border-line overflow-hidden shrink-0 select-none ${sizeCfg.box} ${roundedClass} ${className}`}
     >
       {resolvedUrl && !imgError ? (
         <img
           src={getFullUrl(resolvedUrl)}
-          alt={name || product?.name || product?.productName || 'Mercadoria'}
+          alt={resolvedLabel || 'Mercadoria'}
           className="w-full h-full object-cover"
           loading="lazy"
           onError={() => setImgError(true)}

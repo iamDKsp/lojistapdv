@@ -4,6 +4,10 @@ import { Search, RotateCcw } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/store/auth";
 import PdvLojistaLoader from "@/components/PdvLojistaLoader";
+import {
+  OperatorInlineBadge,
+  StockItemThumb,
+} from "@/components/EntityPhotos";
 import { RetailSwitch } from "@/components/ui/Switch";
 import { CustomerPicker } from "./CustomerPicker";
 import { money, apiError } from "./types";
@@ -210,7 +214,19 @@ export function RetailReturnsPage() {
           {sale && (
             <div className="retail-panel">
               <div className="retail-row retail-spread">
-                <h2>Venda #{sale.code || sale.id}</h2>
+                <div className="flex flex-wrap items-center gap-3">
+                  <h2 style={{ margin: 0 }}>Venda #{sale.code || sale.id}</h2>
+                  {(sale.operatorName || sale.operator || sale.operatorId) && (
+                    <OperatorInlineBadge
+                      size="xs"
+                      variant="pill"
+                      label="Vendedor:"
+                      name={sale.operatorName || sale.operator?.name || sale.operator}
+                      imageUrl={sale.operatorImageUrl || sale.operator?.imageUrl}
+                      operatorId={sale.operatorId || sale.operator?.id}
+                    />
+                  )}
+                </div>
                 <span className="retail-badge">
                   {sale.status === "completed" ? "Concluída" : sale.status}
                 </span>
@@ -242,11 +258,21 @@ export function RetailReturnsPage() {
                           return (
                             <tr key={item.id}>
                               <td data-label="Mercadoria" className="retail-cell-primary">
-                                <strong>{item.productName}</strong>
-                                <br />
-                                <span className="retail-muted">
-                                  Preço na venda: {money(item.priceUnit)}
-                                </span>
+                                <div className="flex items-center gap-2.5">
+                                  <StockItemThumb
+                                    size="sm"
+                                    name={item.productName}
+                                    imageUrl={item.imageUrl}
+                                    product={item}
+                                  />
+                                  <div className="min-w-0">
+                                    <strong>{item.productName}</strong>
+                                    <br />
+                                    <span className="retail-muted">
+                                      Preço na venda: {money(item.priceUnit)}
+                                    </span>
+                                  </div>
+                                </div>
                               </td>
                               <td data-label="Disponível para troca">
                                 {remaining}
@@ -353,6 +379,8 @@ export function RetailReturnsPage() {
               <tr>
                 <th>Venda</th>
                 <th>Cliente</th>
+                <th>Itens devolvidos</th>
+                <th>Operador</th>
                 <th>Motivo</th>
                 <th>Crédito emitido</th>
                 <th>Saldo</th>
@@ -365,6 +393,44 @@ export function RetailReturnsPage() {
                     <strong>#{row.sale.code || row.saleId}</strong>
                   </td>
                   <td data-label="Cliente">{row.customer.name}</td>
+                  <td data-label="Itens devolvidos">
+                    {row.items?.length ? (
+                      <div className="flex flex-col gap-1">
+                        {row.items.slice(0, 3).map((ri: any) => (
+                          <div
+                            key={ri.id}
+                            className="inline-flex items-center gap-2 min-w-0 text-xs"
+                          >
+                            <StockItemThumb
+                              size="xs"
+                              name={ri.saleItem?.productName}
+                              imageUrl={ri.imageUrl}
+                              product={ri}
+                            />
+                            <span className="truncate">
+                              <strong>{ri.quantity}×</strong>{" "}
+                              {ri.saleItem?.productName || "Mercadoria"}
+                            </span>
+                          </div>
+                        ))}
+                        {row.items.length > 3 && (
+                          <small className="retail-muted">
+                            +{row.items.length - 3} outro(s) item(ns)
+                          </small>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="retail-muted">—</span>
+                    )}
+                  </td>
+                  <td data-label="Operador">
+                    <OperatorInlineBadge
+                      size="xs"
+                      name={row.operatorName || "Administrador"}
+                      imageUrl={row.operatorImageUrl}
+                      operatorId={row.operatorId}
+                    />
+                  </td>
                   <td data-label="Motivo">{row.reason}</td>
                   <td data-label="Crédito emitido" className="retail-number">
                     {money(row.total)}

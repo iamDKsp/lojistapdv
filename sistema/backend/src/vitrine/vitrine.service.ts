@@ -4,10 +4,12 @@ import {
   ForbiddenException,
   BadRequestException,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { HeartPrismaService } from '../prisma/heart-prisma.service';
 import { TenantConnectionManager } from '../prisma/tenant-prisma.service';
 import { TenantContextService } from '../prisma/tenant-context.service';
+import { EntityPhotoResolverService } from '../prisma/entity-photo-resolver.service';
 
 export interface VitrineSlide {
   slideType?: 'single';
@@ -138,6 +140,7 @@ export class VitrineService {
     private readonly heartPrisma: HeartPrismaService,
     private readonly tenantManager: TenantConnectionManager,
     private readonly tenantContext: TenantContextService,
+    @Optional() private readonly photoResolver?: EntityPhotoResolverService,
   ) {}
 
   private async getTenantPrisma() {
@@ -331,22 +334,217 @@ export class VitrineService {
     return { position: pos, instagram: insta, gridSlideDuration, storeTagline };
   }
 
-  private formatConfigResponse(config: any, tenantMeta?: { tvPublicId?: string; storeName?: string; logoUrl?: string | null }) {
+  private async backfillSlidesMissingImages(
+    slides: AnyVitrineSlide[],
+    prisma: any,
+  ): Promise<AnyVitrineSlide[]> {
+    if (!Array.isArray(slides) || slides.length === 0) return [];
+
+    const missingGroupIds = new Set<string>();
+    const missingProductIds = new Set<string>();
+
+    const collectMissing = (item: {
+      imageUrl?: string | null;
+      retailGroupId?: string | null;
+      productId?: string;
+    }) => {
+      if (item.imageUrl) return;
+      if (item.retailGroupId) {
+        missingGroupIds.add(item.retailGroupId);
+      }
+      if (item.productId) {
+        if (item.productId.startsWith('group:')) {
+          missingGroupIds.add(item.productId.slice(6));
+        } else {
+          missingProductIds.add(item.productId);
+        }
+      }
+    };
+
+    for (const slide of slides) {
+      if ((slide as VitrineGridSlide).slideType === 'grid') {
+        for (const gp of (slide as VitrineGridSlide).gridProducts || []) {
+          collectMissing(gp);
+        }
+      } else {
+        collectMissing(slide as VitrineSlide);
+      }
+    }
+
+    if (missingGroupIds.size === 0 && missingProductIds.size === 0) {
+      return slides;
+    }
+
+    const groupImgMap = new Map<string, string>();
+    const prodImgMap = new Map<string, string>();
+
+    try {
+      if (missingGroupIds.size > 0 && typeof prisma?.retailGroup?.findMany === 'function') {
+        const groups =
+          (await Promise.resolve(
+            prisma.retailGroup.findMany({
+              where: { id: { in: Array.from(missingGroupIds) } },
+              select: {
+                id: true,
+                imageUrl: true,
+                variants: {
+                  where: { active: true },
+                  select: { imageUrl: true },
+                },
+              },
+            }),
+          ).catch(() => [])) || [];
+        for (const g of groups) {
+          const img =
+            g.imageUrl ||
+            (Array.isArray(g.variants)
+              ? g.variants.find((v: any) => v.imageUrl)?.imageUrl
+              : null);
+          if (img) groupImgMap.set(g.id, img);
+        }
+      }
+
+      if (missingProductIds.size > 0 && typeof prisma?.product?.findMany === 'function') {
+        const products =
+          (await Promise.resolve(
+            prisma.product.findMany({
+              where: { id: { in: Array.from(missingProductIds) } },
+              select: {
+                id: true,
+                imageUrl: true,
+                retailGroup: { select: { imageUrl: true } },
+              },
+            }),
+          ).catch(() => [])) || [];
+        for (const p of products) {
+          const img = p.imageUrl || p.retailGroup?.imageUrl || null;
+          if (img) prodImgMap.set(p.id, img);
+        }
+      }
+    } catch {
+      return slides;
+    }
+
+    const resolveImg = (item: {
+      imageUrl?: string | null;
+      retailGroupId?: string | null;
+      productId?: string;
+    }): string | null => {
+      if (item.imageUrl) return item.imageUrl;
+      if (item.retailGroupId && groupImgMap.has(item.retailGroupId)) {
+        return groupImgMap.get(item.retailGroupId)!;
+      }
+      if (item.productId) {
+        if (item.productId.startsWith('group:')) {
+          const gid = item.productId.slice(6);
+          if (groupImgMap.has(gid)) return groupImgMap.get(gid)!;
+        } else if (prodImgMap.has(item.productId)) {
+          return prodImgMap.get(item.productId)!;
+        }
+      }
+      return null;
+    };
+
+    return slides.map((slide) => {
+      if ((slide as VitrineGridSlide).slideType === 'grid') {
+        const gs = slide as VitrineGridSlide;
+        return {
+          ...gs,
+          gridProducts: (gs.gridProducts || []).map((gp) => ({
+            ...gp,
+            imageUrl: resolveImg(gp),
+          })),
+        };
+      }
+      const ss = slide as VitrineSlide;
+      return {
+        ...ss,
+        imageUrl: resolveImg(ss),
+      };
+    });
+  }
+
+  private async resolvePublisherActor(
+    config: any,
+    tenantId: string,
+    prisma: any,
+  ): Promise<{ publishedByName: string | null; publishedByImageUrl: string | null }> {
+    const rawId = config?.publishedByUserId || null;
+    const rawName = config?.publishedByName || null;
+    if (!rawId && !rawName) {
+      return { publishedByName: null, publishedByImageUrl: null };
+    }
+    if (!this.photoResolver) {
+      return { publishedByName: rawName, publishedByImageUrl: null };
+    }
+    try {
+      const actors = await this.photoResolver.loadTenantActors(tenantId, prisma);
+      const resolved = actors.resolveActor(rawId, rawName);
+      return {
+        publishedByName: resolved.name || rawName,
+        publishedByImageUrl: resolved.imageUrl,
+      };
+    } catch {
+      return { publishedByName: rawName, publishedByImageUrl: null };
+    }
+  }
+
+  private async formatConfigResponse(
+    config: any,
+    tenantMeta?: {
+      tenantId?: string;
+      prisma?: any;
+      tvPublicId?: string;
+      storeName?: string;
+      logoUrl?: string | null;
+    },
+  ) {
     if (!config) return null;
     const { position, instagram, gridSlideDuration, storeTagline } =
       this.parseLogoPosition(config.logoPosition);
+    const rawDraftSlides: AnyVitrineSlide[] = Array.isArray(config.draftSlides)
+      ? config.draftSlides
+      : [];
+    const rawPublishedSlides: AnyVitrineSlide[] = Array.isArray(
+      config.publishedSlides,
+    )
+      ? config.publishedSlides
+      : [];
+
+    const [draftSlides, publishedSlides, publisher] = await Promise.all([
+      tenantMeta?.prisma
+        ? this.backfillSlidesMissingImages(rawDraftSlides, tenantMeta.prisma)
+        : Promise.resolve(rawDraftSlides),
+      tenantMeta?.prisma
+        ? this.backfillSlidesMissingImages(
+            rawPublishedSlides,
+            tenantMeta.prisma,
+          )
+        : Promise.resolve(rawPublishedSlides),
+      tenantMeta?.tenantId
+        ? this.resolvePublisherActor(
+            config,
+            tenantMeta.tenantId,
+            tenantMeta.prisma,
+          )
+        : Promise.resolve({
+            publishedByName: config.publishedByName ?? null,
+            publishedByImageUrl: null,
+          }),
+    ]);
+
     return {
       ...config,
       version: Number(config.version ?? 0),
       publishedVersion: Number(config.version ?? 0),
+      publishedByName: publisher.publishedByName,
+      publishedByImageUrl: publisher.publishedByImageUrl,
       logoPosition: position,
       instagramHandle: instagram,
       gridSlideDuration,
       storeTagline,
-      draftSlides: Array.isArray(config.draftSlides) ? config.draftSlides : [],
-      publishedSlides: Array.isArray(config.publishedSlides)
-        ? config.publishedSlides
-        : [],
+      draftSlides,
+      publishedSlides,
       ...(tenantMeta
         ? {
             tvPublicId: tenantMeta.tvPublicId,
@@ -417,6 +615,7 @@ export class VitrineService {
           publishedAt: null,
           publishedByUserId: null,
           publishedByName: null,
+          publishedByImageUrl: null,
           draftUpdatedAt: null,
           theme: 'dark_premium',
           customBgUrl: null,
@@ -434,7 +633,10 @@ export class VitrineService {
         };
       }
 
-      return this.formatConfigResponse(config, {
+      const { tenantId } = this.tenantContext.get();
+      return await this.formatConfigResponse(config, {
+        tenantId,
+        prisma,
         tvPublicId: meta.tvPublicId,
         storeName: meta.storeName,
         logoUrl: meta.logoUrl,
@@ -679,7 +881,10 @@ export class VitrineService {
         data: payload,
       });
 
-      return this.formatConfigResponse(updated, {
+      const { tenantId } = this.tenantContext.get();
+      return await this.formatConfigResponse(updated, {
+        tenantId,
+        prisma,
         tvPublicId: meta.tvPublicId,
         storeName: meta.storeName,
         logoUrl: meta.logoUrl,
@@ -714,7 +919,10 @@ export class VitrineService {
         },
       });
 
-      return this.formatConfigResponse(updated, {
+      const { tenantId } = this.tenantContext.get();
+      return await this.formatConfigResponse(updated, {
+        tenantId,
+        prisma,
         tvPublicId: meta.tvPublicId,
         storeName: meta.storeName,
         logoUrl: meta.logoUrl,
@@ -737,7 +945,10 @@ export class VitrineService {
         data: { active: Boolean(active) },
       });
 
-      return this.formatConfigResponse(updated, {
+      const { tenantId } = this.tenantContext.get();
+      return await this.formatConfigResponse(updated, {
+        tenantId,
+        prisma,
         tvPublicId: meta.tvPublicId,
         storeName: meta.storeName,
         logoUrl: meta.logoUrl,
@@ -832,10 +1043,16 @@ export class VitrineService {
       const rawSlides: AnyVitrineSlide[] = Array.isArray(config.publishedSlides)
         ? (config.publishedSlides as unknown as AnyVitrineSlide[])
         : [];
+      const [slides, publisher] = await Promise.all([
+        this.backfillSlidesMissingImages(rawSlides, tenantPrisma),
+        this.resolvePublisherActor(config, tenant.id, tenantPrisma),
+      ]);
 
       return {
         active: true,
         version: config.version,
+        publishedByName: publisher.publishedByName,
+        publishedByImageUrl: publisher.publishedByImageUrl,
         storeName,
         storeTagline,
         theme: config.theme || 'dark_premium',
@@ -846,7 +1063,7 @@ export class VitrineService {
         logoUrl: tenant.logoUrl ?? null,
         slideDuration: config.slideDuration || 8,
         gridSlideDuration: gridSlideDuration || 15,
-        slides: rawSlides,
+        slides,
       };
     } catch (err: any) {
       if (err instanceof NotFoundException) throw err;

@@ -15,6 +15,7 @@ import { HeartPrismaService } from '../prisma/heart-prisma.service';
 import { TenantConnectionManager } from '../prisma/tenant-prisma.service';
 import { TenantContextService } from '../prisma/tenant-context.service';
 import { ProductsService } from '../products/products.service';
+import { EntityPhotoResolverService } from '../prisma/entity-photo-resolver.service';
 import { getActiveReservedQuantities } from '../prisma/stock-reservations.helper';
 import { retryTransaction } from '../prisma/transaction-retry';
 import { lockProducts } from '../prisma/lock-products';
@@ -99,6 +100,7 @@ export class GroupsService {
     @Optional() private tenantManager?: TenantConnectionManager,
     @Optional() private tenantContext?: TenantContextService,
     @Optional() private jwtService?: JwtService,
+    @Optional() private photoResolver?: EntityPhotoResolverService,
   ) {}
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -427,6 +429,7 @@ export class GroupsService {
         id: effectiveUserId,
         email: effectiveEmail,
         name: effectiveName,
+        imageUrl: currentUser?.imageUrl ?? targetAdmin?.imageUrl ?? null,
         role: effectiveRole,
         groupId: group.id,
         tenant: targetMember.tenant.id,
@@ -1645,12 +1648,16 @@ export class GroupsService {
                 priceCost: true,
                 unit: true,
                 stock: true,
+                imageUrl: true,
                 retailGroupId: true,
+                retailGroup: { select: { imageUrl: true } },
               },
             });
             for (const p of products) {
+              const { retailGroup, ...rest } = p as any;
               allProducts.push({
-                ...p,
+                ...rest,
+                imageUrl: p.imageUrl || retailGroup?.imageUrl || null,
                 priceSell: Number(p.priceSell ?? 0),
                 priceCost: Number(p.priceCost ?? 0),
                 stock: Number(p.stock ?? 0),
@@ -1936,7 +1943,12 @@ export class GroupsService {
 
   async createGroupOwnerUser(
     groupId: string,
-    body: { name: string; email: string; password: string },
+    body: {
+      name: string;
+      email: string;
+      password: string;
+      imageUrl?: string | null;
+    },
   ) {
     const group = await this.getGroupWithMembers(groupId);
     if (!group.members.length)
@@ -1950,6 +1962,7 @@ export class GroupsService {
         name: body.name,
         email: body.email.trim().toLowerCase(),
         password: hashedPassword,
+        imageUrl: body.imageUrl || null,
         role: 'group_owner',
         tenantId: hostTenantId,
         groupId,
@@ -1958,6 +1971,7 @@ export class GroupsService {
         id: true,
         name: true,
         email: true,
+        imageUrl: true,
         role: true,
         groupId: true,
         createdAt: true,
@@ -1973,6 +1987,7 @@ export class GroupsService {
         id: true,
         name: true,
         email: true,
+        imageUrl: true,
         role: true,
         active: true,
         createdAt: true,
@@ -1996,7 +2011,13 @@ export class GroupsService {
     const group = await this.getGroupWithMembers(groupId);
     const productAgg = new Map<
       string,
-      { productId: string; name: string; totalStock: number; totalSold30d: number }
+      {
+        productId: string;
+        name: string;
+        imageUrl: string | null;
+        totalStock: number;
+        totalSold30d: number;
+      }
     >();
 
     const thirtyDaysAgo = new Date();
@@ -2010,7 +2031,13 @@ export class GroupsService {
           async (client) => {
             const [products, sales30d] = await Promise.all([
               client.product.findMany({
-                select: { id: true, name: true, stock: true },
+                select: {
+                  id: true,
+                  name: true,
+                  stock: true,
+                  imageUrl: true,
+                  retailGroup: { select: { imageUrl: true } },
+                },
                 where: {
                   active: true,
                   OR: [
@@ -2042,16 +2069,24 @@ export class GroupsService {
               const currentStock = Number(p.stock ?? 0);
               const sold = salesMap.get(p.id) ?? 0;
               const key = normalizeCatalogKey(p.name);
+              const resolvedImg =
+                (p as any).imageUrl ||
+                (p as any).retailGroup?.imageUrl ||
+                null;
 
               if (!productAgg.has(key)) {
                 productAgg.set(key, {
                   productId: p.id,
                   name: p.name,
+                  imageUrl: resolvedImg,
                   totalStock: 0,
                   totalSold30d: 0,
                 });
               }
               const agg = productAgg.get(key)!;
+              if (!agg.imageUrl && resolvedImg) {
+                agg.imageUrl = resolvedImg;
+              }
               agg.totalStock += currentStock;
               agg.totalSold30d += sold;
             }
@@ -2074,6 +2109,7 @@ export class GroupsService {
       return {
         productId: data.productId,
         name: data.name,
+        imageUrl: data.imageUrl,
         totalStock: Number(data.totalStock.toFixed(3)),
         avgDailySales: Number(avgDailySales.toFixed(2)),
         autonomyDays: Number(autonomyDays.toFixed(1)),
@@ -2100,7 +2136,7 @@ export class GroupsService {
       member.tenantId,
       member.tenant.databaseUrl,
       async (client) => {
-        const [recentSales, criticalStock] = await Promise.all([
+        const [recentSales, criticalStock, actors] = await Promise.all([
           client.sale.findMany({
             where: {
               NOT: [{ status: 'cancelled' }, { source: 'ajuste_fiscal' }],
@@ -2108,8 +2144,18 @@ export class GroupsService {
             orderBy: { createdAt: 'desc' },
             take: 8,
             include: {
+              operator: { select: { id: true, name: true } },
               items: {
-                include: { product: { select: { name: true } } },
+                include: {
+                  product: {
+                    select: {
+                      id: true,
+                      name: true,
+                      imageUrl: true,
+                      retailGroup: { select: { imageUrl: true } },
+                    },
+                  },
+                },
                 take: 4,
               },
               payments: { select: { method: true, label: true, value: true } },
@@ -2121,35 +2167,69 @@ export class GroupsService {
               stock: { lt: 3 },
               OR: [{ retailGroupId: null }, { retailGroup: { active: true } }],
             },
-            select: { id: true, name: true, stock: true, unit: true },
+            select: {
+              id: true,
+              name: true,
+              stock: true,
+              unit: true,
+              imageUrl: true,
+              retailGroup: { select: { imageUrl: true } },
+            },
             orderBy: { stock: 'asc' },
             take: 12,
           }),
+          this.photoResolver
+            ? this.photoResolver
+                .loadTenantActors(member.tenantId, client)
+                .catch(() => null)
+            : Promise.resolve(null),
         ]);
 
         return {
           tenantId,
           alias:
             member.alias || member.tenant.nomeFantasia || member.tenant.name,
-          recentSales: recentSales.map((s) => ({
-            id: s.id,
-            total: Number(s.total),
-            createdAt: s.createdAt,
-            itemsCount: s.items.length,
-            firstItems: s.items
-              .slice(0, 3)
-              .map((i) => i.product?.name ?? 'Mercadoria'),
-            payments: s.payments.map((p) => ({
-              method: p.method,
-              label: p.label,
-              value: Number(p.value),
-            })),
-          })),
+          recentSales: recentSales.map((s) => {
+            const opActor = actors
+              ? actors.resolveActor(
+                  s.operatorId || s.operator?.id,
+                  s.operator?.name || null,
+                )
+              : { name: s.operator?.name || null, imageUrl: null };
+            return {
+              id: s.id,
+              total: Number(s.total),
+              createdAt: s.createdAt,
+              operatorId: s.operatorId || s.operator?.id || null,
+              operatorName: opActor.name,
+              operatorImageUrl: opActor.imageUrl,
+              itemsCount: s.items.length,
+              firstItems: s.items
+                .slice(0, 3)
+                .map((i) => i.product?.name ?? 'Mercadoria'),
+              itemsPreview: s.items.slice(0, 4).map((i) => ({
+                productId: i.productId,
+                name: i.product?.name ?? 'Mercadoria',
+                quantity: Number(i.quantity ?? 1),
+                imageUrl:
+                  (i.product as any)?.imageUrl ||
+                  (i.product as any)?.retailGroup?.imageUrl ||
+                  null,
+              })),
+              payments: s.payments.map((p) => ({
+                method: p.method,
+                label: p.label,
+                value: Number(p.value),
+              })),
+            };
+          }),
           criticalStock: criticalStock.map((p) => ({
             id: p.id,
             name: p.name,
             stock: Number(p.stock),
             unit: p.unit,
+            imageUrl:
+              (p as any).imageUrl || (p as any).retailGroup?.imageUrl || null,
           })),
         };
       },
@@ -2162,7 +2242,12 @@ export class GroupsService {
     const group = await this.getGroupWithMembers(groupId);
     const catalogMap = new Map<
       string,
-      { name: string; tenants: Record<string, any> }
+      {
+        name: string;
+        imageUrl: string | null;
+        categoryName: string | null;
+        tenants: Record<string, any>;
+      }
     >();
     const tenantLabels: Record<string, string> = {};
 
@@ -2190,6 +2275,7 @@ export class GroupsService {
                       barcode: true,
                       size: true,
                       color: true,
+                      imageUrl: true,
                     },
                   },
                 },
@@ -2204,10 +2290,22 @@ export class GroupsService {
 
             for (const rg of retailGroups) {
               const key = normalizeCatalogKey(rg.name);
+              const resolvedRgImg =
+                rg.imageUrl ||
+                rg.variants.find((v: any) => v.imageUrl)?.imageUrl ||
+                null;
               const entry = catalogMap.get(key) || {
                 name: rg.name,
+                imageUrl: resolvedRgImg,
+                categoryName: rg.category?.name || null,
                 tenants: {},
               };
+              if (!entry.imageUrl && resolvedRgImg) {
+                entry.imageUrl = resolvedRgImg;
+              }
+              if (!entry.categoryName && rg.category?.name) {
+                entry.categoryName = rg.category.name;
+              }
               const totalStock = rg.variants.reduce(
                 (s, v) => s + Number(v.stock ?? 0),
                 0,
@@ -2236,7 +2334,7 @@ export class GroupsService {
                 barcode: rg.variants[0]?.barcode || null,
                 ncm: rg.ncm || null,
                 categoryName: rg.category?.name || null,
-                imageUrl: rg.imageUrl || null,
+                imageUrl: resolvedRgImg,
               };
               catalogMap.set(key, entry);
             }
@@ -2245,8 +2343,16 @@ export class GroupsService {
               const key = normalizeCatalogKey(p.name);
               const entry = catalogMap.get(key) || {
                 name: p.name,
+                imageUrl: p.imageUrl || null,
+                categoryName: p.category?.name || null,
                 tenants: {},
               };
+              if (!entry.imageUrl && p.imageUrl) {
+                entry.imageUrl = p.imageUrl;
+              }
+              if (!entry.categoryName && p.category?.name) {
+                entry.categoryName = p.category.name;
+              }
               if (entry.tenants[member.tenantId]) continue;
               entry.tenants[member.tenantId] = {
                 id: p.id,
@@ -2523,7 +2629,12 @@ export class GroupsService {
                   category: { select: { name: true } },
                   variants: {
                     where: { active: true },
-                    select: { size: true, color: true, unit: true },
+                    select: {
+                      size: true,
+                      color: true,
+                      unit: true,
+                      imageUrl: true,
+                    },
                   },
                 },
               }),
@@ -2535,6 +2646,10 @@ export class GroupsService {
 
             for (const rg of retailGroups) {
               const key = normalizeCatalogKey(rg.name);
+              const resolvedRgImg =
+                rg.imageUrl ||
+                rg.variants.find((v: any) => v.imageUrl)?.imageUrl ||
+                null;
               const entry = catalogPresence.get(key) || {
                 name: rg.name,
                 presentIn: new Set<string>(),
@@ -2545,10 +2660,13 @@ export class GroupsService {
                   priceCost: Number(rg.priceCost),
                   categoryName: rg.category?.name || 'Geral',
                   ncm: rg.ncm,
-                  imageUrl: rg.imageUrl,
+                  imageUrl: resolvedRgImg,
                   variantsCount: rg.variants.length,
                 },
               };
+              if (!entry.productData.imageUrl && resolvedRgImg) {
+                entry.productData.imageUrl = resolvedRgImg;
+              }
               entry.presentIn.add(member.tenantId);
               catalogPresence.set(key, entry);
             }

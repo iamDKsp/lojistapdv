@@ -1,11 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingCart, Plus, Check, Clock, X, Phone, Save, Trash, Edit2, Copy, Package } from 'lucide-react';
+import { ShoppingCart, Plus, Check, Clock, X, Phone, Save, Trash, Edit2, Copy } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import ManagePackagingsModal from '@/components/ManagePackagingsModal';
 import { PdvLojistaLoader, RetailSelect } from '@/components/ui';
+import { useShift } from '@/contexts/ShiftContext';
+import { useAuthStore } from '@/store/auth';
+import { OperatorInlineBadge, StockItemThumb } from '@/components/EntityPhotos';
 
 export default function PurchaseOrdersPage() {
+  const { operator: activeOperator } = useShift();
+  const authUser = useAuthStore((s) => s.user);
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -97,7 +102,7 @@ export default function PurchaseOrdersPage() {
     if (activeItems.length === 0) return toast.error('Selecione pelo menos um item.');
 
     try {
-      const { data } = await api.post('/purchase-orders', {
+      await api.post('/purchase-orders', {
         supplierId: selectedSupplier.id,
         items: activeItems.map(i => ({
           productId: i.productId,
@@ -243,6 +248,18 @@ export default function PurchaseOrdersPage() {
             <ShoppingCart className="text-brand" /> Pedidos de Compra
           </h1>
           <p className="text-muted mt-1 text-sm">Crie pedidos, envie pelo WhatsApp e dê entrada no estoque.</p>
+          {(activeOperator?.name || authUser?.name) && (
+            <div className="mt-2">
+              <OperatorInlineBadge
+                name={activeOperator?.name || authUser?.name}
+                imageUrl={activeOperator?.imageUrl || authUser?.imageUrl}
+                operatorId={activeOperator?.id || authUser?.id}
+                label="Responsável ativo:"
+                size="xs"
+                variant="pill"
+              />
+            </div>
+          )}
         </div>
         <div className="flex overflow-x-auto gap-2 pb-2 md:pb-0 custom-scrollbar w-full md:w-auto snap-x">
           <button
@@ -292,7 +309,24 @@ export default function PurchaseOrdersPage() {
                       <span className="text-xs text-muted">{order.supplier.whatsapp}</span>
                     </td>
                     <td className="px-6 py-4 text-sm text-brand font-medium">
-                      {order.items.length} produto(s) <span className="text-muted text-xs ml-1">(clique para ver)</span>
+                      <div className="flex items-center gap-2">
+                        {Array.isArray(order.items) && order.items.length > 0 && (
+                          <div className="flex items-center -space-x-1.5 shrink-0">
+                            {order.items.slice(0, 3).map((it: any) => (
+                              <StockItemThumb
+                                key={it.id}
+                                product={it.product}
+                                name={it.product?.name}
+                                size="xs"
+                                className="ring-2 ring-page"
+                              />
+                            ))}
+                          </div>
+                        )}
+                        <span>
+                          {order.items.length} produto(s) <span className="text-muted text-xs ml-1">(clique para ver)</span>
+                        </span>
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-sm">
                       {order.status === 'COMPLETED' ? (
@@ -366,8 +400,15 @@ export default function PurchaseOrdersPage() {
                           <h4 className="text-sm font-bold text-ink mb-3">Itens do Pedido</h4>
                           <div className="space-y-2">
                             {order.items.map((item: any) => (
-                              <div key={item.id} className="flex justify-between items-center text-sm bg-page/80 border border-line px-4 py-2.5 rounded-lg hover:bg-surface transition">
-                                <span className="text-muted font-medium">{item.product.name}</span>
+                              <div key={item.id} className="flex justify-between items-center text-sm bg-page/80 border border-line px-4 py-2.5 rounded-lg hover:bg-surface transition gap-3">
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <StockItemThumb
+                                    product={item.product}
+                                    name={item.product?.name}
+                                    size="sm"
+                                  />
+                                  <span className="text-ink font-medium truncate">{item.product.name}</span>
+                                </div>
                                 <div className="flex items-center gap-4 text-muted">
                                   {editingItemId === item.id ? (
                                     <div className="flex items-center gap-2 bg-surface/50 p-1 rounded">
@@ -469,7 +510,22 @@ export default function PurchaseOrdersPage() {
                 onClick={() => toggleExpand(order.id)}
                 className="bg-page/50 hover:bg-page border border-line rounded-xl p-3 flex justify-between items-center transition"
               >
-                <span className="text-sm font-medium text-brand">{order.items.length} produto(s)</span>
+                <span className="text-sm font-medium text-brand flex items-center gap-2">
+                  {Array.isArray(order.items) && order.items.length > 0 && (
+                    <span className="flex items-center -space-x-1.5 shrink-0">
+                      {order.items.slice(0, 3).map((it: any) => (
+                        <StockItemThumb
+                          key={it.id}
+                          product={it.product}
+                          name={it.product?.name}
+                          size="xs"
+                          className="ring-2 ring-page"
+                        />
+                      ))}
+                    </span>
+                  )}
+                  <span>{order.items.length} produto(s)</span>
+                </span>
                 <span className="text-xs font-bold text-muted flex items-center gap-1">{expandedOrderId === order.id ? 'Ocultar itens' : 'Ver itens'}</span>
               </button>
 
@@ -478,7 +534,14 @@ export default function PurchaseOrdersPage() {
                   {order.items.map((item: any) => (
                     <div key={item.id} className="flex flex-col text-sm bg-page/80 border border-line p-3 rounded-lg">
                       <div className="flex justify-between items-start gap-2 mb-2">
-                        <span className="text-muted font-medium leading-tight">{item.product.name}</span>
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <StockItemThumb
+                            product={item.product}
+                            name={item.product?.name}
+                            size="sm"
+                          />
+                          <span className="text-ink font-medium leading-tight">{item.product.name}</span>
+                        </div>
                         {order.status !== 'COMPLETED' && (
                           <div className="flex gap-1 shrink-0">
                              <button
@@ -635,13 +698,11 @@ export default function PurchaseOrdersPage() {
                     <div className="space-y-3">
                       {orderItems.map((item, index) => (
                         <div key={item.productId} className="flex items-center gap-4 bg-page border border-line p-3 rounded-xl">
-                          {item.product.imageUrl ? (
-                            <img src={item.product.imageUrl} alt={item.product.name} className="w-12 h-12 object-cover rounded-lg border border-line" />
-                          ) : (
-                            <div className="w-12 h-12 bg-page rounded-lg flex items-center justify-center border border-line">
-                              <Package size={20} className="text-muted" />
-                            </div>
-                          )}
+                          <StockItemThumb
+                            product={item.product}
+                            name={item.product?.name}
+                            size="lg"
+                          />
                           <div className="flex-1 space-y-1">
                             <strong className="block text-sm text-muted">{item.product.name}</strong>
                             <div className="flex items-center gap-2">
@@ -745,13 +806,11 @@ export default function PurchaseOrdersPage() {
               <div className="space-y-3">
                 {receivingOrder.items.map((item: any, index: number) => (
                   <div key={item.id} className="flex items-center gap-4 bg-page border border-line p-3 rounded-xl">
-                    {item.product?.imageUrl ? (
-                      <img src={item.product.imageUrl} alt={item.product?.name || 'Produto'} className="w-12 h-12 object-cover rounded-lg border border-line" />
-                    ) : (
-                      <div className="w-12 h-12 bg-page rounded-lg flex items-center justify-center border border-line">
-                        <Package size={20} className="text-muted" />
-                      </div>
-                    )}
+                    <StockItemThumb
+                      product={item.product}
+                      name={item.product?.name}
+                      size="lg"
+                    />
                     <div className="flex-1">
                       <strong className="block text-sm text-muted">{item.product.name}</strong>
                       <span className="text-xs text-muted">Qtd: {Number(item.quantity)} {item.unitName || item.product.unit} | Est. Unit: R$ {Number(item.expectedCost).toFixed(2)}</span>

@@ -26,6 +26,7 @@ import {
   Terminal
 } from 'lucide-react';
 import { PdvLojistaLoader, RetailSelect, RetailSwitch } from '@/components/ui';
+import { OperatorInlineBadge, StockItemThumb } from '@/components/EntityPhotos';
 
 // ── Interfaces ───────────────────────────────────────────────────────────────
 interface Product {
@@ -34,6 +35,8 @@ interface Product {
   barcode: string | null;
   shortCode: string | null;
   priceSell?: string | number | null;
+  imageUrl?: string | null;
+  retailGroup?: { imageUrl?: string | null } | null;
 }
 
 interface NfeItem {
@@ -50,6 +53,7 @@ interface NfeItem {
   custoTotal: string | number;
   status: string;
   productId: string | null;
+  imageUrl?: string | null;
   product?: Product | null;
 
   uCom?: string | null;
@@ -77,6 +81,9 @@ interface NfeEntrada {
   quantItens: number;
   status: 'RECEBIDA' | 'PROCESSANDO' | 'AGUARDANDO_CONCILIACAO' | 'PRONTA_IMPORTAR' | 'IMPORTANDO' | 'IMPORTADA' | 'CANCELADA' | 'ERRO';
   importadaEm: string | null;
+  importedByUserId?: string | null;
+  importedByName?: string | null;
+  importedByImageUrl?: string | null;
   nsu: string | null;
   supplierId: string | null;
   itens?: NfeItem[];
@@ -585,7 +592,17 @@ export default function XmlImportPage() {
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {user?.name && (
+            <OperatorInlineBadge
+              label="Operador:"
+              name={user.name}
+              operatorId={user.id}
+              imageUrl={user.imageUrl}
+              variant="pill"
+              size="xs"
+            />
+          )}
           {/* Upload Manual */}
           <label className={`cursor-pointer bg-brand hover:bg-brand text-on-brand px-5 py-3 rounded-xl font-bold flex items-center gap-2 transition active:scale-95 text-sm shadow-lg shadow-line hover:text-on-brand ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
             {uploading ? <PdvLojistaLoader mode="loader" compact size={18} label="Processando XML" /> : <Upload size={18} />}
@@ -918,6 +935,17 @@ export default function XmlImportPage() {
                             Entrada: {new Date(nfe.importadaEm).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                           </span>
                         )}
+                        {nfe.importedByName && (
+                          <div className="mt-1">
+                            <OperatorInlineBadge
+                              label="Por:"
+                              name={nfe.importedByName}
+                              operatorId={nfe.importedByUserId}
+                              imageUrl={nfe.importedByImageUrl}
+                              size="xs"
+                            />
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4 text-sm font-black text-brand">
                         {Number(nfe.valorTotal).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
@@ -965,9 +993,19 @@ export default function XmlImportPage() {
             {/* Header Modal */}
             <div className="px-6 py-5 border-b border-line bg-page/60 flex justify-between items-start">
               <div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                   <h3 className="text-xl font-black text-ink">Conciliação de Compra — Nota {selectedNfe.numero}</h3>
                   {getStatusBadge(selectedNfe.status)}
+                  {selectedNfe.importedByName && (
+                    <OperatorInlineBadge
+                      label="Importada por:"
+                      name={selectedNfe.importedByName}
+                      operatorId={selectedNfe.importedByUserId}
+                      imageUrl={selectedNfe.importedByImageUrl}
+                      variant="pill"
+                      size="xs"
+                    />
+                  )}
                 </div>
                 <p className="text-xs text-muted mt-1 font-mono break-all max-w-[500px] md:max-w-none">Chave: {selectedNfe.chave}</p>
               </div>
@@ -1067,11 +1105,19 @@ export default function XmlImportPage() {
                           
                           {/* Destino (Produto local) */}
                           <div className="min-w-0 text-left md:text-right">
-                            <p className="text-muted text-[10px] uppercase font-bold">Vincular a:</p>
+                            <p className="text-muted text-[10px] uppercase font-bold mb-1">Vincular a:</p>
                             {isMatched ? (
-                              <p className="text-brand font-bold text-sm truncate max-w-[200px]" data-tooltip={item.product?.name}>
-                                {item.product?.name}
-                              </p>
+                              <div className="inline-flex items-center gap-2 max-w-[240px]">
+                                <StockItemThumb
+                                  imageUrl={item.imageUrl}
+                                  product={item.product}
+                                  alt={item.product?.name || item.descricao}
+                                  size="sm"
+                                />
+                                <p className="text-brand font-bold text-sm truncate" data-tooltip={item.product?.name}>
+                                  {item.product?.name}
+                                </p>
+                              </div>
                             ) : (
                               <p className="text-brand font-bold text-sm flex items-center gap-1">
                                 <AlertTriangle size={14} /> Produto não cadastrado
@@ -1236,11 +1282,18 @@ export default function XmlImportPage() {
                   disabled={linkingLoading}
                   className="w-full text-left px-4 py-3 hover:bg-surface/50 border border-transparent hover:border-line rounded-2xl transition flex justify-between items-center group"
                 >
-                  <div className="flex flex-col min-w-0">
-                    <span className="font-bold text-sm text-muted group-hover:text-brand transition-colors truncate">{p.name}</span>
-                    <span className="text-xs text-muted font-mono mt-0.5">
-                      Cód: #{p.shortCode} {p.barcode ? `| EAN: ${p.barcode}` : ''}
-                    </span>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <StockItemThumb
+                      product={p}
+                      alt={p.name}
+                      size="sm"
+                    />
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-bold text-sm text-ink group-hover:text-brand transition-colors truncate">{p.name}</span>
+                      <span className="text-xs text-muted font-mono mt-0.5">
+                        Cód: #{p.shortCode} {p.barcode ? `| EAN: ${p.barcode}` : ''}
+                      </span>
+                    </div>
                   </div>
                   {!isStockist && (
                     <div className="flex flex-col items-end whitespace-nowrap ml-4">

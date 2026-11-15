@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { useShift } from "@/contexts/ShiftContext";
 import { Wallet } from "lucide-react";
 import PdvLojistaLoader from "./PdvLojistaLoader";
+import { OperatorAvatarThumb } from "./EntityPhotos";
 
 interface OpenShiftModalProps {
   onSuccess: () => void;
@@ -107,8 +108,21 @@ export function OpenShiftModal({ onSuccess }: OpenShiftModalProps) {
             <label className="text-sm font-bold text-muted mb-2 block">
               Operador Atual
             </label>
-            <div className="w-full bg-page border border-line rounded-xl px-4 py-3 text-ink font-semibold cursor-not-allowed opacity-70">
-              {operator.name}
+            <div className="w-full bg-page border border-line rounded-xl px-4 py-3 text-ink font-semibold flex items-center gap-3">
+              <OperatorAvatarThumb
+                operatorId={operator.id}
+                name={operator.name}
+                imageUrl={operator.imageUrl}
+                size="md"
+              />
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-bold text-ink">{operator.name}</div>
+                {operator.jobTitle && (
+                  <div className="text-xs text-muted font-medium truncate">
+                    {operator.jobTitle}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

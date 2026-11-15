@@ -3,6 +3,7 @@ import { useState } from "react";
 import { X, Upload, UserRound, Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { getFullUrl } from "@/lib/getFullUrl";
+import { useAuthStore } from "@/store/auth";
 import { toast } from "sonner";
 import { PdvLojistaLoader, RetailSelect } from "@/components/ui";
 
@@ -63,6 +64,16 @@ export default function UserModal({ onClose, onSuccess, user }: UserModalProps) 
 
       if (user) {
         await api.patch(`/users/${user.id}`, payload);
+        const currentAuthUser = useAuthStore.getState().user;
+        if (
+          currentAuthUser &&
+          (currentAuthUser.id === user.id ||
+            (currentAuthUser.email &&
+              email &&
+              currentAuthUser.email.toLowerCase() === email.trim().toLowerCase()))
+        ) {
+          useAuthStore.getState().setUserImage(imageUrl || null);
+        }
         toast.success("Funcionário atualizado com sucesso!");
       } else {
         await api.post("/users", payload);

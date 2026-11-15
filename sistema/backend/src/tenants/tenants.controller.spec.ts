@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { TenantsController } from './tenants.controller';
 import { TenantsService } from './tenants.service';
+import { LeadgerWebhookService } from './leadger-webhook.service';
 import { JwtService } from '@nestjs/jwt';
 
 describe('TenantsController', () => {
@@ -11,6 +12,7 @@ describe('TenantsController', () => {
       controllers: [TenantsController],
       providers: [
         { provide: TenantsService, useValue: {} },
+        { provide: LeadgerWebhookService, useValue: {} },
         { provide: JwtService, useValue: {} },
       ],
     }).compile();

@@ -31,6 +31,7 @@ import { toast } from "sonner";
 import { api, apiGet } from "@/lib/api";
 import { getFullUrl } from "@/lib/getFullUrl";
 import PdvLojistaLoader from "@/components/PdvLojistaLoader";
+import { OperatorInlineBadge, StockItemThumb } from "@/components/EntityPhotos";
 import {
   VitrineStageCanvas,
   VITRINE_THEME_LIST,
@@ -72,6 +73,9 @@ interface VitrineConfigResponse {
   publishedSlides: AnyVitrineSlide[];
   publishedVersion: number;
   publishedAt: string | null;
+  publishedByUserId?: string | null;
+  publishedByName?: string | null;
+  publishedByImageUrl?: string | null;
   tvPublicId: string | null;
   storeName: string;
   tenantLogoUrl: string | null;
@@ -293,8 +297,19 @@ export function RetailVitrinePage() {
           ? {
               ...prev,
               active: true,
-              publishedVersion: res.data?.version ?? prev.publishedVersion + 1,
+              publishedVersion:
+                res.data?.publishedVersion ??
+                res.data?.version ??
+                prev.publishedVersion + 1,
               publishedAt: res.data?.publishedAt ?? new Date().toISOString(),
+              publishedByUserId:
+                res.data?.publishedByUserId ?? prev.publishedByUserId ?? null,
+              publishedByName:
+                res.data?.publishedByName ?? prev.publishedByName ?? null,
+              publishedByImageUrl:
+                res.data?.publishedByImageUrl ??
+                prev.publishedByImageUrl ??
+                null,
               publishedSlides: payload.slides,
             }
           : prev,
@@ -643,7 +658,19 @@ export function RetailVitrinePage() {
 
         {/* Seletor rápido de abas internas */}
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
-          <span className="text-xs text-muted">{slides.length} slide(s) na programação</span>
+          <div className="flex flex-wrap items-center gap-2.5 text-xs text-muted">
+            <span>{slides.length} slide(s) na programação</span>
+            {config?.publishedByName && (
+              <OperatorInlineBadge
+                label="Publicado por:"
+                name={config.publishedByName}
+                imageUrl={config.publishedByImageUrl}
+                operatorId={config.publishedByUserId}
+                size="xs"
+                variant="pill"
+              />
+            )}
+          </div>
 
           {isDirty && (
             <div className="flex items-center gap-2 text-xs font-semibold text-brand">
@@ -904,8 +931,13 @@ export function RetailVitrinePage() {
                               {grid.gridProducts.map((gp, gpIdx) => (
                                 <span
                                   key={`${gp.productId}-${gpIdx}`}
-                                  className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-2.5 py-1 text-xs font-semibold text-ink"
+                                  className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-2 py-1 text-xs font-semibold text-ink"
                                 >
+                                  <StockItemThumb
+                                    name={gp.productName}
+                                    imageUrl={gp.imageUrl}
+                                    size="xs"
+                                  />
                                   <span>{gp.productName}</span>
                                   <span className="text-brand">
                                     R${" "}
@@ -1537,12 +1569,19 @@ export function RetailVitrinePage() {
                       key={`${item.productId}-${idx}`}
                       className="flex items-center justify-between gap-2 rounded-xl border border-brand bg-support px-3 py-2"
                     >
-                      <div className="min-w-0">
-                        <div className="truncate text-xs font-bold text-ink">
-                          {item.productName}
-                        </div>
-                        <div className="text-[11px] text-muted">
-                          Normal: R$ {formatPriceBr(item.priceSell)}
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <StockItemThumb
+                          name={item.productName}
+                          imageUrl={item.imageUrl}
+                          size="sm"
+                        />
+                        <div className="min-w-0">
+                          <div className="truncate text-xs font-bold text-ink">
+                            {item.productName}
+                          </div>
+                          <div className="text-[11px] text-muted">
+                            Normal: R$ {formatPriceBr(item.priceSell)}
+                          </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -1613,16 +1652,25 @@ export function RetailVitrinePage() {
                         key={entry.id}
                         type="button"
                         onClick={() => handleToggleGridProduct(entry)}
-                        className={`flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-xs transition ${
+                        className={`flex w-full items-center justify-between gap-2 rounded-xl border px-3 py-2 text-left text-xs transition ${
                           isChecked
                             ? "border-brand bg-support font-bold text-brand"
                             : "border-line bg-page text-ink hover:border-brand"
                         }`}
                       >
-                        <span>
-                          {entry.name} · R$ {formatPriceBr(entry.priceSell)}
+                        <span className="inline-flex min-w-0 items-center gap-2">
+                          <StockItemThumb
+                            name={entry.name}
+                            imageUrl={entry.imageUrl}
+                            size="xs"
+                          />
+                          <span className="truncate">
+                            {entry.name} · R$ {formatPriceBr(entry.priceSell)}
+                          </span>
                         </span>
-                        <span>{isChecked ? "Selecionado ✓" : "+ Incluir"}</span>
+                        <span className="shrink-0">
+                          {isChecked ? "Selecionado ✓" : "+ Incluir"}
+                        </span>
                       </button>
                     );
                   })}

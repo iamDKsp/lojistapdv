@@ -1,9 +1,10 @@
-import { Controller, Get, UseGuards, Request, Query } from '@nestjs/common';
+import { Controller, Get, UseGuards, Request, Query, Optional } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { TenantConnectionManager } from '../../prisma/tenant-prisma.service';
 import { TenantContextService } from '../../prisma/tenant-context.service';
 import { FiscalMetricsService } from './fiscal-metrics.service';
 import { HeartPrismaService } from '../../prisma/heart-prisma.service';
+import { EntityPhotoResolverService } from '../../prisma/entity-photo-resolver.service';
 
 @UseGuards(JwtAuthGuard)
 @Controller('v1/fiscal/audit')
@@ -13,6 +14,7 @@ export class FiscalAuditController {
     private readonly tenantContext: TenantContextService,
     private readonly heartPrisma: HeartPrismaService,
     private readonly metricsService: FiscalMetricsService,
+    @Optional() private readonly photoResolver?: EntityPhotoResolverService,
   ) {}
 
   @Get('dashboard')
@@ -63,16 +65,31 @@ export class FiscalAuditController {
     const skipNum = parseInt(skip, 10);
     const takeNum = parseInt(take, 10);
 
-    const [events, total] = await Promise.all([
+    const [events, total, actors] = await Promise.all([
       tenantPrisma.fiscalEvent.findMany({
         orderBy: { createdAt: 'desc' },
         skip: skipNum,
         take: takeNum,
       }),
       tenantPrisma.fiscalEvent.count(),
+      this.photoResolver
+        ? this.photoResolver.loadTenantActors(context.tenantId, tenantPrisma)
+        : Promise.resolve(null),
     ]);
 
-    return { data: events, total, skip: skipNum, take: takeNum };
+    const hydratedEvents = events.map((ev) => {
+      const actor =
+        ev.performedByUserId && actors
+          ? actors.resolveActor({ id: ev.performedByUserId })
+          : { id: ev.performedByUserId || null, name: null, imageUrl: null };
+      return {
+        ...ev,
+        performedByName: actor.name,
+        performedByImageUrl: actor.imageUrl,
+      };
+    });
+
+    return { data: hydratedEvents, total, skip: skipNum, take: takeNum };
   }
 
   @Get('dlq')

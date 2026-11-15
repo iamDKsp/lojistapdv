@@ -1,12 +1,12 @@
 "use client";
 import { useState, useEffect } from "react";
 import { api } from "@/lib/api";
-import { getFullUrl } from "@/lib/getFullUrl";
-import { Shield, ShieldAlert, CheckCircle2, XCircle, Plus, KeyRound, Lock, Eye, EyeOff, UserRound } from "lucide-react";
+import { Shield, ShieldAlert, CheckCircle2, XCircle, Plus, KeyRound, Lock, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import UserModal from "@/components/UserModal";
 import OperatorsManagementModal from "@/components/OperatorsManagementModal";
 import { PdvLojistaLoader } from "@/components/ui";
+import { OperatorAvatarThumb } from "@/components/EntityPhotos";
 
 interface User {
   id: string;
@@ -165,17 +165,13 @@ export default function UsersPage() {
                   <tr key={u.id} className="hover:bg-surface transition-colors cursor-pointer group" onClick={() => handleRowClick(u)}>
                     <td className="p-4 whitespace-nowrap">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-support border border-brand flex items-center justify-center overflow-hidden shrink-0">
-                          {u.imageUrl ? (
-                            <img
-                              src={getFullUrl(u.imageUrl)}
-                              alt={u.name}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <UserRound size={18} className="text-brand" />
-                          )}
-                        </div>
+                        <OperatorAvatarThumb
+                          name={u.name}
+                          operatorId={u.id}
+                          imageUrl={u.imageUrl}
+                          size="lg"
+                          className="border-brand"
+                        />
                         <div>
                           <p className="font-semibold text-ink">{u.name}</p>
                           <p className="text-sm text-muted">{u.email}</p>

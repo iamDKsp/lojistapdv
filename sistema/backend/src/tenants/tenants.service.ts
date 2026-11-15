@@ -3,6 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { HeartPrismaService } from '../prisma/heart-prisma.service';
 import { TenantConnectionManager } from '../prisma/tenant-prisma.service';
 import { TenantContextService } from '../prisma/tenant-context.service';
+import { EntityPhotoResolverService } from '../prisma/entity-photo-resolver.service';
 import { LeadgerWebhookService, LeadgerPaymentMethod } from './leadger-webhook.service';
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
@@ -15,6 +16,7 @@ import { seedDefaultGruposStatic } from '../tributacao/tributacao.service';
 import {
   DEMO_DATABASE_NAME,
   DEMO_LEGACY_DB_NAMES,
+  DEMO_OPERATOR_AVATARS,
   DEMO_OPERATOR_PIN,
   DEMO_USER_EMAIL,
   DEMO_USER_PASSWORD,
@@ -46,6 +48,7 @@ export class TenantsService {
     private tenantContext: TenantContextService,
     @Optional() private jwtService?: JwtService,
     @Optional() private leadgerService?: LeadgerWebhookService,
+    @Optional() private photoResolver?: EntityPhotoResolverService,
   ) {}
 
   private requireLeadger(): LeadgerWebhookService {
@@ -153,6 +156,7 @@ export class TenantsService {
             role: true,
             active: true,
             pin: true,
+            imageUrl: true,
           },
         },
         tenantIntegrations: true,
@@ -533,6 +537,14 @@ export class TenantsService {
 
     const access_token = this.jwtService.sign(payload);
 
+    const resolvedUserImage =
+      targetUser.imageUrl ||
+      (await this.photoResolver?.resolveSingleActorImage(tenant.id, {
+        userId: targetUser.id,
+        name: targetUser.name,
+      })) ||
+      null;
+
     return {
       access_token,
       user: {
@@ -544,6 +556,7 @@ export class TenantsService {
         tenant: tenant.id,
         tenantName: tenant.nomeFantasia || tenant.name,
         logoUrl: tenant.logoUrl ?? null,
+        imageUrl: resolvedUserImage,
         termsAccepted: true,
       },
     };
@@ -1138,6 +1151,7 @@ export class TenantsService {
     authType: 'cashier_pin' | 'manager_pin';
     managerOpId?: string;
     managerName?: string;
+    managerImageUrl?: string | null;
   }> {
     const { databaseUrl } = this.tenantContext.get();
     const prisma = await this.tenantManager.getTenantClient(tenantId, databaseUrl);
@@ -1155,11 +1169,18 @@ export class TenantsService {
       });
       for (const mgr of managers) {
         if (mgr.pin && (await bcrypt.compare(pin, mgr.pin))) {
+          const managerImageUrl =
+            (await this.photoResolver?.resolveSingleActorImage(
+              tenantId,
+              { operatorId: mgr.id, name: mgr.name },
+              prisma,
+            )) ?? null;
           return {
             authorized: true,
             authType: 'manager_pin',
             managerOpId: mgr.id,
             managerName: mgr.name,
+            managerImageUrl,
           };
         }
       }
@@ -1574,13 +1595,14 @@ export class TenantsService {
         email: true,
         role: true,
         pin: true,
+        imageUrl: true,
         active: true,
         createdAt: true,
       },
     });
   }
 
-  async createTenantUser(tenantId: string, data: { name: string; email: string; password: string; role: string; pin?: string }) {
+  async createTenantUser(tenantId: string, data: { name: string; email: string; password: string; role: string; pin?: string; imageUrl?: string | null }) {
     const tenant = await this.heartPrisma.tenant.findUnique({ where: { id: tenantId } });
     if (!tenant) throw new NotFoundException('Tenant não encontrado.');
 
@@ -1599,10 +1621,11 @@ export class TenantsService {
         password: hashedPassword,
         role: finalRole,
         pin: data.pin?.trim() || null,
+        imageUrl: data.imageUrl ?? null,
         tenantId,
         active: true,
       },
-      select: { id: true, name: true, email: true, role: true, pin: true, active: true, createdAt: true },
+      select: { id: true, name: true, email: true, role: true, pin: true, imageUrl: true, active: true, createdAt: true },
     });
 
     this.logger.log(`[Users] Usuário criado: ${user.name} (${user.role}) para tenant ${tenant.name}`);
@@ -1612,7 +1635,7 @@ export class TenantsService {
   async updateTenantUser(
     tenantId: string,
     userId: string,
-    data: { name?: string; email?: string; role?: string; active?: boolean; password?: string; pin?: string | null }
+    data: { name?: string; email?: string; role?: string; active?: boolean; password?: string; pin?: string | null; imageUrl?: string | null }
   ) {
     const user = await this.heartPrisma.user.findFirst({
       where: { id: userId, tenantId },
@@ -1643,11 +1666,14 @@ export class TenantsService {
     if (data.pin !== undefined) {
       updateData.pin = data.pin ? String(data.pin).trim() : null;
     }
+    if (data.imageUrl !== undefined) {
+      updateData.imageUrl = data.imageUrl || null;
+    }
 
     return this.heartPrisma.user.update({
       where: { id: userId },
       data: updateData,
-      select: { id: true, name: true, email: true, role: true, pin: true, active: true, createdAt: true },
+      select: { id: true, name: true, email: true, role: true, pin: true, imageUrl: true, active: true, createdAt: true },
     });
   }
 
@@ -1698,6 +1724,7 @@ export class TenantsService {
             barcode: { not: null },
             OR: [
               { imageUrl: { not: null } },
+              { retailGroup: { imageUrl: { not: null } } },
               { ncm: { not: null } },
             ],
           },
@@ -1705,6 +1732,9 @@ export class TenantsService {
             barcode: true,
             name: true,
             imageUrl: true,
+            retailGroup: {
+              select: { imageUrl: true },
+            },
             ncm: true,
             cest: true,
           },
@@ -1712,6 +1742,7 @@ export class TenantsService {
 
         for (const p of products) {
           if (!p.barcode) continue;
+          const resolvedImg = EntityPhotoResolverService.resolveProductImageUrl(p);
 
           const existing = await this.heartPrisma.masterProduct.findUnique({
             where: { ean: p.barcode },
@@ -1722,7 +1753,7 @@ export class TenantsService {
               data: {
                 ean: p.barcode,
                 name: p.name,
-                imageUrl: p.imageUrl || null,
+                imageUrl: resolvedImg,
                 ncm: p.ncm || null,
                 cest: (p.cest || null) as string | null,
                 source: `tenant:${tenant.name}`,
@@ -1731,14 +1762,14 @@ export class TenantsService {
             synced++;
           } else {
             const needsUpdate =
-              (!existing.imageUrl && p.imageUrl) ||
+              (!existing.imageUrl && resolvedImg) ||
               (!existing.ncm && p.ncm);
 
             if (needsUpdate) {
               await this.heartPrisma.masterProduct.update({
                 where: { ean: p.barcode },
                 data: {
-                  imageUrl: existing.imageUrl || p.imageUrl || null,
+                  imageUrl: existing.imageUrl || resolvedImg || null,
                   ncm: existing.ncm || p.ncm || null,
                   cest: existing.cest || (p.cest as string | null) || null,
                 },
@@ -2181,6 +2212,7 @@ export class TenantsService {
             password: hashedPassword,
             role: 'admin',
             pin: DEMO_OPERATOR_PIN,
+            imageUrl: DEMO_OPERATOR_AVATARS.manager,
             active: true,
             groupId: demoGroupId,
           },
@@ -2194,6 +2226,7 @@ export class TenantsService {
             password: hashedPassword,
             role: 'admin',
             pin: DEMO_OPERATOR_PIN,
+            imageUrl: DEMO_OPERATOR_AVATARS.manager,
             active: true,
             groupId: demoGroupId,
           },
@@ -2202,8 +2235,18 @@ export class TenantsService {
 
       // Garantir usuários extras de equipe (Caixa e Estoquista) para a aba Equipe
       const extraStaff = [
-        { email: 'caixa.demo@lojista.local', name: 'Lucas Atendimento (Caixa)', role: 'operator' },
-        { email: 'estoque.demo@lojista.local', name: 'Mariana Grade (Estoquista)', role: 'stockist' },
+        {
+          email: 'caixa.demo@lojista.local',
+          name: 'Lucas Atendimento (Caixa)',
+          role: 'operator',
+          imageUrl: DEMO_OPERATOR_AVATARS.cashier,
+        },
+        {
+          email: 'estoque.demo@lojista.local',
+          name: 'Mariana Grade (Estoquista)',
+          role: 'stockist',
+          imageUrl: DEMO_OPERATOR_AVATARS.mariana,
+        },
       ];
       for (const staff of extraStaff) {
         const existingStaff = await this.heartPrisma.user.findUnique({
@@ -2218,13 +2261,23 @@ export class TenantsService {
               password: hashedPassword,
               role: staff.role,
               pin: DEMO_OPERATOR_PIN,
+              imageUrl: staff.imageUrl,
               active: true,
             },
           });
-        } else if (existingStaff.tenantId !== tenant.id || !existingStaff.active) {
+        } else if (
+          existingStaff.tenantId !== tenant.id ||
+          !existingStaff.active ||
+          !existingStaff.imageUrl
+        ) {
           await this.heartPrisma.user.update({
             where: { id: existingStaff.id },
-            data: { tenantId: tenant.id, active: true, role: staff.role },
+            data: {
+              tenantId: tenant.id,
+              active: true,
+              role: staff.role,
+              imageUrl: existingStaff.imageUrl || staff.imageUrl,
+            },
           });
         }
       }
@@ -2251,6 +2304,7 @@ export class TenantsService {
 
       // 5. Resetar estado habitual completo da demonstração
       const seeded = await resetDemoDatabaseState(client, visitorName);
+      await this.syncDemoOperatorAvatars(tenant.id, seeded.operators);
 
       return {
         tenant,
@@ -2259,6 +2313,36 @@ export class TenantsService {
         openRegister: seeded.openRegister,
       };
     });
+  }
+
+  private async syncDemoOperatorAvatars(
+    tenantId: string,
+    operators?: Array<{ id: string; imageUrl?: string | null }>,
+  ) {
+    if (!this.heartPrisma?.operatorProfile || !operators?.length) return;
+    try {
+      await this.heartPrisma.operatorProfile.deleteMany({
+        where: { tenantId },
+      });
+      for (const op of operators) {
+        if (!op?.id || !op.imageUrl) continue;
+        await this.heartPrisma.operatorProfile.upsert({
+          where: {
+            tenantId_operatorId: { tenantId, operatorId: op.id },
+          },
+          update: { imageUrl: op.imageUrl },
+          create: {
+            tenantId,
+            operatorId: op.id,
+            imageUrl: op.imageUrl,
+          },
+        });
+      }
+    } catch (err: any) {
+      this.logger.warn(
+        `Aviso ao sincronizar retratos da Loja Demonstração (${tenantId}): ${err?.message}`,
+      );
+    }
   }
 
   /**
@@ -2274,7 +2358,8 @@ export class TenantsService {
       }
 
       const client = await this.tenantManager.getTenantClient(tenant.id, tenant.databaseUrl);
-      await resetDemoDatabaseState(client);
+      const seeded = await resetDemoDatabaseState(client);
+      await this.syncDemoOperatorAvatars(tenant.id, seeded.operators);
       return { reset: true, tenantId: tenant.id, resetAt: new Date().toISOString() };
     });
   }

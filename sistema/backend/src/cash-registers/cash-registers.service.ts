@@ -5,10 +5,15 @@ import {
   ForbiddenException,
   HttpException,
   HttpStatus,
+  Optional,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { TenantConnectionManager } from '../prisma/tenant-prisma.service';
 import { TenantContextService } from '../prisma/tenant-context.service';
+import {
+  EntityPhotoResolverService,
+  TenantActorPhotoLookup,
+} from '../prisma/entity-photo-resolver.service';
 import { Prisma } from '@prisma/client';
 import { computeDataVersion, validateConferenceDetails } from './cash-registers-data-version';
 import { verifyOperatorToken, verifyPinAuth, VerifiedPinAuth } from './cash-registers-auth.helper';
@@ -19,11 +24,45 @@ export class CashRegistersService {
     private tenantManager: TenantConnectionManager,
     private tenantContext: TenantContextService,
     private jwtService: JwtService,
+    @Optional() private photoResolver?: EntityPhotoResolverService,
   ) {}
 
   private async getPrisma() {
     const { tenantId, databaseUrl } = this.tenantContext.get();
     return this.tenantManager.getTenantClient(tenantId, databaseUrl);
+  }
+
+  private async loadActors(prisma?: any): Promise<TenantActorPhotoLookup> {
+    const { tenantId } = this.tenantContext.get();
+    if (!this.photoResolver) {
+      return new TenantActorPhotoLookup({});
+    }
+    return this.photoResolver.loadTenantActors(tenantId, prisma);
+  }
+
+  private hydrateRegisterRecord(reg: any, actors: TenantActorPhotoLookup): any {
+    if (!reg) return reg;
+    if (reg.operator) {
+      return {
+        ...reg,
+        operator: actors.hydrateOperator(reg.operator),
+      };
+    }
+    if (reg.operatorId) {
+      const resolved = actors.resolveActor({ id: reg.operatorId });
+      if (resolved.name) {
+        return {
+          ...reg,
+          operator: {
+            id: reg.operatorId,
+            name: resolved.name,
+            isManager: true,
+            imageUrl: resolved.imageUrl,
+          },
+        };
+      }
+    }
+    return reg;
   }
 
   async openRegister(openingValue: number, operatorId?: string) {
@@ -34,7 +73,7 @@ export class CashRegistersService {
       // Se não vier operatorId do frontend, tenta usar o userId do token (fallback)
       const currentOpId = operatorId || userId;
 
-      return await prisma.$transaction(async (tx) => {
+      const opened = await prisma.$transaction(async (tx) => {
         const existing = await tx.cashRegister.findFirst({
           where: { status: 'open' },
           orderBy: { openingTime: 'desc' },
@@ -63,6 +102,9 @@ export class CashRegistersService {
       }, {
         isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
       });
+
+      const actors = await this.loadActors(prisma);
+      return this.hydrateRegisterRecord(opened, actors);
     } catch (error: any) {
       if (error instanceof BadRequestException) throw error;
       throw new BadRequestException(`Erro no banco: ${error.message}`);
@@ -82,6 +124,11 @@ export class CashRegistersService {
 
     // 1. Validar operador executor (ou administrador com role admin)
     const executor = await verifyOperatorToken(this.jwtService, prisma, opToken, tenantId, user);
+    const actors = await this.loadActors(prisma);
+    const resolvedExecutorName =
+      user && executor.opId === user.sub
+        ? actors.resolveName({ userId: user.sub }, executor.opName) || executor.opName
+        : executor.opName;
 
     // 2. Se executor não for gerente e enviou PIN token, valida PIN auth
     let pinAuth: VerifiedPinAuth | undefined;
@@ -114,7 +161,11 @@ export class CashRegistersService {
       if (updateRes.count === 0) {
         throw new BadRequestException('Caixa não está mais aberto ou já foi fechado.');
       }
-      return prisma.cashRegister.findUnique({ where: { id } });
+      const blindClosed = await prisma.cashRegister.findUnique({
+        where: { id },
+        include: { operator: { select: { id: true, name: true, isManager: true } } },
+      });
+      return this.hydrateRegisterRecord(blindClosed, actors);
     }
 
     // 6. Fechamento com Valores Declarados (exige gerente ou PIN de autorização)
@@ -150,7 +201,7 @@ export class CashRegistersService {
             details: serializedDetails,
             savedByUserId: user && (user.role === 'admin' || user.role === 'superadmin') ? user.sub : null,
             savedByOpId: executor.opId,
-            savedByOpName: executor.opName,
+            savedByOpName: resolvedExecutorName,
             pinAuthType: pinAuth?.authType ?? (user && (user.role === 'admin' || user.role === 'superadmin') ? 'ADMIN_SESSION' : null),
             pinAuthManagerId: pinAuth?.managerOpId ?? null,
             pinAuthManagerName: pinAuth?.managerName ?? null,
@@ -158,7 +209,11 @@ export class CashRegistersService {
         });
       }
 
-      return tx.cashRegister.findUnique({ where: { id } });
+      const closed = await tx.cashRegister.findUnique({
+        where: { id },
+        include: { operator: { select: { id: true, name: true, isManager: true } } },
+      });
+      return this.hydrateRegisterRecord(closed, actors);
     });
   }
 
@@ -174,6 +229,11 @@ export class CashRegistersService {
     const prisma = await this.getPrisma();
 
     const executor = await verifyOperatorToken(this.jwtService, prisma, opToken, tenantId, user);
+    const actors = await this.loadActors(prisma);
+    const resolvedExecutorName =
+      user && executor.opId === user.sub
+        ? actors.resolveName({ userId: user.sub }, executor.opName) || executor.opName
+        : executor.opName;
 
     let pinAuth: VerifiedPinAuth | undefined;
     if (!executor.isManager) {
@@ -237,14 +297,18 @@ export class CashRegistersService {
             systemSnap: JSON.stringify({ currentVersion, closingValue }),
             savedByUserId: user && (user.role === 'admin' || user.role === 'superadmin') ? user.sub : null,
             savedByOpId: executor.opId,
-            savedByOpName: executor.opName,
+            savedByOpName: resolvedExecutorName,
             pinAuthType: pinAuth?.authType ?? (user && (user.role === 'admin' || user.role === 'superadmin') ? 'ADMIN_SESSION' : null),
             pinAuthManagerId: pinAuth?.managerOpId ?? null,
             pinAuthManagerName: pinAuth?.managerName ?? null,
           },
         });
 
-        return tx.cashRegister.findUnique({ where: { id } });
+        const audited = await tx.cashRegister.findUnique({
+          where: { id },
+          include: { operator: { select: { id: true, name: true, isManager: true } } },
+        });
+        return this.hydrateRegisterRecord(audited, actors);
       }, {
         isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
       });
@@ -270,6 +334,11 @@ export class CashRegistersService {
     const prisma = await this.getPrisma();
 
     const executor = await verifyOperatorToken(this.jwtService, prisma, opToken, tenantId, user);
+    const actors = await this.loadActors(prisma);
+    const resolvedExecutorName =
+      user && executor.opId === user.sub
+        ? actors.resolveName({ userId: user.sub }, executor.opName) || executor.opName
+        : executor.opName;
 
     let pinAuth: VerifiedPinAuth | undefined;
     if (!executor.isManager) {
@@ -331,7 +400,7 @@ export class CashRegistersService {
             systemSnap,
             savedByUserId: user && (user.role === 'admin' || user.role === 'superadmin') ? user.sub : null,
             savedByOpId: executor.opId,
-            savedByOpName: executor.opName,
+            savedByOpName: resolvedExecutorName,
             pinAuthType: pinAuth?.authType ?? (user && (user.role === 'admin' || user.role === 'superadmin') ? 'ADMIN_SESSION' : null),
             pinAuthManagerId: pinAuth?.managerOpId ?? null,
             pinAuthManagerName: pinAuth?.managerName ?? null,
@@ -359,13 +428,14 @@ export class CashRegistersService {
 
   async getCurrentRegister(operatorId?: string) {
     const prisma = await this.getPrisma();
+    const actors = await this.loadActors(prisma);
     if (operatorId) {
       const ownOpen = await prisma.cashRegister.findFirst({
         where: { status: 'open', operatorId },
         orderBy: { openingTime: 'desc' },
         include: { operator: { select: { id: true, name: true, isManager: true } } },
       });
-      if (ownOpen) return ownOpen;
+      if (ownOpen) return this.hydrateRegisterRecord(ownOpen, actors);
     }
 
     const sharedOpen = await prisma.cashRegister.findFirst({
@@ -374,7 +444,7 @@ export class CashRegistersService {
       include: { operator: { select: { id: true, name: true, isManager: true } } },
     });
 
-    return sharedOpen || null;
+    return sharedOpen ? this.hydrateRegisterRecord(sharedOpen, actors) : null;
   }
 
   async addMovement(registerId: string, type: 'IN' | 'OUT', value: number, reason?: string) {
@@ -389,24 +459,28 @@ export class CashRegistersService {
 
   async findAll() {
     const prisma = await this.getPrisma();
-    const registers = await prisma.cashRegister.findMany({
-      orderBy: { openingTime: 'desc' },
-      include: {
-        operator: { select: { id: true, name: true, isManager: true } },
-        sales: {
-          where: { NOT: [{ status: 'cancelled' }, { source: 'ajuste_fiscal' }] },
-          select: {
-            total: true,
-            payments: { select: { method: true, value: true } },
+    const [registers, actors] = await Promise.all([
+      prisma.cashRegister.findMany({
+        orderBy: { openingTime: 'desc' },
+        include: {
+          operator: { select: { id: true, name: true, isManager: true } },
+          sales: {
+            where: { NOT: [{ status: 'cancelled' }, { source: 'ajuste_fiscal' }] },
+            select: {
+              total: true,
+              payments: { select: { method: true, value: true } },
+            },
+          },
+          movements: {
+            select: { type: true, value: true },
           },
         },
-        movements: {
-          select: { type: true, value: true },
-        },
-      },
-    });
+      }),
+      this.loadActors(prisma),
+    ]);
 
-    return registers.map((reg) => {
+    return registers.map((rawReg) => {
+      const reg = this.hydrateRegisterRecord(rawReg, actors);
       let totalSales = reg.sales.reduce((acc, s) => acc + Number(s.total || 0), 0);
       let totalCashDec = new Prisma.Decimal(0);
       let totalDigitalDec = new Prisma.Decimal(0);
@@ -482,20 +556,56 @@ export class CashRegistersService {
 
   async getReport(id: string) {
     const prisma = await this.getPrisma();
-    const register = await prisma.cashRegister.findUnique({
-      where: { id },
-      include: { operator: { select: { id: true, name: true, isManager: true } } }
-    });
-    if (!register) throw new BadRequestException('Caixa não encontrado');
+    const [rawRegister, actors] = await Promise.all([
+      prisma.cashRegister.findUnique({
+        where: { id },
+        include: { operator: { select: { id: true, name: true, isManager: true } } },
+      }),
+      this.loadActors(prisma),
+    ]);
+    if (!rawRegister) throw new BadRequestException('Caixa não encontrado');
+    const register = this.hydrateRegisterRecord(rawRegister, actors);
 
-    const sales = await prisma.sale.findMany({
+    const rawSales = await prisma.sale.findMany({
       where: { cashRegisterId: id, NOT: { source: 'ajuste_fiscal' } },
       include: {
-        operator: { select: { id: true, name: true } },
+        operator: { select: { id: true, name: true, isManager: true } },
         payments: true,
-        items: { include: { product: true } },
+        items: {
+          include: {
+            product: {
+              include: {
+                retailGroup: { select: { imageUrl: true } },
+              },
+            },
+          },
+        },
       },
       orderBy: { createdAt: 'desc' }
+    });
+
+    const sales = rawSales.map((sale: any) => {
+      const hydratedOp = sale.operator
+        ? actors.hydrateOperator(sale.operator)
+        : sale.operatorId
+          ? (() => {
+              const resolved = actors.resolveActor({ id: sale.operatorId });
+              return resolved.name
+                ? { id: sale.operatorId, name: resolved.name, imageUrl: resolved.imageUrl }
+                : null;
+            })()
+          : null;
+      return {
+        ...sale,
+        operator: hydratedOp,
+        items: Array.isArray(sale.items)
+          ? sale.items.map((item: any) => ({
+              ...item,
+              imageUrl: EntityPhotoResolverService.resolveProductImageUrl(item.product),
+              product: EntityPhotoResolverService.withResolvedProductImage(item.product),
+            }))
+          : [],
+      };
     });
 
     // Matemática Segura (Prisma.Decimal) para evitar perda de precisão flutuante (0.1 + 0.2 != 0.3)
@@ -615,12 +725,31 @@ export class CashRegistersService {
     const conferenceRevisions = revisions.map((rev: any) => {
       let parsedDetails = null;
       try { parsedDetails = JSON.parse(rev.details); } catch { parsedDetails = rev.details; }
+      const savedActor = actors.resolveActor(
+        {
+          operatorId: rev.savedByOpId,
+          userId: rev.savedByUserId,
+          name: rev.savedByOpName,
+        },
+        rev.savedByOpName,
+      );
+      const managerImageUrl =
+        rev.pinAuthManagerId || rev.pinAuthManagerName
+          ? actors.resolveImageUrl({
+              operatorId: rev.pinAuthManagerId,
+              name: rev.pinAuthManagerName,
+            })
+          : null;
       return {
         id: rev.id,
         savedAt: rev.savedAt,
-        savedByOpName: rev.savedByOpName,
+        savedByOpId: rev.savedByOpId ?? rev.savedByUserId ?? null,
+        savedByOpName: savedActor.name || rev.savedByOpName,
+        savedByOpImageUrl: savedActor.imageUrl,
         pinAuthType: rev.pinAuthType,
+        pinAuthManagerId: rev.pinAuthManagerId ?? null,
         pinAuthManagerName: rev.pinAuthManagerName,
+        pinAuthManagerImageUrl: managerImageUrl,
         details: parsedDetails,
       };
     });
@@ -647,6 +776,13 @@ export class CashRegistersService {
         salesByOperator: Array.from(operatorSalesMap.values()).map((entry) => ({
           operatorId: entry.operatorId,
           operatorName: entry.operatorName,
+          operatorImageUrl:
+            entry.operatorId !== '__unassigned__'
+              ? actors.resolveImageUrl({
+                  operatorId: entry.operatorId,
+                  name: entry.operatorName,
+                })
+              : null,
           countSales: entry.countSales,
           totalSales: entry.total.toNumber(),
         })),

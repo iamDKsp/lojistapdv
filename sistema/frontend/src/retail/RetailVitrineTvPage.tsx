@@ -1393,6 +1393,11 @@ export function VitrineStageCanvas({
             const key = isGrid
               ? (s as VitrineGridSlide).gridId
               : `${(s as VitrineSlide).productId}-${idx}`;
+            const thumbImageUrl = isGrid
+              ? (s as VitrineGridSlide).gridProducts?.find((gp) =>
+                  Boolean(gp.imageUrl),
+                )?.imageUrl || null
+              : (s as VitrineSlide).imageUrl;
             return (
               <div
                 key={key}
@@ -1424,9 +1429,9 @@ export function VitrineStageCanvas({
                     flexShrink: 0,
                   }}
                 >
-                  {!isGrid && (s as VitrineSlide).imageUrl ? (
+                  {thumbImageUrl ? (
                     <img
-                      src={getFullUrl((s as VitrineSlide).imageUrl)}
+                      src={getFullUrl(thumbImageUrl)}
                       alt=""
                       style={{
                         width: "100%",

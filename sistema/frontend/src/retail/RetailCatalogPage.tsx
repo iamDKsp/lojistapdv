@@ -9,6 +9,7 @@ import {
   CategoryIconIllustration,
 } from "@/components/CategoryIcons";
 import { RetailSwitch } from "@/components/ui/Switch";
+import { StockItemThumb } from "@/components/EntityPhotos";
 import { RetailGroupEditor } from "./RetailGroupEditor";
 import { apiError, money, type RetailGroup } from "./types";
 
@@ -118,8 +119,16 @@ export function RetailCatalogPage() {
           </p>
           {ungrouped.map((item) => (
             <div className="retail-payment-line" key={item.id}>
-              <span>
-                {item.name} · {Number(item.stock)} peças
+              <span className="inline-flex items-center gap-2.5 min-w-0">
+                <StockItemThumb
+                  size="sm"
+                  name={item.name}
+                  imageUrl={item.imageUrl || item.retailGroup?.imageUrl}
+                  product={item}
+                />
+                <span className="truncate">
+                  {item.name} · {Number(item.stock)} peças
+                </span>
               </span>
               <button
                 type="button"

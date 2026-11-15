@@ -23,6 +23,7 @@ import Dexie, { type Table } from 'dexie';
 export interface OfflineSaleItemSnapshot {
   productId: string;
   productName: string;   // nome no momento da venda (congelado)
+  imageUrl?: string | null;
   unit: string;
   quantity: number;
   priceUnit: number;
@@ -99,6 +100,8 @@ export interface OfflineSale {
   // Metadados da operação
   createdAt:  string;     // ISO 8601 — momento exato da venda
   operatorId: string;     // ID do usuário operador
+  operatorName?: string | null;
+  operatorImageUrl?: string | null;
   tenantId:   string;     // ID do tenant (Adega)
   cashRegisterId?: string; // ID do caixa aberto no momento (se houver)
   comandaId?: string;     // ID da comanda ativa (se houver)

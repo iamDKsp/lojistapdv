@@ -6,6 +6,9 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft, PackagePlus, Search, Plus, CheckCircle2, AlertTriangle, CalendarClock, Package } from 'lucide-react';
 import ManagePackagingsModal, { PackagingItem } from '@/components/ManagePackagingsModal';
 import { PdvLojistaLoader, RetailDatePicker, RetailSelect } from '@/components/ui';
+import { useAuthStore } from '@/store/auth';
+import { useShift } from '@/contexts/ShiftContext';
+import { OperatorInlineBadge, StockItemThumb } from '@/components/EntityPhotos';
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -17,7 +20,10 @@ interface Product {
   priceCost: number;
   category?: { name: string };
   shortCode?: string | null;
+  size?: string | null;
+  color?: string | null;
   imageUrl?: string | null;
+  retailGroup?: { imageUrl?: string | null } | null;
 }
 
 interface StockRow {
@@ -36,6 +42,8 @@ interface StockRow {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function StockEntryPage() {
+  const { user } = useAuthStore();
+  const { operator: activeOperator } = useShift();
   const [products,   setProducts]   = useState<Product[]>([]);
   const [rows,       setRows]       = useState<StockRow[]>([]);
   const [search,     setSearch]     = useState('');
@@ -239,6 +247,16 @@ export default function StockEntryPage() {
         </div>
 
         <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap sm:flex-nowrap">
+          {(activeOperator?.name || user?.name) && (
+            <OperatorInlineBadge
+              label="Operador:"
+              name={activeOperator?.name || user?.name}
+              operatorId={activeOperator?.id || user?.id}
+              imageUrl={activeOperator?.imageUrl || user?.imageUrl}
+              variant="pill"
+              size="xs"
+            />
+          )}
           <button
             onClick={() => setShowPackagingsModal(true)}
             className="bg-surface hover:bg-support text-ink px-4 py-2.5 rounded-xl font-bold transition border border-line text-sm whitespace-nowrap flex items-center gap-2 shadow-sm cursor-pointer active:scale-95"
@@ -292,19 +310,27 @@ export default function StockEntryPage() {
                   disabled={rows.some(r => r.product.id === product.id)}
                   className="w-full flex items-center justify-between px-4 py-3 hover:bg-surface/60 transition-colors border-b border-line last:border-0 text-left disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  <div className="flex items-center gap-3">
-                    {product.imageUrl ? (
-                      <div className="w-10 h-10 shrink-0 bg-surface rounded-lg flex items-center justify-center p-0.5 shadow-sm">
-                        <img src={product.imageUrl} alt="" className="w-full h-full object-contain mix-blend-multiply" />
-                      </div>
-                    ) : (
-                      <div className="w-10 h-10 shrink-0 bg-surface rounded-lg flex items-center justify-center shadow-sm">
-                        <PackagePlus size={18} className="text-muted" />
-                      </div>
-                    )}
-                    <div>
-                      <p className="text-ink font-semibold text-sm">{product.name}</p>
-                      <p className="text-muted text-xs">{product.category?.name} • Estoque atual: <span className={`font-bold ${Number(product.stock) <= 0 ? 'text-brand' : 'text-brand'}`}>{Number(product.stock)}</span> {product.unit}</p>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <StockItemThumb
+                      product={product}
+                      alt={product.name}
+                      size="md"
+                    />
+                    <div className="min-w-0">
+                      <p className="text-ink font-semibold text-sm truncate">{product.name}</p>
+                      <p className="text-muted text-xs">
+                        {[
+                          product.category?.name,
+                          product.size && `Tam ${product.size}`,
+                          product.color,
+                        ]
+                          .filter(Boolean)
+                          .join(' • ')}
+                        {product.category?.name || product.size || product.color ? ' • ' : ''}
+                        Estoque atual:{' '}
+                        <span className="font-bold text-brand">{Number(product.stock)}</span>{' '}
+                        {product.unit}
+                      </p>
                     </div>
                   </div>
                   <Plus size={20} className="text-brand shrink-0" />
@@ -329,21 +355,28 @@ export default function StockEntryPage() {
                 {/* Info do produto */}
                 <div className="flex items-center justify-between w-full lg:w-auto lg:flex-1 min-w-0">
                   <div className="flex items-center gap-3 min-w-0">
-                  {row.product.imageUrl ? (
-                    <div className="w-12 h-12 shrink-0 bg-surface rounded-lg flex items-center justify-center p-1 shadow-sm">
-                      <img src={row.product.imageUrl} alt="" className="w-full h-full object-contain mix-blend-multiply" />
+                    <StockItemThumb
+                      product={row.product}
+                      alt={row.product.name}
+                      size="lg"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-ink font-bold truncate">{row.product.name}</p>
+                      <p className="text-muted text-xs mt-0.5">
+                        {[
+                          row.product.size && `Tam ${row.product.size}`,
+                          row.product.color,
+                        ]
+                          .filter(Boolean)
+                          .join(' • ')}
+                        {row.product.size || row.product.color ? ' • ' : ''}
+                        Estoque atual:{' '}
+                        <span className={`font-bold ${Number(row.product.stock) <= 0 ? 'text-brand' : 'text-muted'}`}>
+                          {Number(row.product.stock)}
+                        </span>{' '}
+                        {row.product.unit}
+                      </p>
                     </div>
-                  ) : (
-                    <div className="w-12 h-12 shrink-0 bg-surface/50 border border-line rounded-lg flex items-center justify-center">
-                      <PackagePlus size={20} className="text-muted" />
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-ink font-bold truncate">{row.product.name}</p>
-                    <p className="text-muted text-xs mt-0.5">
-                      Estoque atual: <span className={`font-bold ${Number(row.product.stock) <= 0 ? 'text-brand' : 'text-muted'}`}>{Number(row.product.stock)}</span> {row.product.unit}
-                    </p>
-                  </div>
                   </div>
                   <button
                     onClick={() => removeRow(row.product.id)}

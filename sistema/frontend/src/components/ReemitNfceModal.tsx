@@ -1,19 +1,26 @@
 import { useState } from 'react';
 import { X, RefreshCw, Hash, AlertTriangle } from 'lucide-react';
 import { PdvLojistaLoader } from '@/components/ui';
+import { OperatorInlineBadge, StockItemThumb } from './EntityPhotos';
 
 interface SaleItem {
   id: string;
   quantity: number;
   priceUnit: number;
   subtotal: number;
-  product: { name: string };
+  imageUrl?: string | null;
+  productName?: string | null;
+  product: { name: string; imageUrl?: string | null; retailGroup?: { imageUrl?: string | null } | null };
 }
 
 interface Sale {
   id: string;
   total: number;
   createdAt: string;
+  operatorId?: string | null;
+  operatorName?: string | null;
+  operatorImageUrl?: string | null;
+  operator?: { id?: string; name?: string; imageUrl?: string | null } | null;
   items: SaleItem[];
   nfceStatus: string | null;
   nfceNumero: number | null;
@@ -93,13 +100,32 @@ export function ReemitNfceModal({ isOpen, onClose, sale, onConfirm }: ReemitNfce
                 <span className="text-ink font-semibold font-mono">Nº {sale.nfceNumero}</span>
               </div>
             )}
-            <div className="pt-2 border-t border-line flex flex-col gap-1">
+            {(sale.operator?.name || sale.operatorName) && (
+              <div className="flex justify-between items-center">
+                <span>Operador:</span>
+                <OperatorInlineBadge
+                  operatorId={sale.operator?.id || sale.operatorId}
+                  name={sale.operator?.name || sale.operatorName}
+                  imageUrl={sale.operator?.imageUrl || sale.operatorImageUrl}
+                  size="xs"
+                />
+              </div>
+            )}
+            <div className="pt-2 border-t border-line flex flex-col gap-1.5">
               <span className="text-xs font-semibold text-muted">ITENS DA VENDA:</span>
-              <div className="max-h-24 overflow-y-auto space-y-1">
+              <div className="max-h-32 overflow-y-auto space-y-1.5">
                 {sale.items.map((item, idx) => (
-                  <div key={item.id} className="flex justify-between text-xs font-mono text-muted">
-                    <span className="truncate max-w-[280px]">{String(idx + 1).padStart(2, '0')}. {item.product?.name || 'Item'}</span>
-                    <span>{item.quantity} x R$ {Number(item.priceUnit || 0).toFixed(2)}</span>
+                  <div key={item.id} className="flex items-center justify-between gap-2 text-xs font-mono text-muted">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <StockItemThumb
+                        name={item.product?.name || item.productName}
+                        imageUrl={item.imageUrl}
+                        product={item.product}
+                        size="xs"
+                      />
+                      <span className="truncate max-w-[240px]">{String(idx + 1).padStart(2, '0')}. {item.product?.name || item.productName || 'Item'}</span>
+                    </div>
+                    <span className="shrink-0">{item.quantity} x R$ {Number(item.priceUnit || 0).toFixed(2)}</span>
                   </div>
                 ))}
               </div>

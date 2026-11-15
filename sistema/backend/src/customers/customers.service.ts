@@ -3,9 +3,11 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { TenantConnectionManager } from '../prisma/tenant-prisma.service';
 import { TenantContextService } from '../prisma/tenant-context.service';
+import { EntityPhotoResolverService } from '../prisma/entity-photo-resolver.service';
 
 export type CustomerSegment = 'vip' | 'active' | 'inactive' | 'new';
 
@@ -84,6 +86,7 @@ export class CustomersService {
   constructor(
     private tenantManager: TenantConnectionManager,
     private tenantContext: TenantContextService,
+    @Optional() private photoResolver?: EntityPhotoResolverService,
   ) {}
 
   private async getPrisma() {
@@ -517,6 +520,7 @@ export class CustomersService {
   }
 
   async getProfile(customerId: string, now = new Date()) {
+    const { tenantId } = this.tenantContext.get();
     const prisma = await this.getPrisma();
     const customer = await prisma.customer.findUnique({
       where: { id: customerId },
@@ -525,7 +529,7 @@ export class CustomersService {
       throw new NotFoundException('Cliente não encontrado nesta loja.');
     }
 
-    const [sales, returns, credits] = await Promise.all([
+    const [sales, returns, credits, actors] = await Promise.all([
       prisma.sale.findMany({
         where: {
           customerId,
@@ -545,8 +549,9 @@ export class CustomersService {
                   name: true,
                   size: true,
                   color: true,
+                  imageUrl: true,
                   category: { select: { id: true, name: true } },
-                  retailGroup: { select: { id: true, name: true } },
+                  retailGroup: { select: { id: true, name: true, imageUrl: true } },
                 },
               },
             },
@@ -563,7 +568,18 @@ export class CustomersService {
           items: {
             include: {
               saleItem: {
-                select: { id: true, productName: true, priceUnit: true },
+                select: {
+                  id: true,
+                  productId: true,
+                  productName: true,
+                  priceUnit: true,
+                  product: {
+                    select: {
+                      imageUrl: true,
+                      retailGroup: { select: { imageUrl: true } },
+                    },
+                  },
+                },
               },
             },
           },
@@ -589,6 +605,9 @@ export class CustomersService {
           },
         },
       }),
+      this.photoResolver
+        ? this.photoResolver.loadTenantActors(tenantId, prisma)
+        : Promise.resolve(null),
     ]);
 
     const completedSales = sales.filter((s) => s.status === 'completed');
@@ -601,7 +620,14 @@ export class CustomersService {
     const categoriesMap = new Map<string, number>();
     const groupsMap = new Map<
       string,
-      { id: string; name: string; categoryName: string | null; quantity: number; total: number }
+      {
+        id: string;
+        name: string;
+        categoryName: string | null;
+        imageUrl: string | null;
+        quantity: number;
+        total: number;
+      }
     >();
     const paymentsMap = new Map<
       string,
@@ -668,13 +694,20 @@ export class CustomersService {
           );
         }
         if (groupName) {
+          const itemImg = EntityPhotoResolverService.resolveProductImageUrl(
+            item.product,
+          );
           const curGroup = groupsMap.get(groupId) || {
             id: groupId,
             name: groupName,
             categoryName,
+            imageUrl: itemImg,
             quantity: 0,
             total: 0,
           };
+          if (!curGroup.imageUrl && itemImg) {
+            curGroup.imageUrl = itemImg;
+          }
           curGroup.quantity += qty;
           curGroup.total = Number((curGroup.total + subtotal).toFixed(2));
           groupsMap.set(groupId, curGroup);
@@ -754,6 +787,9 @@ export class CustomersService {
           productName: item.productName || item.product?.name || 'Mercadoria',
           size: item.product?.size || null,
           color: item.product?.color || null,
+          imageUrl: EntityPhotoResolverService.resolveProductImageUrl(
+            item.product,
+          ),
           quantity: qty,
           priceUnit: Number(item.priceUnit || 0),
           subtotal: Number(item.subtotal || 0),
@@ -768,6 +804,14 @@ export class CustomersService {
           (i) => Number.isInteger(i.quantity) && i.remainingForReturn > 0,
         );
 
+      const opId = sale.operator?.id || (sale as any).operatorId || null;
+      const opActor = actors
+        ? actors.resolveActor(
+            { operatorId: opId, name: sale.operator?.name },
+            sale.operator?.name || null,
+          )
+        : { id: opId, name: sale.operator?.name || null, imageUrl: null };
+
       return {
         id: sale.id,
         code: sale.code,
@@ -776,7 +820,9 @@ export class CustomersService {
         subtotal: Number(sale.subtotal || 0),
         discount: Number(sale.discount || 0),
         total: Number(sale.total || 0),
-        operatorName: sale.operator?.name || null,
+        operatorId: opId,
+        operatorName: opActor.name,
+        operatorImageUrl: opActor.imageUrl,
         canInitiateReturn,
         payments: (sale.payments || []).map((p) => ({
           id: p.id,
@@ -792,23 +838,37 @@ export class CustomersService {
       };
     });
 
-    const formattedReturns = returns.map((ret) => ({
-      id: ret.id,
-      saleId: ret.saleId,
-      saleCode: ret.sale?.code || null,
-      reason: ret.reason,
-      total: Number(ret.total || 0),
-      creditBalance: Number(ret.credit?.balance || 0),
-      createdAt: ret.createdAt,
-      items: (ret.items || []).map((ri) => ({
-        id: ri.id,
-        saleItemId: ri.saleItemId,
-        productName: ri.saleItem?.productName || 'Mercadoria',
-        quantity: ri.quantity,
-        restock: ri.restock,
-        value: Number(ri.value || 0),
-      })),
-    }));
+    const formattedReturns = returns.map((ret) => {
+      const retOpId = (ret as any).operatorId || null;
+      const retActor =
+        actors && retOpId
+          ? actors.resolveActor({ id: retOpId })
+          : { id: retOpId, name: null, imageUrl: null };
+      return {
+        id: ret.id,
+        saleId: ret.saleId,
+        saleCode: ret.sale?.code || null,
+        reason: ret.reason,
+        total: Number(ret.total || 0),
+        creditBalance: Number(ret.credit?.balance || 0),
+        createdAt: ret.createdAt,
+        operatorId: retOpId,
+        operatorName: retActor.name,
+        operatorImageUrl: retActor.imageUrl,
+        items: (ret.items || []).map((ri) => ({
+          id: ri.id,
+          saleItemId: ri.saleItemId,
+          productId: (ri.saleItem as any)?.productId || null,
+          productName: ri.saleItem?.productName || 'Mercadoria',
+          imageUrl: EntityPhotoResolverService.resolveProductImageUrl(
+            (ri.saleItem as any)?.product,
+          ),
+          quantity: ri.quantity,
+          restock: ri.restock,
+          value: Number(ri.value || 0),
+        })),
+      };
+    });
 
     const formattedCredits = credits.map((credit) => ({
       id: credit.id,
@@ -870,9 +930,15 @@ export class CustomersService {
         paymentMethods: [...paymentsMap.values()].sort(
           (a, b) => b.total - a.total || b.count - a.count,
         ),
-        operators: [...operatorsMap.values()].sort(
-          (a, b) => b.count - a.count,
-        ),
+        operators: [...operatorsMap.values()]
+          .sort((a, b) => b.count - a.count)
+          .map((op) => {
+            const img = actors?.resolveImageUrl({
+              operatorId: op.id,
+              name: op.name,
+            });
+            return img ? { ...op, imageUrl: img } : op;
+          }),
       },
       sales: formattedSales,
       returns: formattedReturns,

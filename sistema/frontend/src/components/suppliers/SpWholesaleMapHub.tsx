@@ -31,6 +31,7 @@ import {
   formatWhatsAppHref,
 } from '@/lib/sp-wholesale-map';
 import { SpCustomMapCanvas } from './SpCustomMapCanvas';
+import { StockItemThumb } from '@/components/EntityPhotos';
 
 interface SpWholesaleMapHubProps {
   onSupplierImported?: () => void;
@@ -892,14 +893,33 @@ export function SpWholesaleMapHub({ onSupplierImported }: SpWholesaleMapHubProps
                       </span>
                     </p>
                     {orderSummary.totalPieces > 0 && (
-                      <p className="text-xs font-semibold text-muted">
-                        Faturamento estimado na loja: R${' '}
-                        {orderSummary.totalRetail.toFixed(2).replace('.', ',')} •{' '}
-                        <span className="font-bold text-brand">
-                          Lucro Bruto Estimado: R${' '}
-                          {orderSummary.estimatedProfit.toFixed(2).replace('.', ',')}
-                        </span>
-                      </p>
+                      <>
+                        <p className="text-xs font-semibold text-muted">
+                          Faturamento estimado na loja: R${' '}
+                          {orderSummary.totalRetail.toFixed(2).replace('.', ',')} •{' '}
+                          <span className="font-bold text-brand">
+                            Lucro Bruto Estimado: R${' '}
+                            {orderSummary.estimatedProfit.toFixed(2).replace('.', ',')}
+                          </span>
+                        </p>
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                          {orderSummary.lines.map((l) => (
+                            <span
+                              key={l.item.id}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-2 py-1 text-[11px] font-semibold text-ink"
+                            >
+                              <StockItemThumb
+                                imageUrl={l.item.imageUrl}
+                                name={l.item.name}
+                                size="xs"
+                              />
+                              <span className="truncate max-w-[160px]">
+                                {l.qty}x {l.item.name}
+                              </span>
+                            </span>
+                          ))}
+                        </div>
+                      </>
                     )}
                   </div>
 

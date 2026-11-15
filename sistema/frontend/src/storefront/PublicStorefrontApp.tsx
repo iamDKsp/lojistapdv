@@ -55,6 +55,7 @@ import { toast } from 'sonner';
 import { storefrontApi } from '@/lib/storefront-api';
 import { getFullUrl } from '@/lib/getFullUrl';
 import { CategoryIconIllustration } from '@/components/CategoryIcons';
+import { StockItemThumb } from '@/components/EntityPhotos';
 import {
   addOrUpdateCartItem,
   clearStoreCart,
@@ -2853,20 +2854,28 @@ export function PublicStorefrontApp() {
                           key={item.id}
                           className="p-3.5 bg-surface flex items-center justify-between gap-3"
                         >
-                          <div className="min-w-0">
-                            <p className="font-bold text-xs sm:text-sm text-ink truncate">
-                              {item.quantity}x {item.productName}
-                            </p>
-                            {(item.size || item.color) && (
-                              <p className="text-xs text-muted">
-                                {[
-                                  item.size && `Tam: ${item.size}`,
-                                  item.color && `Cor: ${item.color}`,
-                                ]
-                                  .filter(Boolean)
-                                  .join(' • ')}
+                          <div className="flex items-center gap-3 min-w-0">
+                            <StockItemThumb
+                              imageUrl={item.imageUrl}
+                              product={item}
+                              alt={item.productName}
+                              size="md"
+                            />
+                            <div className="min-w-0">
+                              <p className="font-bold text-xs sm:text-sm text-ink truncate">
+                                {item.quantity}x {item.productName}
                               </p>
-                            )}
+                              {(item.size || item.color) && (
+                                <p className="text-xs text-muted">
+                                  {[
+                                    item.size && `Tam: ${item.size}`,
+                                    item.color && `Cor: ${item.color}`,
+                                  ]
+                                    .filter(Boolean)
+                                    .join(' • ')}
+                                </p>
+                              )}
+                            </div>
                           </div>
                           <span className="font-extrabold text-xs sm:text-sm text-ink shrink-0 tabular-nums">
                             {formatBrl(item.subtotal)}
@@ -3531,9 +3540,9 @@ export function PublicStorefrontApp() {
                                 to={`/loja/${slug}/produto/${item.productSlug}`}
                                 className="w-16 h-20 rounded-2xl overflow-hidden border border-line bg-page shrink-0"
                               >
-                                {item.imageUrl ? (
+                                {(item.imageUrl || valItem?.imageUrl) ? (
                                   <img
-                                    src={getFullUrl(item.imageUrl)}
+                                    src={getFullUrl(item.imageUrl || valItem?.imageUrl)}
                                     alt={item.productName}
                                     className="w-full h-full object-cover"
                                   />
@@ -3711,16 +3720,33 @@ export function PublicStorefrontApp() {
                           Confira e clique em <strong>Registrar Pedido</strong>{' '}
                           novamente para confirmar:
                         </p>
-                        <ul className="text-xs text-muted space-y-1">
-                          {priceDivergenceAlert.map((d: any) => (
-                            <li key={d.productId}>
-                              • <strong>{d.productName}</strong>: de{' '}
-                              {formatBrl(d.expectedPriceUnit)} para{' '}
-                              <strong className="text-brand">
-                                {formatBrl(d.currentPriceUnit)}
-                              </strong>
-                            </li>
-                          ))}
+                        <ul className="text-xs text-muted space-y-1.5">
+                          {priceDivergenceAlert.map((d: any) => {
+                            const divImg =
+                              d.imageUrl ||
+                              cartItems.find((ci) => ci.productId === d.productId)
+                                ?.imageUrl ||
+                              null;
+                            return (
+                              <li
+                                key={d.productId}
+                                className="flex items-center gap-2"
+                              >
+                                <StockItemThumb
+                                  imageUrl={divImg}
+                                  alt={d.productName}
+                                  size="xs"
+                                />
+                                <span>
+                                  <strong>{d.productName}</strong>: de{' '}
+                                  {formatBrl(d.expectedPriceUnit)} para{' '}
+                                  <strong className="text-brand">
+                                    {formatBrl(d.currentPriceUnit)}
+                                  </strong>
+                                </span>
+                              </li>
+                            );
+                          })}
                         </ul>
                       </div>
                     )}
@@ -4004,28 +4030,40 @@ export function PublicStorefrontApp() {
                         Confirmação dos Itens
                       </h3>
                       <div className="divide-y divide-line max-h-64 overflow-y-auto pr-1">
-                        {cartItems.map((item) => (
-                          <div
-                            key={item.productId}
-                            className="py-2.5 flex items-center justify-between gap-2 text-xs"
-                          >
-                            <div className="min-w-0">
-                              <p className="font-bold text-ink truncate">
-                                {item.quantity}x {item.productName}
-                              </p>
-                              {(item.size || item.color) && (
-                                <p className="text-muted">
-                                  {[item.size, item.color]
-                                    .filter(Boolean)
-                                    .join(' / ')}
-                                </p>
-                              )}
+                        {cartItems.map((item) => {
+                          const valItem = cartValidation?.items?.find(
+                            (vi: any) => vi.productId === item.productId,
+                          );
+                          return (
+                            <div
+                              key={item.productId}
+                              className="py-2.5 flex items-center justify-between gap-2.5 text-xs"
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <StockItemThumb
+                                  imageUrl={item.imageUrl || valItem?.imageUrl}
+                                  alt={item.productName}
+                                  size="sm"
+                                />
+                                <div className="min-w-0">
+                                  <p className="font-bold text-ink truncate">
+                                    {item.quantity}x {item.productName}
+                                  </p>
+                                  {(item.size || item.color) && (
+                                    <p className="text-muted">
+                                      {[item.size, item.color]
+                                        .filter(Boolean)
+                                        .join(' / ')}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                              <span className="font-extrabold text-ink shrink-0 tabular-nums">
+                                {formatBrl(item.priceUnit * item.quantity)}
+                              </span>
                             </div>
-                            <span className="font-extrabold text-ink shrink-0 tabular-nums">
-                              {formatBrl(item.priceUnit * item.quantity)}
-                            </span>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
 
                       {fulfillmentMode === 'DELIVERY' &&

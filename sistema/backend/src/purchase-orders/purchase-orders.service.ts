@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { TenantConnectionManager } from '../prisma/tenant-prisma.service';
 import { TenantContextService } from '../prisma/tenant-context.service';
+import { EntityPhotoResolverService } from '../prisma/entity-photo-resolver.service';
 import { Prisma } from '@prisma/client';
 import { ProductsService } from '../products/products.service';
 import { IntegrationsService } from '../integrations/integrations.service';
@@ -19,12 +20,33 @@ export class PurchaseOrdersService {
     return this.tenantManager.getTenantClient(tenantId, databaseUrl);
   }
 
+  private hydrateOrder(order: any) {
+    if (!order) return order;
+    return {
+      ...order,
+      items: Array.isArray(order.items)
+        ? order.items.map((it: any) => {
+            const imageUrl = EntityPhotoResolverService.resolveProductImageUrl(
+              it.product,
+            );
+            return {
+              ...it,
+              imageUrl,
+              product: it.product
+                ? EntityPhotoResolverService.withResolvedProductImage(it.product)
+                : it.product,
+            };
+          })
+        : order.items,
+    };
+  }
+
   async createPurchaseOrder(supplierId: string, items: { productId: string; quantity: number; expectedCost: number; unitMultiplier?: number; unitName?: string }[]) {
     const prisma = await this.getPrisma();
     
     const totalEstimated = items.reduce((acc, item) => acc + (item.quantity * (item.unitMultiplier || 1) * item.expectedCost), 0);
 
-    return prisma.purchaseOrder.create({
+    const created = await prisma.purchaseOrder.create({
       data: {
         supplierId,
         status: 'DRAFT',
@@ -40,24 +62,39 @@ export class PurchaseOrdersService {
         },
       },
       include: {
-        items: true,
+        supplier: true,
+        items: {
+          include: {
+            product: {
+              include: {
+                retailGroup: { select: { id: true, name: true, imageUrl: true } },
+              },
+            },
+          },
+        },
       },
     });
+    return this.hydrateOrder(created);
   }
 
   async getPurchaseOrders() {
     const prisma = await this.getPrisma();
-    return prisma.purchaseOrder.findMany({
+    const orders = await prisma.purchaseOrder.findMany({
       orderBy: { createdAt: 'desc' },
       include: {
         supplier: true,
         items: {
           include: {
-            product: true,
+            product: {
+              include: {
+                retailGroup: { select: { id: true, name: true, imageUrl: true } },
+              },
+            },
           },
         },
       },
     });
+    return orders.map((o) => this.hydrateOrder(o));
   }
 
   async getPurchaseOrderById(id: string) {
@@ -68,14 +105,18 @@ export class PurchaseOrdersService {
         supplier: true,
         items: {
           include: {
-            product: true,
+            product: {
+              include: {
+                retailGroup: { select: { id: true, name: true, imageUrl: true } },
+              },
+            },
           },
         },
       },
     });
 
     if (!order) throw new NotFoundException('Pedido de compra não encontrado.');
-    return order;
+    return this.hydrateOrder(order);
   }
 
   async updateStatus(id: string, status: string) {
@@ -317,11 +358,21 @@ export class PurchaseOrdersService {
         },
         include: {
           supplier: true,
-          items: { include: { product: true } },
+          items: {
+            include: {
+              product: {
+                include: {
+                  retailGroup: {
+                    select: { id: true, name: true, imageUrl: true },
+                  },
+                },
+              },
+            },
+          },
         },
       });
 
-      createdOrders.push(order);
+      createdOrders.push(this.hydrateOrder(order));
     }
 
     return createdOrders;

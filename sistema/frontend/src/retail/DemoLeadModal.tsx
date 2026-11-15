@@ -132,6 +132,7 @@ export function DemoLeadModal({
             JSON.stringify({
               id: operator.id,
               name: operator.name,
+              imageUrl: operator.imageUrl ?? null,
               role: operator.role || operator.jobTitle || "Gerente de Loja",
               isManager: true,
               jobTitle: operator.jobTitle || "Gerente de Loja",
@@ -150,6 +151,7 @@ export function DemoLeadModal({
 
       login(access_token, {
         ...user,
+        imageUrl: user?.imageUrl ?? operator?.imageUrl ?? null,
         isDemo: true,
       });
       triggerSessionEntryTransition();

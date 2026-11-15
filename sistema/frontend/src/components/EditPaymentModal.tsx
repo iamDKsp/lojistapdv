@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { X, Save, Plus, Trash2, CreditCard } from "lucide-react";
 import PdvLojistaLoader from "./PdvLojistaLoader";
 import { RetailSelect } from "./ui/Select";
+import { OperatorInlineBadge } from "./EntityPhotos";
 
 const METHOD_OPTIONS = [
   { value: "dinheiro", label: "Dinheiro" },
@@ -118,9 +119,17 @@ export function EditPaymentModal({
               <h2 className="text-xl font-black text-ink tracking-tight">
                 Editar Pagamento
               </h2>
-              <p className="text-xs text-muted">
-                Venda: {sale.id.split("-")[0]}
-              </p>
+              <div className="text-xs text-muted flex items-center gap-2 flex-wrap mt-0.5">
+                <span>Venda: {sale.id.split("-")[0]}</span>
+                {(sale.operator?.name || sale.operatorName) && (
+                  <OperatorInlineBadge
+                    operatorId={sale.operator?.id || sale.operatorId}
+                    name={sale.operator?.name || sale.operatorName}
+                    imageUrl={sale.operator?.imageUrl || sale.operatorImageUrl}
+                    size="xs"
+                  />
+                )}
+              </div>
             </div>
           </div>
           <button

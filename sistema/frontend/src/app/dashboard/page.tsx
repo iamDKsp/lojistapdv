@@ -37,13 +37,17 @@ import {
   AlertTriangle,
   Eye,
   RefreshCw,
-  User,
   X,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { ReemitNfceModal } from '@/components/ReemitNfceModal';
 import { PeriodReportModal } from '@/components/PeriodReportModal';
 import { PdvLojistaLoader, RetailSelect } from '@/components/ui';
+import {
+  OperatorAvatarThumb,
+  OperatorInlineBadge,
+  StockItemThumb,
+} from '@/components/EntityPhotos';
 import {
   StoreModuleHeader,
   StorePeriodFilterBar,
@@ -64,6 +68,7 @@ type RegisterSummary = {
   code?: number;
   operatorName: string;
   operatorId: string;
+  operatorImageUrl?: string | null;
   openedAt: string;
   openingValue: number;
   total: number;
@@ -132,12 +137,14 @@ type SaleItem = {
   discount?: number;
   subtotal: number;
   productName?: string;
+  imageUrl?: string | null;
   product: {
     id?: string;
     name: string;
     size?: string | null;
     color?: string | null;
     imageUrl?: string | null;
+    retailGroup?: { imageUrl?: string | null } | null;
   };
 };
 
@@ -155,7 +162,9 @@ type Sale = {
   discount: number;
   status: string;
   cancelReason?: string | null;
-  operator?: { name: string } | null;
+  operator?: { id?: string; name: string; imageUrl?: string | null } | null;
+  operatorName?: string | null;
+  operatorImageUrl?: string | null;
   customer?: { name: string; phone?: string } | null;
   consumidorCpf?: string | null;
   consumidorNome?: string | null;
@@ -1068,11 +1077,25 @@ export default function SalesDashboard() {
           subtitle={
             <Link
               to="/inicio/historico-de-caixas"
-              className="text-brand font-semibold hover:underline"
+              className="text-brand font-semibold hover:underline inline-flex items-center gap-1.5"
             >
-              {openRegs.length > 0
-                ? `${openRegs.length} caixa(s) aberto(s) agora`
-                : 'Todos os caixas fechados'}
+              {openRegs.length > 0 ? (
+                <>
+                  <OperatorAvatarThumb
+                    name={openRegs[0].operatorName}
+                    operatorId={openRegs[0].operatorId}
+                    imageUrl={openRegs[0].operatorImageUrl}
+                    size="xs"
+                  />
+                  <span className="truncate">
+                    {openRegs.length === 1
+                      ? `${openRegs[0].operatorName} (aberto)`
+                      : `${openRegs.length} caixas abertos agora`}
+                  </span>
+                </>
+              ) : (
+                'Todos os caixas fechados'
+              )}
             </Link>
           }
         />
@@ -1498,17 +1521,28 @@ export default function SalesDashboard() {
                             timeStyle: 'short',
                           }).format(new Date(sale.createdAt))}
                         </span>
-                        {sale.operator?.name && (
-                          <span className="text-[10px] text-muted block truncate max-w-[110px]">
-                            Op. {sale.operator.name}
-                          </span>
+                        {(sale.operator?.name || sale.operatorName) && (
+                          <div className="mt-1 max-w-[140px]">
+                            <OperatorInlineBadge
+                              name={sale.operator?.name || sale.operatorName || 'Operador'}
+                              operatorId={sale.operator?.id || sale.operatorId}
+                              imageUrl={sale.operator?.imageUrl || sale.operatorImageUrl}
+                              size="xs"
+                            />
+                          </div>
                         )}
                       </td>
 
-                      <td className="px-4 py-3.5 max-w-[240px]">
-                        <div className="space-y-1">
+                      <td className="px-4 py-3.5 max-w-[260px]">
+                        <div className="space-y-1.5">
                           {sale.items.slice(0, 2).map((i) => (
                             <div key={i.id} className="text-xs flex gap-1.5 items-center">
+                              <StockItemThumb
+                                imageUrl={i.imageUrl}
+                                product={i.product}
+                                alt={i.product?.name || i.productName || 'Mercadoria'}
+                                size="xs"
+                              />
                               <span className="font-bold text-brand bg-support px-1.5 py-0.2 rounded text-[11px] tabular-nums shrink-0">
                                 {Number(i.quantity)}x
                               </span>
@@ -1723,6 +1757,16 @@ export default function SalesDashboard() {
                           timeStyle: 'short',
                         }).format(new Date(sale.createdAt))}
                       </span>
+                      {(sale.operator?.name || sale.operatorName) && (
+                        <div className="mt-1">
+                          <OperatorInlineBadge
+                            name={sale.operator?.name || sale.operatorName || 'Operador'}
+                            operatorId={sale.operator?.id || sale.operatorId}
+                            imageUrl={sale.operator?.imageUrl || sale.operatorImageUrl}
+                            size="xs"
+                          />
+                        </div>
+                      )}
                     </div>
                     <strong
                       className={`font-bold text-base tabular-nums ${
@@ -1733,13 +1777,31 @@ export default function SalesDashboard() {
                     </strong>
                   </div>
 
-                  <div className="text-xs text-muted line-clamp-2">
-                    {sale.items
-                      .map(
-                        (i) =>
-                          `${Number(i.quantity)}x ${i.product?.name || i.productName || 'Item'}`,
-                      )
-                      .join(', ')}
+                  <div className="flex flex-wrap gap-1.5">
+                    {sale.items.slice(0, 3).map((i) => (
+                      <div
+                        key={i.id}
+                        className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-page border border-line text-[11px] max-w-full"
+                      >
+                        <StockItemThumb
+                          imageUrl={i.imageUrl}
+                          product={i.product}
+                          alt={i.product?.name || i.productName || 'Item'}
+                          size="xs"
+                        />
+                        <span className="font-bold text-brand shrink-0">
+                          {Number(i.quantity)}x
+                        </span>
+                        <span className="text-ink truncate">
+                          {i.product?.name || i.productName || 'Item'}
+                        </span>
+                      </div>
+                    ))}
+                    {sale.items.length > 3 && (
+                      <span className="inline-flex items-center px-2 py-1 rounded-lg bg-support text-brand text-[10px] font-bold">
+                        +{sale.items.length - 3}
+                      </span>
+                    )}
                   </div>
 
                   <div
@@ -1889,11 +1951,22 @@ export default function SalesDashboard() {
               {/* Metadados de Atendimento */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                 <div className="p-3 rounded-xl bg-page border border-line">
-                  <span className="text-[11px] text-muted block">Operador Responsável</span>
-                  <strong className="text-ink font-semibold inline-flex items-center gap-1 mt-0.5">
-                    <User size={13} className="text-brand" />
-                    {selectedSaleDetail.operator?.name || 'Operador'}
-                  </strong>
+                  <span className="text-[11px] text-muted block mb-1">Operador Responsável</span>
+                  <OperatorInlineBadge
+                    name={
+                      selectedSaleDetail.operator?.name ||
+                      selectedSaleDetail.operatorName ||
+                      'Operador'
+                    }
+                    operatorId={
+                      selectedSaleDetail.operator?.id || selectedSaleDetail.operatorId
+                    }
+                    imageUrl={
+                      selectedSaleDetail.operator?.imageUrl ||
+                      selectedSaleDetail.operatorImageUrl
+                    }
+                    size="sm"
+                  />
                 </div>
                 <div className="p-3 rounded-xl bg-page border border-line">
                   <span className="text-[11px] text-muted block">Cliente / Consumidor</span>
@@ -1951,10 +2024,11 @@ export default function SalesDashboard() {
                       className="p-3 flex items-center justify-between gap-3 text-xs"
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <ProductThumb
-                          imageUrl={item.product?.imageUrl}
+                        <StockItemThumb
+                          imageUrl={item.imageUrl}
+                          product={item.product}
                           alt={item.product?.name || item.productName || 'Item'}
-                          size={34}
+                          size="sm"
                         />
                         <div className="min-w-0">
                           <strong className="text-ink font-semibold block truncate">

@@ -4,6 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { TenantConnectionManager } from '../prisma/tenant-prisma.service';
 import { TenantContextService } from '../prisma/tenant-context.service';
+import { EntityPhotoResolverService } from '../prisma/entity-photo-resolver.service';
 import { StationAccessService } from './station-access.service';
 import { TenantsService } from '../tenants/tenants.service';
 import { DEMO_DATABASE_NAME, DEMO_USER_EMAIL, DEMO_USER_PASSWORD } from '../tenants/demo-store.seed';
@@ -17,6 +18,7 @@ export class AuthService {
     private tenantContext: TenantContextService,
     private access: StationAccessService,
     @Optional() private tenantsService?: TenantsService,
+    @Optional() private photoResolver?: EntityPhotoResolverService,
   ) {}
 
   async validateUser(email: string, pass: string): Promise<any> {
@@ -179,6 +181,16 @@ export class AuthService {
     const isDemo =
       user.email === DEMO_USER_EMAIL ||
       user.tenant?.databaseName === DEMO_DATABASE_NAME;
+    const resolvedUserImage =
+      user.imageUrl ||
+      (user.tenant?.id
+        ? (await this.photoResolver?.resolveSingleActorImage(user.tenant.id, {
+            userId: user.id,
+            name: user.name,
+          })) ||
+          (await this.resolveOperatorImageUrl(user.tenant.id, user.id, user.name))
+        : null) ||
+      null;
     return {
       access_token: this.jwtService.sign(payload),
       user: {
@@ -190,6 +202,7 @@ export class AuthService {
         tenant: user.tenant.id,
         tenantName: user.tenant.nomeFantasia || user.tenant.name,
         logoUrl: user.tenant.logoUrl ?? null,
+        imageUrl: resolvedUserImage,
         termsAccepted: isDemo ? true : !!user.tenant.termsAcceptedAt,
         isDemo,
       }
@@ -222,6 +235,9 @@ export class AuthService {
       { expiresIn: '12h' },
     );
 
+    const primaryImageUrl =
+      (primaryOperator as any).imageUrl ?? user.imageUrl ?? null;
+
     return {
       access_token: this.jwtService.sign(payload),
       user: {
@@ -233,6 +249,7 @@ export class AuthService {
         tenant: tenant.id,
         tenantName: tenant.name,
         logoUrl: tenant.logoUrl ?? null,
+        imageUrl: user.imageUrl ?? primaryImageUrl,
         termsAccepted: true,
         isDemo: true,
       },
@@ -242,10 +259,20 @@ export class AuthService {
         role: primaryOperator.jobTitle || 'Gerente de Loja',
         isManager: true,
         jobTitle: primaryOperator.jobTitle || 'Gerente de Loja',
+        imageUrl: primaryImageUrl,
         active: true,
         operatorToken,
       },
-      cashRegister: openRegister,
+      cashRegister: {
+        ...openRegister,
+        operatorId: primaryOperator.id,
+        operator: {
+          id: primaryOperator.id,
+          name: primaryOperator.name,
+          isManager: true,
+          imageUrl: primaryImageUrl,
+        },
+      },
       lead: {
         id: lead.id,
         name: lead.name,

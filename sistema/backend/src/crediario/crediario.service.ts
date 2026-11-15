@@ -4,12 +4,17 @@ import {
   NotFoundException,
   ForbiddenException,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { TenantConnectionManager } from '../prisma/tenant-prisma.service';
 import { TenantContextService } from '../prisma/tenant-context.service';
 import { HeartPrismaService } from '../prisma/heart-prisma.service';
+import {
+  EntityPhotoResolverService,
+  TenantActorPhotoLookup,
+} from '../prisma/entity-photo-resolver.service';
 import { WhatsappBaileysService } from './whatsapp-baileys.service';
 import {
   DEFAULT_CREDIARIO_TEMPLATES,
@@ -55,11 +60,41 @@ export class CrediarioService {
     private readonly tenantContext: TenantContextService,
     private readonly heartPrisma: HeartPrismaService,
     private readonly whatsappService: WhatsappBaileysService,
+    @Optional() private readonly photoResolver?: EntityPhotoResolverService,
   ) {}
 
   private async getPrisma() {
     const { tenantId, databaseUrl } = this.tenantContext.get();
     return this.tenantManager.getTenantClient(tenantId, databaseUrl);
+  }
+
+  private async loadActors(prisma?: any): Promise<TenantActorPhotoLookup> {
+    const { tenantId } = this.tenantContext.get();
+    const resolver =
+      this.photoResolver ??
+      (this.heartPrisma?.operatorProfile
+        ? new EntityPhotoResolverService(this.heartPrisma)
+        : null);
+    if (!resolver) return new TenantActorPhotoLookup({});
+    return resolver.loadTenantActors(tenantId, prisma);
+  }
+
+  private hydrateReceivableSale(sale: any): any {
+    if (!sale) return sale;
+    return {
+      ...sale,
+      items: Array.isArray(sale.items)
+        ? sale.items.map((item: any) => ({
+            id: item.id,
+            productId: item.productId,
+            productName: item.productName,
+            quantity: Number(item.quantity || 0),
+            imageUrl: EntityPhotoResolverService.resolveProductImageUrl(
+              item.product,
+            ),
+          }))
+        : undefined,
+    };
   }
 
   private parseModulos(raw: any): Record<string, boolean> {
@@ -500,40 +535,64 @@ export class CrediarioService {
       const settings = await this.getOrCreateSettings(prisma);
       const todayIso = todayIsoSaoPaulo();
 
-      const customer = await prisma.customer.findUnique({
-        where: { id: customerId },
-        include: {
-          receivables: {
-            orderBy: [{ dueDate: 'asc' }, { installmentNumber: 'asc' }],
-            include: {
-              sale: { select: { id: true, code: true, total: true, createdAt: true } },
-              payments: {
-                where: { reversedAt: null },
-                orderBy: { createdAt: 'desc' },
-              },
-            },
-          },
-          receivablePayments: {
-            where: { reversedAt: null },
-            orderBy: { createdAt: 'desc' },
-            take: 30,
-            include: {
-              receivable: {
-                select: {
-                  id: true,
-                  description: true,
-                  installmentNumber: true,
-                  totalInstallments: true,
+      const [customer, actors] = await Promise.all([
+        prisma.customer.findUnique({
+          where: { id: customerId },
+          include: {
+            receivables: {
+              orderBy: [{ dueDate: 'asc' }, { installmentNumber: 'asc' }],
+              include: {
+                sale: {
+                  select: {
+                    id: true,
+                    code: true,
+                    total: true,
+                    createdAt: true,
+                    items: {
+                      select: {
+                        id: true,
+                        productId: true,
+                        productName: true,
+                        quantity: true,
+                        product: {
+                          select: {
+                            imageUrl: true,
+                            retailGroup: { select: { imageUrl: true } },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+                payments: {
+                  where: { reversedAt: null },
+                  orderBy: { createdAt: 'desc' },
                 },
               },
             },
+            receivablePayments: {
+              where: { reversedAt: null },
+              orderBy: { createdAt: 'desc' },
+              take: 30,
+              include: {
+                receivable: {
+                  select: {
+                    id: true,
+                    description: true,
+                    installmentNumber: true,
+                    totalInstallments: true,
+                  },
+                },
+              },
+            },
+            crediarioLogs: {
+              orderBy: { createdAt: 'desc' },
+              take: 25,
+            },
           },
-          crediarioLogs: {
-            orderBy: { createdAt: 'desc' },
-            take: 25,
-          },
-        },
-      });
+        }),
+        this.loadActors(prisma),
+      ]);
 
       if (!customer) {
         throw new NotFoundException('Cliente não encontrado.');
@@ -548,6 +607,41 @@ export class CrediarioService {
         settings,
         todayIso,
       );
+
+      const hydratedReceivables = customer.receivables.map((rec: any) => {
+        const recActor = rec.operatorId
+          ? actors.resolveActor({ id: rec.operatorId })
+          : { name: null, imageUrl: null };
+        return {
+          ...rec,
+          operatorName: recActor.name,
+          operatorImageUrl: recActor.imageUrl,
+          sale: this.hydrateReceivableSale(rec.sale),
+          payments: Array.isArray(rec.payments)
+            ? rec.payments.map((pay: any) => {
+                const payActor = pay.operatorId
+                  ? actors.resolveActor({ id: pay.operatorId })
+                  : { name: null, imageUrl: null };
+                return {
+                  ...pay,
+                  operatorName: payActor.name,
+                  operatorImageUrl: payActor.imageUrl,
+                };
+              })
+            : [],
+        };
+      });
+
+      const hydratedPayments = customer.receivablePayments.map((pay: any) => {
+        const payActor = pay.operatorId
+          ? actors.resolveActor({ id: pay.operatorId })
+          : { name: null, imageUrl: null };
+        return {
+          ...pay,
+          operatorName: payActor.name,
+          operatorImageUrl: payActor.imageUrl,
+        };
+      });
 
       return {
         customer: {
@@ -573,8 +667,8 @@ export class CrediarioService {
           allowPartialPayment: settings.allowPartialPayment,
           blockOverdueCustomer: settings.blockOverdueCustomer,
         },
-        receivables: customer.receivables,
-        payments: customer.receivablePayments,
+        receivables: hydratedReceivables,
+        payments: hydratedPayments,
         logs: customer.crediarioLogs,
       };
     });
@@ -673,23 +767,47 @@ export class CrediarioService {
         where.status = { in: ['OPEN', 'PARTIAL'] };
       }
 
-      const rows = await prisma.customerReceivable.findMany({
-        where,
-        include: {
-          customer: {
-            select: {
-              id: true,
-              name: true,
-              phone: true,
-              cpfCnpj: true,
-              whatsappOptIn: true,
+      const [rows, actors] = await Promise.all([
+        prisma.customerReceivable.findMany({
+          where,
+          include: {
+            customer: {
+              select: {
+                id: true,
+                name: true,
+                phone: true,
+                cpfCnpj: true,
+                whatsappOptIn: true,
+              },
+            },
+            sale: {
+              select: {
+                id: true,
+                code: true,
+                total: true,
+                createdAt: true,
+                items: {
+                  select: {
+                    id: true,
+                    productId: true,
+                    productName: true,
+                    quantity: true,
+                    product: {
+                      select: {
+                        imageUrl: true,
+                        retailGroup: { select: { imageUrl: true } },
+                      },
+                    },
+                  },
+                },
+              },
             },
           },
-          sale: { select: { id: true, code: true, total: true, createdAt: true } },
-        },
-        orderBy: [{ dueDate: 'asc' }, { installmentNumber: 'asc' }],
-        take: 400,
-      });
+          orderBy: [{ dueDate: 'asc' }, { installmentNumber: 'asc' }],
+          take: 400,
+        }),
+        this.loadActors(prisma),
+      ]);
 
       return rows
         .map((r: any) => {
@@ -699,8 +817,14 @@ export class CrediarioService {
             (r.status === 'OPEN' || r.status === 'PARTIAL') && daysDiff < 0;
           const isDueToday =
             (r.status === 'OPEN' || r.status === 'PARTIAL') && daysDiff === 0;
+          const recActor = r.operatorId
+            ? actors.resolveActor({ id: r.operatorId })
+            : { name: null, imageUrl: null };
           return {
             ...r,
+            operatorName: recActor.name,
+            operatorImageUrl: recActor.imageUrl,
+            sale: this.hydrateReceivableSale(r.sale),
             dueIso,
             daysDiff,
             isOverdue,

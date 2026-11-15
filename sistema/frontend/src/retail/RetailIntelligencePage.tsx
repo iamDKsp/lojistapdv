@@ -34,6 +34,12 @@ import {
 } from "@/components/analytics/StoreAnalyticsUI";
 import { RetailDialog } from "./RetailDialog";
 import { apiError, money } from "./types";
+import {
+  OperatorAvatarThumb,
+  OperatorInlineBadge,
+  StockItemThumb,
+  useResolvedOperatorPhoto,
+} from "@/components/EntityPhotos";
 
 type RankingCriterionId =
   | "netRevenue"
@@ -167,19 +173,26 @@ function formatMonthTitle(yearMonth: string): string {
 function SellerAvatar({
   name,
   imageUrl,
+  operatorId,
   size = 40,
   rank,
 }: {
   name: string;
   imageUrl?: string | null;
+  operatorId?: string | null;
   size?: number;
   rank?: number;
 }) {
+  const resolvedPhoto = useResolvedOperatorPhoto({
+    operatorId,
+    name,
+    imageUrl,
+  });
   const [imgFailed, setImgFailed] = useState(false);
 
   useEffect(() => {
     setImgFailed(false);
-  }, [imageUrl]);
+  }, [resolvedPhoto]);
 
   const initials = useMemo(() => {
     const clean = (name || "VD").trim();
@@ -198,9 +211,9 @@ function SellerAvatar({
       className={`retail-intel-avatar ${isTop1 ? "is-rank-1" : isPodium ? "is-rank-podium" : ""}`}
       style={{ width: size, height: size }}
     >
-      {imageUrl && !imgFailed ? (
+      {resolvedPhoto && !imgFailed ? (
         <img
-          src={getFullUrl(imageUrl)}
+          src={getFullUrl(resolvedPhoto)}
           alt={name}
           onError={() => setImgFailed(true)}
         />
@@ -680,7 +693,21 @@ export function RetailIntelligencePage() {
 
               <StoreKpiCard
                 label="Líder do Período (#1)"
-                value={topTeamLeader ? topTeamLeader.name : "Sem vendas da equipe"}
+                value={
+                  topTeamLeader ? (
+                    <span className="inline-flex items-center gap-2 min-w-0 max-w-full">
+                      <OperatorAvatarThumb
+                        name={topTeamLeader.name}
+                        imageUrl={topTeamLeader.imageUrl}
+                        operatorId={topTeamLeader.operatorId}
+                        size="md"
+                      />
+                      <span className="truncate">{topTeamLeader.name}</span>
+                    </span>
+                  ) : (
+                    "Sem vendas da equipe"
+                  )
+                }
                 icon={<Trophy size={17} />}
                 onClick={
                   topTeamLeader
@@ -917,6 +944,7 @@ export function RetailIntelligencePage() {
                                 <SellerAvatar
                                   name={seller.name}
                                   imageUrl={seller.imageUrl}
+                                  operatorId={seller.operatorId}
                                   size={44}
                                   rank={rankNum}
                                 />
@@ -1070,6 +1098,7 @@ export function RetailIntelligencePage() {
                                     <SellerAvatar
                                       name={seller.name}
                                       imageUrl={seller.imageUrl}
+                                      operatorId={seller.operatorId}
                                       size={36}
                                       rank={pos}
                                     />
@@ -1377,19 +1406,34 @@ export function RetailIntelligencePage() {
                                   : ""
                               }`}
                             >
-                              <span
-                                className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 border ${
-                                  ins.kind === "leader"
-                                    ? "bg-support border-brand text-brand"
-                                    : "bg-page border-line text-ink"
-                                }`}
-                              >
-                                <InsightKindIcon kind={ins.kind} />
-                              </span>
+                              {ins.operatorName &&
+                              ins.operatorId &&
+                              ins.operatorId !== "sem-vendedor" ? (
+                                <OperatorAvatarThumb
+                                  name={ins.operatorName}
+                                  imageUrl={ins.operatorImageUrl}
+                                  operatorId={ins.operatorId}
+                                  size="md"
+                                  className="mt-0.5"
+                                />
+                              ) : (
+                                <span
+                                  className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 border ${
+                                    ins.kind === "leader"
+                                      ? "bg-support border-brand text-brand"
+                                      : "bg-page border-line text-ink"
+                                  }`}
+                                >
+                                  <InsightKindIcon kind={ins.kind} />
+                                </span>
+                              )}
                               <div className="min-w-0 flex-1">
                                 <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
-                                  <strong className="text-xs font-bold text-ink group-hover:text-brand transition-colors">
-                                    {ins.title}
+                                  <strong className="inline-flex items-center gap-1.5 text-xs font-bold text-ink group-hover:text-brand transition-colors">
+                                    <span className="text-brand shrink-0">
+                                      <InsightKindIcon kind={ins.kind} />
+                                    </span>
+                                    <span>{ins.title}</span>
                                   </strong>
                                   <span className="text-[11px] font-semibold text-brand tabular-nums">
                                     {ins.metric}
@@ -1487,10 +1531,20 @@ export function RetailIntelligencePage() {
                       <button
                         type="button"
                         key={s.operatorId}
-                        className={`retail-pill ${calendarSellerFilter === s.operatorId ? "is-active" : ""}`}
+                        className={`retail-pill inline-flex items-center gap-1.5 ${calendarSellerFilter === s.operatorId ? "is-active" : ""}`}
                         onClick={() => setCalendarSellerFilter(s.operatorId)}
                       >
-                        {s.name} ({s.salesCount})
+                        {!s.isUnassigned && s.operatorId !== "sem-vendedor" && (
+                          <OperatorAvatarThumb
+                            name={s.name}
+                            imageUrl={s.imageUrl}
+                            operatorId={s.operatorId}
+                            size="xs"
+                          />
+                        )}
+                        <span>
+                          {s.name} ({s.salesCount})
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -1562,8 +1616,14 @@ export function RetailIntelligencePage() {
                                 {day.champion &&
                                   calendarSellerFilter === "ALL" && (
                                     <div className="retail-intel-day-champ">
-                                      <Trophy size={11} />
-                                      <span>
+                                      <OperatorAvatarThumb
+                                        name={day.champion.name}
+                                        imageUrl={day.champion.imageUrl}
+                                        operatorId={day.champion.operatorId}
+                                        size="xs"
+                                      />
+                                      <Trophy size={10} />
+                                      <span className="truncate">
                                         {day.champion.name.split(" ")[0]}
                                       </span>
                                     </div>
@@ -1661,6 +1721,7 @@ export function RetailIntelligencePage() {
                                         <SellerAvatar
                                           name={ds.name}
                                           imageUrl={ds.imageUrl}
+                                          operatorId={ds.operatorId}
                                           size={30}
                                           rank={
                                             isUnassignedRow ? undefined : idx + 1
@@ -1754,10 +1815,17 @@ export function RetailIntelligencePage() {
                                     className="retail-row retail-spread"
                                     style={{ marginTop: 6, fontSize: "0.82rem" }}
                                   >
-                                    <span>
-                                      Vendedor:{" "}
-                                      <strong>{sale.operatorName}</strong>
-                                    </span>
+                                    <OperatorInlineBadge
+                                      label="Vendedor:"
+                                      name={sale.operatorName}
+                                      imageUrl={sale.operatorImageUrl}
+                                      operatorId={
+                                        sale.operatorId !== "sem-vendedor"
+                                          ? sale.operatorId
+                                          : undefined
+                                      }
+                                      size="xs"
+                                    />
                                     <span className="retail-muted">
                                       {sale.customerName
                                         ? `Cliente: ${sale.customerName}`
@@ -1771,11 +1839,19 @@ export function RetailIntelligencePage() {
                                         <div
                                           key={it.id || iIdx}
                                           className="retail-row retail-spread"
+                                          style={{ gap: 8 }}
                                         >
-                                          <span>
-                                            {it.quantity}x {it.productName}
+                                          <span className="inline-flex items-center gap-2 min-w-0">
+                                            <StockItemThumb
+                                              name={it.productName}
+                                              imageUrl={it.imageUrl}
+                                              size="xs"
+                                            />
+                                            <span className="truncate">
+                                              {it.quantity}x {it.productName}
+                                            </span>
                                           </span>
-                                          <span className="retail-number">
+                                          <span className="retail-number shrink-0">
                                             {money(it.subtotal)}
                                           </span>
                                         </div>
@@ -1894,6 +1970,7 @@ export function RetailIntelligencePage() {
                                   <SellerAvatar
                                     name={s.name}
                                     imageUrl={s.imageUrl}
+                                    operatorId={s.operatorId}
                                     size={34}
                                     rank={isUnassignedRow ? undefined : pos}
                                   />
@@ -2211,6 +2288,7 @@ export function RetailIntelligencePage() {
                                 <SellerAvatar
                                   name={s.name}
                                   imageUrl={s.imageUrl}
+                                  operatorId={s.operatorId}
                                   size={36}
                                 />
                                 <div>
@@ -2308,6 +2386,7 @@ export function RetailIntelligencePage() {
                 <SellerAvatar
                   name={selectedSeller.name}
                   imageUrl={selectedSeller.imageUrl}
+                  operatorId={selectedSeller.operatorId}
                   size={64}
                   rank={
                     selectedSeller.isUnassigned ||
@@ -2483,11 +2562,22 @@ export function RetailIntelligencePage() {
                   Mercadorias Mais Vendidas
                 </h4>
                 {selectedSeller.topGroups?.length > 0 ? (
-                  <div className="retail-stack" style={{ gap: 6 }}>
+                  <div className="retail-stack" style={{ gap: 8 }}>
                     {selectedSeller.topGroups.slice(0, 4).map((g: any) => (
-                      <div key={g.id} className="retail-row retail-spread">
-                        <span>{g.name}</span>
-                        <strong className="retail-number">
+                      <div
+                        key={g.id}
+                        className="retail-row retail-spread"
+                        style={{ gap: 8 }}
+                      >
+                        <span className="inline-flex items-center gap-2 min-w-0">
+                          <StockItemThumb
+                            name={g.name}
+                            imageUrl={g.imageUrl}
+                            size="sm"
+                          />
+                          <span className="truncate font-medium">{g.name}</span>
+                        </span>
+                        <strong className="retail-number shrink-0">
                           {g.quantity} pçs ({money(g.revenue)})
                         </strong>
                       </div>
@@ -2512,24 +2602,57 @@ export function RetailIntelligencePage() {
                   {selectedSeller.recentReturns.map((ret: any) => (
                     <div
                       key={ret.id}
-                      className="retail-row retail-spread retail-intel-sale-card"
+                      className="retail-stack retail-intel-sale-card"
+                      style={{ gap: 6 }}
                     >
-                      <div>
-                        <strong>
-                          Venda #{ret.saleCode || "—"} ·{" "}
-                          {ret.customerName || "Consumidor Balcão"}
+                      <div className="retail-row retail-spread">
+                        <div>
+                          <strong>
+                            Venda #{ret.saleCode || "—"} ·{" "}
+                            {ret.customerName || "Consumidor Balcão"}
+                          </strong>
+                          <small
+                            className="retail-muted"
+                            style={{ display: "block" }}
+                          >
+                            {formatBrDate(ret.date)} às {ret.time} · Motivo:{" "}
+                            {ret.reason}
+                          </small>
+                        </div>
+                        <strong className="retail-number">
+                          {money(ret.total)} ({ret.piecesCount} pçs)
                         </strong>
-                        <small
-                          className="retail-muted"
-                          style={{ display: "block" }}
-                        >
-                          {formatBrDate(ret.date)} às {ret.time} · Motivo:{" "}
-                          {ret.reason}
-                        </small>
                       </div>
-                      <strong className="retail-number">
-                        {money(ret.total)} ({ret.piecesCount} pçs)
-                      </strong>
+                      {ret.processedByOperatorName && (
+                        <div>
+                          <OperatorInlineBadge
+                            label="Processado por:"
+                            name={ret.processedByOperatorName}
+                            imageUrl={ret.processedByOperatorImageUrl}
+                            operatorId={ret.processedByOperatorId}
+                            size="xs"
+                          />
+                        </div>
+                      )}
+                      {ret.items?.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-2 pt-1">
+                          {ret.items.map((ri: any, riIdx: number) => (
+                            <span
+                              key={`${ret.id}-${riIdx}`}
+                              className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-page border border-line text-xs"
+                            >
+                              <StockItemThumb
+                                name={ri.productName}
+                                imageUrl={ri.imageUrl}
+                                size="xs"
+                              />
+                              <span className="truncate max-w-[180px]">
+                                {ri.quantity}x {ri.productName}
+                              </span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

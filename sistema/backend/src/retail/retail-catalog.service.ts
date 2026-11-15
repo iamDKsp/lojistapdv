@@ -7,6 +7,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { TenantConnectionManager } from '../prisma/tenant-prisma.service';
 import { TenantContextService } from '../prisma/tenant-context.service';
+import { EntityPhotoResolverService } from '../prisma/entity-photo-resolver.service';
 import { ProductsService } from '../products/products.service';
 import { retryTransaction } from '../prisma/transaction-retry';
 import { lockProducts } from '../prisma/lock-products';
@@ -93,12 +94,24 @@ export class RetailCatalogService {
       db.retailGroup.count({ where }),
     ]);
     return {
-      data: data.map((group) => ({
-        ...group,
-        stock: group.variants
-          .filter((v) => v.active)
-          .reduce((sum, v) => sum + Number(v.stock), 0),
-      })),
+      data: data.map((group) => {
+        const resolvedImageUrl =
+          EntityPhotoResolverService.resolveGroupImageUrl(group);
+        const variants = Array.isArray(group.variants)
+          ? group.variants.map((v) => ({
+              ...v,
+              imageUrl: v.imageUrl || resolvedImageUrl || null,
+            }))
+          : group.variants;
+        return {
+          ...group,
+          imageUrl: resolvedImageUrl,
+          variants,
+          stock: (Array.isArray(variants) ? variants : [])
+            .filter((v) => v.active)
+            .reduce((sum, v) => sum + Number(v.stock), 0),
+        };
+      }),
       meta: { page, total, lastPage: Math.ceil(total / limit) },
     };
   }
@@ -113,7 +126,23 @@ export class RetailCatalogService {
       },
     });
     if (!group) throw new NotFoundException('Grupo não encontrado.');
-    return group;
+    if (group.imageUrl === undefined && !Array.isArray((group as any).variants)) {
+      return group;
+    }
+    const resolvedImageUrl =
+      EntityPhotoResolverService.resolveGroupImageUrl(group);
+    return {
+      ...group,
+      imageUrl: resolvedImageUrl,
+      ...(Array.isArray((group as any).variants)
+        ? {
+            variants: (group as any).variants.map((v: any) => ({
+              ...v,
+              imageUrl: v.imageUrl || resolvedImageUrl || null,
+            })),
+          }
+        : {}),
+    };
   }
 
   async save(id: string | null, body: any) {

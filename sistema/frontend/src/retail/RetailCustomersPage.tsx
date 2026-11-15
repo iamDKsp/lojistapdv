@@ -25,6 +25,10 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import PdvLojistaLoader from "@/components/PdvLojistaLoader";
+import {
+  OperatorInlineBadge,
+  StockItemThumb,
+} from "@/components/EntityPhotos";
 import { RetailSelect } from "@/components/ui/Select";
 import { RetailDialog } from "./RetailDialog";
 import { apiError, money } from "./types";
@@ -1018,16 +1022,24 @@ export function RetailCustomersPage() {
                               key={g.id}
                               style={{ padding: "6px 0" }}
                             >
-                              <span>
-                                <strong>{g.name}</strong>
-                                {g.categoryName ? (
-                                  <small className="retail-muted">
-                                    {" "}
-                                    · {g.categoryName}
-                                  </small>
-                                ) : null}
+                              <span className="inline-flex items-center gap-2.5 min-w-0">
+                                <StockItemThumb
+                                  size="sm"
+                                  name={g.name}
+                                  imageUrl={g.imageUrl}
+                                  product={g}
+                                />
+                                <span className="truncate">
+                                  <strong>{g.name}</strong>
+                                  {g.categoryName ? (
+                                    <small className="retail-muted">
+                                      {" "}
+                                      · {g.categoryName}
+                                    </small>
+                                  ) : null}
+                                </span>
                               </span>
-                              <span className="retail-number">
+                              <span className="retail-number shrink-0">
                                 {g.quantity} pçs ·{" "}
                                 <strong>{money(g.total)}</strong>
                               </span>
@@ -1075,12 +1087,17 @@ export function RetailCustomersPage() {
                         <UserCheck size={16} aria-hidden="true" />
                       </div>
                       {profileData.dna.operators.length ? (
-                        <div className="retail-row" style={{ gap: 8 }}>
+                        <div className="retail-row" style={{ gap: 8, flexWrap: "wrap" }}>
                           {profileData.dna.operators.map((op: any) => (
-                            <span className="retail-badge" key={op.id}>
-                              {op.name} · {op.count}{" "}
-                              {op.count === 1 ? "venda" : "vendas"}
-                            </span>
+                            <OperatorInlineBadge
+                              key={op.id}
+                              size="xs"
+                              variant="pill"
+                              name={op.name}
+                              imageUrl={op.imageUrl}
+                              operatorId={op.id}
+                              roleLabel={`${op.count} ${op.count === 1 ? "venda" : "vendas"}`}
+                            />
                           ))}
                         </div>
                       ) : (
@@ -1123,17 +1140,23 @@ export function RetailCustomersPage() {
                         {profileData.sales.map((sale: any) => (
                           <div className="retail-panel" key={sale.id}>
                             <div className="retail-row retail-spread">
-                              <div>
+                              <div className="flex flex-wrap items-center gap-2">
                                 <strong>
                                   Venda #{sale.code || sale.id.slice(0, 8)}
                                 </strong>
                                 <span className="retail-muted">
-                                  {" "}
                                   · {formatDatePtBr(sale.createdAt, true)}
-                                  {sale.operatorName
-                                    ? ` · Atendido por ${sale.operatorName}`
-                                    : ""}
                                 </span>
+                                {sale.operatorName && (
+                                  <OperatorInlineBadge
+                                    size="xs"
+                                    variant="pill"
+                                    label="Atendido por"
+                                    name={sale.operatorName}
+                                    imageUrl={sale.operatorImageUrl}
+                                    operatorId={sale.operatorId}
+                                  />
+                                )}
                               </div>
                               <div className="retail-row">
                                 <span className="retail-badge">
@@ -1174,35 +1197,43 @@ export function RetailCustomersPage() {
                                   className="retail-payment-line"
                                   key={item.id}
                                 >
-                                  <span>
-                                    <strong className="retail-number">
-                                      {item.quantity}×
-                                    </strong>{" "}
-                                    {item.productName}
-                                    {(item.size || item.color) && (
-                                      <small className="retail-muted">
-                                        {" "}
-                                        (
-                                        {[
-                                          item.size && `Tam. ${item.size}`,
-                                          item.color,
-                                        ]
-                                          .filter(Boolean)
-                                          .join(" · ")}
-                                        )
-                                      </small>
-                                    )}
-                                    {item.returnedQuantity > 0 && (
-                                      <small className="retail-muted">
-                                        {" "}
-                                        · {item.returnedQuantity}{" "}
-                                        {item.returnedQuantity === 1
-                                          ? "peça trocada"
-                                          : "peças trocadas"}
-                                      </small>
-                                    )}
+                                  <span className="inline-flex items-center gap-2.5 min-w-0">
+                                    <StockItemThumb
+                                      size="sm"
+                                      name={item.productName}
+                                      imageUrl={item.imageUrl}
+                                      product={item}
+                                    />
+                                    <span className="min-w-0">
+                                      <strong className="retail-number">
+                                        {item.quantity}×
+                                      </strong>{" "}
+                                      {item.productName}
+                                      {(item.size || item.color) && (
+                                        <small className="retail-muted">
+                                          {" "}
+                                          (
+                                          {[
+                                            item.size && `Tam. ${item.size}`,
+                                            item.color,
+                                          ]
+                                            .filter(Boolean)
+                                            .join(" · ")}
+                                          )
+                                        </small>
+                                      )}
+                                      {item.returnedQuantity > 0 && (
+                                        <small className="retail-muted">
+                                          {" "}
+                                          · {item.returnedQuantity}{" "}
+                                          {item.returnedQuantity === 1
+                                            ? "peça trocada"
+                                            : "peças trocadas"}
+                                        </small>
+                                      )}
+                                    </span>
                                   </span>
-                                  <span className="retail-number">
+                                  <span className="retail-number shrink-0">
                                     {money(item.subtotal)}
                                   </span>
                                 </div>
@@ -1239,64 +1270,109 @@ export function RetailCustomersPage() {
                   ) : profileData.credits.length ||
                     profileData.returns.length ? (
                     <div className="retail-stack">
-                      {profileData.credits.map((credit: any) => (
-                        <div className="retail-panel" key={credit.id}>
-                          <div className="retail-row retail-spread">
-                            <div>
-                              <strong>
-                                Crédito de troca · Venda #
-                                {credit.saleCode || credit.saleId || "—"}
-                              </strong>
-                              <span className="retail-muted">
-                                {" "}
-                                · Emitido em{" "}
-                                {formatDatePtBr(credit.createdAt, true)}
-                              </span>
+                      {profileData.credits.map((credit: any) => {
+                        const linkedReturn = profileData.returns?.find(
+                          (r: any) => r.id === credit.returnId,
+                        );
+                        return (
+                          <div className="retail-panel" key={credit.id}>
+                            <div className="retail-row retail-spread">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <strong>
+                                  Crédito de troca · Venda #
+                                  {credit.saleCode || credit.saleId || "—"}
+                                </strong>
+                                <span className="retail-muted">
+                                  · Emitido em{" "}
+                                  {formatDatePtBr(credit.createdAt, true)}
+                                </span>
+                                {linkedReturn?.operatorName && (
+                                  <OperatorInlineBadge
+                                    size="xs"
+                                    variant="pill"
+                                    label="Operador:"
+                                    name={linkedReturn.operatorName}
+                                    imageUrl={linkedReturn.operatorImageUrl}
+                                    operatorId={linkedReturn.operatorId}
+                                  />
+                                )}
+                              </div>
+                              <div className="retail-row">
+                                <span className="retail-muted retail-number">
+                                  Valor original: {money(credit.amount)}
+                                </span>
+                                <span className="retail-badge retail-badge-strong retail-number">
+                                  Saldo atual: {money(credit.balance)}
+                                </span>
+                              </div>
                             </div>
-                            <div className="retail-row">
-                              <span className="retail-muted retail-number">
-                                Valor original: {money(credit.amount)}
-                              </span>
-                              <span className="retail-badge retail-badge-strong retail-number">
-                                Saldo atual: {money(credit.balance)}
-                              </span>
-                            </div>
+                            {credit.reason && (
+                              <p
+                                className="retail-muted"
+                                style={{ margin: "8px 0 0" }}
+                              >
+                                Motivo da troca: {credit.reason}
+                              </p>
+                            )}
+                            {linkedReturn?.items?.length > 0 && (
+                              <div
+                                className="retail-stack"
+                                style={{ marginTop: 10, gap: 6 }}
+                              >
+                                {linkedReturn.items.map((ri: any) => (
+                                  <div
+                                    className="retail-payment-line"
+                                    key={ri.id}
+                                  >
+                                    <span className="inline-flex items-center gap-2.5 min-w-0">
+                                      <StockItemThumb
+                                        size="xs"
+                                        name={ri.productName}
+                                        imageUrl={ri.imageUrl}
+                                        product={ri}
+                                      />
+                                      <span className="truncate">
+                                        <strong className="retail-number">
+                                          {ri.quantity}×
+                                        </strong>{" "}
+                                        {ri.productName}
+                                      </span>
+                                    </span>
+                                    <span className="retail-number shrink-0">
+                                      {money(ri.value)}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {credit.uses?.length > 0 && (
+                              <div
+                                className="retail-stack"
+                                style={{ marginTop: 10, gap: 6 }}
+                              >
+                                {credit.uses.map((use: any) => (
+                                  <div
+                                    className="retail-payment-line"
+                                    key={use.id}
+                                  >
+                                    <span>
+                                      Utilizado na Venda #
+                                      {use.saleCode || use.saleId.slice(0, 8)} em{" "}
+                                      {formatDatePtBr(use.createdAt, true)}
+                                      {use.reversedAt
+                                        ? " (Estornado por cancelamento)"
+                                        : ""}
+                                    </span>
+                                    <strong className="retail-number">
+                                      {money(use.amount)}
+                                    </strong>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
-                          {credit.reason && (
-                            <p
-                              className="retail-muted"
-                              style={{ margin: "8px 0 0" }}
-                            >
-                              Motivo da troca: {credit.reason}
-                            </p>
-                          )}
-                          {credit.uses?.length > 0 && (
-                            <div
-                              className="retail-stack"
-                              style={{ marginTop: 10, gap: 6 }}
-                            >
-                              {credit.uses.map((use: any) => (
-                                <div
-                                  className="retail-payment-line"
-                                  key={use.id}
-                                >
-                                  <span>
-                                    Utilizado na Venda #
-                                    {use.saleCode || use.saleId.slice(0, 8)} em{" "}
-                                    {formatDatePtBr(use.createdAt, true)}
-                                    {use.reversedAt
-                                      ? " (Estornado por cancelamento)"
-                                      : ""}
-                                  </span>
-                                  <strong className="retail-number">
-                                    {money(use.amount)}
-                                  </strong>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : (
                     <div className="retail-empty">

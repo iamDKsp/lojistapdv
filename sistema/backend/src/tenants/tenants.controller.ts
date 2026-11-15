@@ -380,7 +380,14 @@ export class TenantsController {
       { expiresIn: '30m' }
     );
 
-    return { valid: true, pinAuthToken };
+    return {
+      valid: true,
+      pinAuthToken,
+      authType: result.authType,
+      managerOpId: result.managerOpId ?? null,
+      managerName: result.managerName ?? null,
+      managerImageUrl: result.managerImageUrl ?? null,
+    };
   }
 
   @UseGuards(JwtAuthGuard)

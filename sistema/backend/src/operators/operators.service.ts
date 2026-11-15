@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { TenantConnectionManager } from '../prisma/tenant-prisma.service';
 import { TenantContextService } from '../prisma/tenant-context.service';
 import { HeartPrismaService } from '../prisma/heart-prisma.service';
+import { EntityPhotoResolverService } from '../prisma/entity-photo-resolver.service';
 import { ProductsService } from '../products/products.service';
 import * as bcrypt from 'bcrypt';
 
@@ -144,15 +145,25 @@ export class OperatorsService {
     const userImageByName = new Map<string, string | null>();
     for (const u of tenantUsers) {
       if (u.name && u.imageUrl) {
-        userImageByName.set(u.name.trim().toLowerCase(), u.imageUrl);
+        const exact = EntityPhotoResolverService.normalizeName(u.name);
+        if (exact && !userImageByName.has(exact)) {
+          userImageByName.set(exact, u.imageUrl);
+        }
+        const stripped = EntityPhotoResolverService.normalizeBaseName(u.name);
+        if (stripped && !userImageByName.has(stripped)) {
+          userImageByName.set(stripped, u.imageUrl);
+        }
       }
     }
 
     return operators.map(op => {
       const { cashRegisters, ...rest } = op;
+      const exactKey = EntityPhotoResolverService.normalizeName(op.name);
+      const baseKey = EntityPhotoResolverService.normalizeBaseName(op.name);
       const imageUrl =
         profileMap.get(op.id) ??
-        userImageByName.get(String(op.name || '').trim().toLowerCase()) ??
+        userImageByName.get(exactKey) ??
+        userImageByName.get(baseKey) ??
         null;
       return {
         ...rest,
@@ -164,16 +175,35 @@ export class OperatorsService {
 
   async findOne(tenantId: string, id: string) {
     const prisma = await this.getPrisma(tenantId);
-    const [operator, profileMap] = await Promise.all([
+    const [operator, profileMap, tenantUsers] = await Promise.all([
       prisma.operator.findUnique({
         where: { id },
       }),
       this.getOperatorProfilesMap(tenantId),
+      this.heartPrisma.user
+        .findMany({
+          where: { tenantId },
+          select: { name: true, imageUrl: true },
+        })
+        .catch(() => [] as Array<{ name: string; imageUrl: string | null }>),
     ]);
     if (!operator) throw new NotFoundException('Operador não encontrado');
+    let fallbackUserImg: string | null = null;
+    const opNorm = EntityPhotoResolverService.normalizeBaseName(operator.name);
+    for (const u of tenantUsers) {
+      if (
+        u.name &&
+        u.imageUrl &&
+        EntityPhotoResolverService.normalizeBaseName(u.name) === opNorm
+      ) {
+        fallbackUserImg = u.imageUrl;
+        break;
+      }
+    }
+    const { pin: _pin, ...safe } = operator;
     return {
-      ...operator,
-      imageUrl: profileMap.get(operator.id) ?? null,
+      ...safe,
+      imageUrl: profileMap.get(operator.id) ?? fallbackUserImg ?? null,
     };
   }
 
@@ -241,9 +271,28 @@ export class OperatorsService {
           })
           .catch(() => {});
       }
-      const profileMap = await this.getOperatorProfilesMap(tenantId);
+      const [profileMap, tenantUsers] = await Promise.all([
+        this.getOperatorProfilesMap(tenantId),
+        this.heartPrisma.user
+          .findMany({
+            where: { tenantId },
+            select: { name: true, imageUrl: true },
+          })
+          .catch(() => [] as Array<{ name: string; imageUrl: string | null }>),
+      ]);
+      const opNorm = EntityPhotoResolverService.normalizeBaseName(op.name);
+      const fallbackUserImg =
+        tenantUsers.find(
+          (u) =>
+            u.name &&
+            u.imageUrl &&
+            EntityPhotoResolverService.normalizeBaseName(u.name) === opNorm,
+        )?.imageUrl ?? null;
       const { pin, ...result } = op;
-      return { ...result, imageUrl: profileMap.get(op.id) ?? null };
+      return {
+        ...result,
+        imageUrl: profileMap.get(op.id) ?? fallbackUserImg ?? null,
+      };
     } catch (e) {
       throw new NotFoundException('Operador não encontrado');
     }
@@ -264,29 +313,48 @@ export class OperatorsService {
   async getConsumptions(tenantId: string) {
     const prisma = await this.getPrisma(tenantId);
     
-    const operators = await prisma.operator.findMany({
-      where: { active: true },
-      select: {
-        id: true,
-        name: true,
-        consumptions: {
-          where: { settled: false },
-          select: {
-            sale: {
-              select: {
-                items: {
-                  select: {
-                    subtotal: true,
-                    settled: true
+    const [operators, profileMap, tenantUsers] = await Promise.all([
+      prisma.operator.findMany({
+        where: { active: true },
+        select: {
+          id: true,
+          name: true,
+          consumptions: {
+            where: { settled: false },
+            select: {
+              sale: {
+                select: {
+                  items: {
+                    select: {
+                      subtotal: true,
+                      settled: true
+                    }
                   }
                 }
               }
             }
           }
+        },
+        orderBy: { name: 'asc' }
+      }),
+      this.getOperatorProfilesMap(tenantId),
+      this.heartPrisma.user
+        .findMany({
+          where: { tenantId },
+          select: { name: true, imageUrl: true },
+        })
+        .catch(() => [] as Array<{ name: string; imageUrl: string | null }>),
+    ]);
+
+    const userImageByName = new Map<string, string>();
+    for (const u of tenantUsers) {
+      if (u.name && u.imageUrl) {
+        const key = EntityPhotoResolverService.normalizeBaseName(u.name);
+        if (key && !userImageByName.has(key)) {
+          userImageByName.set(key, u.imageUrl);
         }
-      },
-      orderBy: { name: 'asc' }
-    });
+      }
+    }
 
     return operators.map(op => {
       const pendingBalance = op.consumptions.reduce((sum, c) => {
@@ -295,9 +363,12 @@ export class OperatorsService {
           .reduce((itemSum, item) => itemSum + Number(item.subtotal), 0);
         return sum + unsettledItemsSum;
       }, 0);
+      const normName = EntityPhotoResolverService.normalizeBaseName(op.name);
       return {
         id: op.id,
         name: op.name,
+        imageUrl:
+          profileMap.get(op.id) ?? userImageByName.get(normName) ?? null,
         pendingBalance,
       };
     });
@@ -306,28 +377,48 @@ export class OperatorsService {
   async getOperatorConsumptionHistory(tenantId: string, operatorId: string) {
     const prisma = await this.getPrisma(tenantId);
     
-    const consumptions = await prisma.operatorConsumption.findMany({
-      where: { operatorId },
-      include: {
-        sale: {
-          include: {
-            items: true
+    const [consumptions, operatorInfo] = await Promise.all([
+      prisma.operatorConsumption.findMany({
+        where: { operatorId },
+        include: {
+          sale: {
+            include: {
+              items: {
+                include: {
+                  product: {
+                    select: {
+                      id: true,
+                      imageUrl: true,
+                      retailGroup: { select: { imageUrl: true } },
+                    },
+                  },
+                },
+              },
+            }
           }
-        }
-      },
-      orderBy: { createdAt: 'desc' }
-    });
+        },
+        orderBy: { createdAt: 'desc' }
+      }),
+      this.findOne(tenantId, operatorId).catch(() => null),
+    ]);
 
     return consumptions.map(c => ({
       id: c.id,
       saleId: c.sale.id,
+      operatorId,
+      operatorName: operatorInfo?.name ?? null,
+      operatorImageUrl: operatorInfo?.imageUrl ?? null,
       total: Number(c.sale.total),
       settled: c.settled,
       settledAt: c.settledAt,
       createdAt: c.createdAt,
-      items: c.sale.items.map(item => ({
+      items: c.sale.items.map((item: any) => ({
         id: item.id,
+        productId: item.productId,
         name: item.productName,
+        imageUrl: EntityPhotoResolverService.resolveProductImageUrl(
+          item.product,
+        ),
         quantity: Number(item.quantity),
         priceUnit: Number(item.priceUnit),
         subtotal: Number(item.subtotal),
@@ -506,7 +597,10 @@ export class OperatorsService {
     const consumption = await prisma.$transaction(async (tx) => {
       const product = await tx.product.findUnique({
         where: { id: data.productId },
-        include: { grupoTributacao: true }
+        include: {
+          grupoTributacao: true,
+          retailGroup: { select: { imageUrl: true } },
+        }
       });
       if (!product) throw new NotFoundException('Produto não encontrado');
       
@@ -575,7 +669,17 @@ export class OperatorsService {
         include: {
           sale: {
             include: {
-              items: true
+              items: {
+                include: {
+                  product: {
+                    select: {
+                      id: true,
+                      imageUrl: true,
+                      retailGroup: { select: { imageUrl: true } },
+                    },
+                  },
+                },
+              },
             }
           }
         }
@@ -590,7 +694,23 @@ export class OperatorsService {
       // ignore
     }
 
-    return consumption;
+    const opInfo = await this.findOne(tenantId, data.operatorId).catch(() => null);
+    return {
+      ...consumption,
+      operatorName: opInfo?.name ?? null,
+      operatorImageUrl: opInfo?.imageUrl ?? null,
+      sale: consumption.sale
+        ? {
+            ...consumption.sale,
+            items: (consumption.sale.items || []).map((it: any) => ({
+              ...it,
+              imageUrl: EntityPhotoResolverService.resolveProductImageUrl(
+                it.product,
+              ),
+            })),
+          }
+        : consumption.sale,
+    };
   }
 
   async deleteConsumption(tenantId: string, id: string) {

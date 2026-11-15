@@ -1,5 +1,13 @@
 # Histórico — PDV Lojista
 
+## 2026-11-15 — Exibição Universal de Fotos de Operadores e Mercadorias em Estoque
+
+- **Hidratação Cruzada de Fotos no Backend (`backend/src/prisma/entity-photo-resolver.service.ts` e serviços de domínio)**:
+  - Cruzamento em memória entre `Operator` (banco da loja) e `User` (banco `Heart`) por ID, e-mail e nome normalizado para exibir `imageUrl` em turnos de caixa, vendas, devoluções/trocas, crediário, vitrine TV, loja virtual, relatórios, rede multi-lojas e `sys-init` sem migração de schema.
+  - Coalescência automática `product.imageUrl || retailGroup.imageUrl` em produtos, variações de grade, itens vendidos, pedidos de compra, importação XML, catálogos de fornecedores e balanço de estoque.
+- **Primitivas Visuais e Cobertura Integral no Frontend (`frontend/src/components/EntityPhotos.tsx` e 40 telas/modais)**:
+  - Padronizados `<OperatorAvatarThumb>`, `<OperatorInlineBadge>` e `<StockItemThumb>` (com cache de resolução de operadores e fallback na paleta aprovada `roxo-branco`) em todos os módulos do PDV, caixa, contingência offline (`IndexedDB`), catálogo, trocas, clientes, crediário, inteligência comercial, relatórios, fiscal, estoque, compras, atacado SP, equipe, portal multi-lojas e `sys-init`.
+
 ## 2026-11-15 — Módulo Entrega Loja Virtual (`99 Entregas`), Alerta Sonoro no Caixa e Animação de Rota ao Vivo
 
 - **Motor de Cotação por Distância, Aba `/loja-virtual/entregas` e Despacho 99 (`backend/src/storefront/storefront-delivery.service.ts`, `storefront-admin.service.ts`, `storefront-orders.service.ts`, `frontend/src/retail/StorefrontExpressDeliveryTab.tsx` e `RetailStorefrontPage.tsx`)**:

@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { TenantConnectionManager } from '../prisma/tenant-prisma.service';
 import { TenantContextService } from '../prisma/tenant-context.service';
+import { EntityPhotoResolverService } from '../prisma/entity-photo-resolver.service';
 
 const brPartsFormatter = new Intl.DateTimeFormat('en-CA', {
   timeZone: 'America/Sao_Paulo',
@@ -32,6 +33,7 @@ export class DashboardService {
   constructor(
     private tenantManager: TenantConnectionManager,
     private tenantContext: TenantContextService,
+    @Optional() private photoResolver?: EntityPhotoResolverService,
   ) {}
 
   async getSummary(
@@ -91,6 +93,7 @@ export class DashboardService {
       prevPeriodAgg,
       periodSales,
       payablesAlerts,
+      actors,
     ] = await Promise.all([
       // 1. Caixas abertos
       prisma.cashRegister.findMany({
@@ -158,6 +161,11 @@ export class DashboardService {
         },
         orderBy: { dueDate: 'asc' },
       }),
+
+      // 9. Fotos de operadores/usuários da loja
+      this.photoResolver
+        ? this.photoResolver.loadTenantActors(tenantId, prisma)
+        : Promise.resolve(null),
     ]);
 
     // Calcula receita por caixa (paralelo para os caixas abertos)
@@ -168,11 +176,19 @@ export class DashboardService {
           _sum: { total: true },
           _count: { id: true },
         });
+        const rawOpName = (reg as any).operator?.name;
+        const resolvedActor = actors
+          ? actors.resolveActor(
+              { operatorId: reg.operatorId, name: rawOpName },
+              rawOpName || 'Operador',
+            )
+          : { name: rawOpName || 'Operador', imageUrl: null };
         return {
           cashRegisterId: reg.id,
           code: reg.code,
-          operatorName: (reg as any).operator?.name ?? 'Operador',
+          operatorName: resolvedActor.name ?? 'Operador',
           operatorId: reg.operatorId,
+          operatorImageUrl: resolvedActor.imageUrl,
           openedAt: (reg as any).openingTime,
           openingValue: Number(reg.openingValue ?? 0),
           total: Number(regSales._sum.total ?? 0),

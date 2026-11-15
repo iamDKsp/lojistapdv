@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { TenantConnectionManager } from '../prisma/tenant-prisma.service';
 import { TenantContextService } from '../prisma/tenant-context.service';
 import { HeartPrismaService } from '../prisma/heart-prisma.service';
+import { EntityPhotoResolverService } from '../prisma/entity-photo-resolver.service';
 import { ProductsService } from '../products/products.service';
 import { DEFAULT_SP_WHOLESALE_SUPPLIERS, SeedWholesaleSupplier } from './sp-wholesale.seed';
 
@@ -421,6 +422,7 @@ export class SuppliersService {
         itemId: catalogItem.id,
         name: catalogItem.name,
         category: catalogItem.category,
+        imageUrl: catalogItem.imageUrl || null,
         quantity: qty,
         wholesalePrice: catalogItem.wholesalePrice,
         suggestedRetailPrice: catalogItem.suggestedRetailPrice,
@@ -518,18 +520,44 @@ export class SuppliersService {
     });
   }
 
+  private hydrateSupplier(supplier: any) {
+    if (!supplier) return supplier;
+    return {
+      ...supplier,
+      products: Array.isArray(supplier.products)
+        ? supplier.products.map((sp: any) => {
+            const product = sp.product
+              ? EntityPhotoResolverService.withResolvedProductImage(sp.product)
+              : sp.product;
+            return {
+              ...sp,
+              imageUrl: product?.imageUrl || null,
+              product,
+            };
+          })
+        : supplier.products,
+    };
+  }
+
   async getSuppliers() {
     const prisma = await this.getPrisma();
-    return prisma.supplier.findMany({
+    const rows = await prisma.supplier.findMany({
       orderBy: { name: 'asc' },
       include: {
         products: {
           include: {
-            product: true,
+            product: {
+              include: {
+                retailGroup: {
+                  select: { id: true, name: true, imageUrl: true },
+                },
+              },
+            },
           },
         },
       },
     });
+    return rows.map((s) => this.hydrateSupplier(s));
   }
 
   async getSupplierById(supplierId: string) {
@@ -539,14 +567,20 @@ export class SuppliersService {
       include: {
         products: {
           include: {
-            product: true,
+            product: {
+              include: {
+                retailGroup: {
+                  select: { id: true, name: true, imageUrl: true },
+                },
+              },
+            },
           },
         },
       },
     });
 
     if (!supplier) throw new NotFoundException('Fornecedor não encontrado.');
-    return supplier;
+    return this.hydrateSupplier(supplier);
   }
 
   async updateSupplier(supplierId: string, data: any) {
@@ -592,9 +626,25 @@ export class SuppliersService {
       update: {
         expectedCost: expectedCost ? expectedCost : null,
       },
+      include: {
+        product: {
+          include: {
+            retailGroup: { select: { id: true, name: true, imageUrl: true } },
+          },
+        },
+      },
     });
     this.productsService.clearCache();
-    return result;
+    const hydratedProduct = (result as any).product
+      ? EntityPhotoResolverService.withResolvedProductImage(
+          (result as any).product,
+        )
+      : null;
+    return {
+      ...result,
+      imageUrl: hydratedProduct?.imageUrl || null,
+      product: hydratedProduct,
+    };
   }
 
   async removeSupplierProduct(supplierId: string, productId: string) {

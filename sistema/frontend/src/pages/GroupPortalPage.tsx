@@ -4,8 +4,9 @@ import { toast } from 'sonner';
 import { useAuthStore } from '@/store/auth';
 import { useRetailShell } from '@/retail/RetailLayout';
 import { getFullUrl } from '@/lib/getFullUrl';
+import { OperatorInlineBadge, StockItemThumb } from '@/components/EntityPhotos';
 import {
-  BarChart2, Package, Tag, ArrowLeftRight, Building2,
+  BarChart2, Tag, ArrowLeftRight, Building2,
   TrendingUp, Star, Search, Plus, RefreshCw, X, AlertCircle,
   Loader2, Activity, DollarSign, Store, Award,
   Clock, Calendar, ShoppingCart, Edit3, Check, AlertTriangle,
@@ -86,6 +87,7 @@ interface StockData {
 interface ForecastRow {
   productId: string;
   name: string;
+  imageUrl?: string | null;
   totalStock: number;
   avgDailySales: number;
   autonomyDays: number;
@@ -99,11 +101,26 @@ interface TenantDetail {
     id: string;
     total: number;
     createdAt: string;
+    operatorId?: string | null;
+    operatorName?: string | null;
+    operatorImageUrl?: string | null;
     itemsCount: number;
     firstItems: string[];
+    itemsPreview?: {
+      productId?: string | null;
+      name: string;
+      quantity: number;
+      imageUrl?: string | null;
+    }[];
     payments: { method: string; label?: string; value: number }[];
   }[];
-  criticalStock: { id: string; name: string; stock: number; unit: string }[];
+  criticalStock: {
+    id: string;
+    name: string;
+    stock: number;
+    unit: string;
+    imageUrl?: string | null;
+  }[];
 }
 
 interface CatalogCell {
@@ -123,6 +140,8 @@ interface CatalogCell {
 
 interface CatalogRow {
   name: string;
+  imageUrl?: string | null;
+  categoryName?: string | null;
   tenants: Record<string, CatalogCell>;
 }
 
@@ -592,13 +611,19 @@ function TenantDetailDrawer({
                         display: 'flex',
                         justifyContent: 'space-between',
                         alignItems: 'center',
+                        gap: '0.625rem',
                         background: '#F8F7FC',
                         border: '1px solid #E5E1ED',
                         borderRadius: '0.625rem',
                         padding: '0.625rem 0.875rem',
                       }}
                     >
-                      <span style={{ fontSize: '0.82rem', color: '#272321', fontWeight: 600 }}>{p.name}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', minWidth: 0 }}>
+                        <StockItemThumb imageUrl={p.imageUrl} name={p.name} size="sm" />
+                        <span style={{ fontSize: '0.82rem', color: '#272321', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {p.name}
+                        </span>
+                      </div>
                       <Badge>{p.stock} {p.unit}</Badge>
                     </div>
                   ))}
@@ -619,16 +644,43 @@ function TenantDetailDrawer({
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
                   {(data.recentSales ?? []).map(s => (
                     <div key={s.id} style={{ background: '#F8F7FC', border: '1px solid #E5E1ED', borderRadius: '0.75rem', padding: '0.875rem 1rem' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-                        <span style={{ fontSize: '0.72rem', color: '#665F70', fontFamily: 'monospace' }}>
-                          {new Date(s.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                        <span style={{ fontWeight: 800, color: '#7C3AED', fontSize: '0.9rem' }}>{fmt(s.total)}</span>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', marginBottom: '0.45rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
+                          <span style={{ fontSize: '0.72rem', color: '#665F70', fontFamily: 'monospace', flexShrink: 0 }}>
+                            {new Date(s.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                          <OperatorInlineBadge
+                            name={s.operatorName || 'Operador'}
+                            imageUrl={s.operatorImageUrl}
+                            operatorId={s.operatorId}
+                            size="xs"
+                            variant="pill"
+                          />
+                        </div>
+                        <span style={{ fontWeight: 800, color: '#7C3AED', fontSize: '0.9rem', flexShrink: 0 }}>{fmt(s.total)}</span>
                       </div>
-                      <div style={{ fontSize: '0.78rem', color: '#272321', marginBottom: '0.4rem' }}>
-                        {(s.firstItems ?? []).join(', ')}
-                        {(s.itemsCount ?? 0) > 3 ? ` +${s.itemsCount - 3}` : ''}
-                      </div>
+                      {Array.isArray(s.itemsPreview) && s.itemsPreview.length > 0 ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginBottom: '0.5rem' }}>
+                          {s.itemsPreview.map((it, idx) => (
+                            <div key={`${it.productId || idx}`} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.78rem', color: '#272321' }}>
+                              <StockItemThumb imageUrl={it.imageUrl} name={it.name} size="xs" />
+                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600 }}>
+                                {fmtNum(it.quantity)}x {it.name}
+                              </span>
+                            </div>
+                          ))}
+                          {(s.itemsCount ?? 0) > s.itemsPreview.length && (
+                            <span style={{ fontSize: '0.72rem', color: '#665F70' }}>
+                              +{s.itemsCount - s.itemsPreview.length} item(ns) adicional(is)
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: '0.78rem', color: '#272321', marginBottom: '0.4rem' }}>
+                          {(s.firstItems ?? []).join(', ')}
+                          {(s.itemsCount ?? 0) > 3 ? ` +${s.itemsCount - 3}` : ''}
+                        </div>
+                      )}
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
                         {(s.payments ?? []).map((p, i) => (
                           <Badge key={i}>{p.label || METHOD_DISPLAY[p.method] || p.method}</Badge>
@@ -1210,7 +1262,15 @@ function TabDashboard({
                 >
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
-                      <Store size={14} color="#7C3AED" />
+                      {m.logoUrl ? (
+                        <img
+                          src={getFullUrl(m.logoUrl)}
+                          alt={m.name}
+                          style={{ width: '22px', height: '22px', borderRadius: '999px', objectFit: 'cover', border: '1px solid #E5E1ED', flexShrink: 0 }}
+                        />
+                      ) : (
+                        <Store size={14} color="#7C3AED" />
+                      )}
                       <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#272321', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {m.name}
                       </span>
@@ -1351,12 +1411,22 @@ function TabDashboard({
           </div>
           <div>
             <h2 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#272321' }}>{data.groupName}</h2>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.15rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.15rem', flexWrap: 'wrap' }}>
               <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#7C3AED' }} />
               <span style={{ fontSize: '0.75rem', color: '#665F70' }}>
                 {data.tenants.length} {data.tenants.length === 1 ? 'unidade conectada' : 'lojas sincronizadas'} · Atualizado às{' '}
                 {lastRefresh.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
               </span>
+              {user?.name && (
+                <OperatorInlineBadge
+                  name={user.name}
+                  imageUrl={user.imageUrl}
+                  operatorId={user.id}
+                  label="Gestor:"
+                  size="xs"
+                  variant="pill"
+                />
+              )}
             </div>
           </div>
         </div>
@@ -1649,17 +1719,7 @@ function TabDashboard({
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
                       <span style={{ color: '#665F70', fontWeight: 700, width: '20px' }}>#{i + 1}</span>
-                      {p.imageUrl ? (
-                        <img
-                          src={getFullUrl(p.imageUrl)}
-                          alt={p.name}
-                          style={{ width: '26px', height: '26px', borderRadius: '6px', objectFit: 'cover', border: '1px solid #E5E1ED' }}
-                        />
-                      ) : (
-                        <div style={{ width: '26px', height: '26px', borderRadius: '6px', background: '#F3E8FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <Star size={12} color="#7C3AED" />
-                        </div>
-                      )}
+                      <StockItemThumb imageUrl={p.imageUrl} name={p.name} size="xs" />
                       <span style={{ color: '#272321', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {p.name}
                       </span>
@@ -1808,7 +1868,12 @@ function TabForecast() {
               <tbody>
                 {filtered.map(row => (
                   <tr key={`${row.productId}-${row.name}`} style={{ borderBottom: '1px solid #E5E1ED' }}>
-                    <td style={{ padding: '0.875rem 1rem', fontSize: '0.85rem', fontWeight: 700, color: '#272321' }}>{row.name}</td>
+                    <td style={{ padding: '0.875rem 1rem', fontSize: '0.85rem', fontWeight: 700, color: '#272321' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+                        <StockItemThumb imageUrl={row.imageUrl} name={row.name} size="sm" />
+                        <span>{row.name}</span>
+                      </div>
+                    </td>
                     <td style={{ padding: '0.875rem 1rem', fontSize: '0.85rem', color: '#665F70', fontWeight: 600 }}>{fmtNum(row.totalStock)} un</td>
                     <td style={{ padding: '0.875rem 1rem', fontSize: '0.85rem', color: '#7C3AED', fontWeight: 700 }}>{fmtNum(row.avgDailySales)} un/dia</td>
                     <td style={{ padding: '0.875rem 1rem' }}>
@@ -2111,6 +2176,12 @@ function TabEstoque() {
                 onChange={() => {}}
                 style={{ width: '16px', height: '16px', accentColor: '#7C3AED', cursor: 'pointer' }}
               />
+              <StockItemThumb
+                imageUrl={p.productData?.imageUrl}
+                product={p.productData}
+                name={p.name}
+                size="sm"
+              />
               <div style={{ flex: 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                   <span style={{ fontWeight: 700, color: '#272321', fontSize: '0.85rem' }}>{p.name}</span>
@@ -2267,14 +2338,19 @@ function TabEstoque() {
               {filtered.map(r => (
                 <tr key={r.name} style={{ borderBottom: '1px solid #E5E1ED' }}>
                   <td style={{ padding: '0.875rem 1rem' }}>
-                    <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#272321' }}>{r.name}</div>
-                    {(r.size || r.color) && (
-                      <div style={{ fontSize: '0.7rem', color: '#665F70', marginTop: '0.15rem' }}>
-                        {r.size ? `Tam: ${r.size}` : ''}
-                        {r.size && r.color ? ' · ' : ''}
-                        {r.color ? `Cor: ${r.color}` : ''}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+                      <StockItemThumb imageUrl={r.imageUrl} name={r.name} size="sm" />
+                      <div>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#272321' }}>{r.name}</div>
+                        {(r.size || r.color) && (
+                          <div style={{ fontSize: '0.7rem', color: '#665F70', marginTop: '0.15rem' }}>
+                            {r.size ? `Tam: ${r.size}` : ''}
+                            {r.size && r.color ? ' · ' : ''}
+                            {r.color ? `Cor: ${r.color}` : ''}
+                          </div>
+                        )}
                       </div>
-                    )}
+                    </div>
                   </td>
                   {Object.keys(data.tenantLabels).map(tid => {
                     const c = r.tenants[tid];
@@ -2613,9 +2689,23 @@ function TabProdutos() {
   const previewColorsCount = parsePreviewDimensions(form.colors, 'Padrão').length;
   const previewTotalVariants = previewSizesCount * previewColorsCount;
 
+  const equalizeRow = equalizeModal
+    ? catalog?.rows.find(r => r.name === equalizeModal) || null
+    : null;
+  const equalizeRowImageUrl =
+    equalizeRow?.imageUrl ||
+    (equalizeRow ? Object.values(equalizeRow.tenants)[0]?.imageUrl : null) ||
+    null;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       <Modal open={!!equalizeModal} onClose={() => setEqualizeModal(null)} title={`Equalizar Preço — ${equalizeModal}`}>
+        {equalizeModal && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.625rem 0.75rem', background: '#F8F7FC', border: '1px solid #E5E1ED', borderRadius: '0.75rem', marginBottom: '0.875rem' }}>
+            <StockItemThumb imageUrl={equalizeRowImageUrl} name={equalizeModal} size="md" />
+            <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#272321' }}>{equalizeModal}</div>
+          </div>
+        )}
         <p style={{ color: '#665F70', fontSize: '0.85rem', marginBottom: '1.25rem' }}>
           Define o mesmo preço de venda compartilhado para <strong style={{ color: '#272321' }}>todas as lojas e variações</strong> deste grupo.
         </p>
@@ -2743,17 +2833,11 @@ function TabProdutos() {
                           <tr key={row.name} style={{ borderBottom: '1px solid #E5E1ED' }}>
                             <td style={{ padding: '0.875rem 1rem' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
-                                {sampleCell?.imageUrl ? (
-                                  <img
-                                    src={getFullUrl(sampleCell.imageUrl)}
-                                    alt={row.name}
-                                    style={{ width: '34px', height: '34px', borderRadius: '0.5rem', objectFit: 'cover', border: '1px solid #E5E1ED', flexShrink: 0 }}
-                                  />
-                                ) : (
-                                  <div style={{ width: '34px', height: '34px', borderRadius: '0.5rem', background: '#F3E8FF', border: '1px solid #E5E1ED', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7C3AED', flexShrink: 0 }}>
-                                    <Package size={15} />
-                                  </div>
-                                )}
+                                <StockItemThumb
+                                  imageUrl={row.imageUrl || sampleCell?.imageUrl}
+                                  name={row.name}
+                                  size="sm"
+                                />
                                 <div>
                                   <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#272321' }}>{row.name}</div>
                                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', fontSize: '0.68rem', color: '#665F70', marginTop: '0.15rem' }}>
@@ -3325,6 +3409,24 @@ function TabTransferencias() {
             ? `Distribuição atual de "${selectedProductRow.name}" nas unidades vinculadas.`
             : 'Selecione a loja de origem e a mercadoria para visualizar o saldo disponível em todas as filiais antes de confirmar.'}
         </p>
+
+        {selectedProductRow && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', background: '#F8F7FC', border: '1px solid #E5E1ED', borderRadius: '0.75rem', marginBottom: '1rem' }}>
+            <StockItemThumb imageUrl={selectedProductRow.imageUrl} name={selectedProductRow.name} size="md" />
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontWeight: 800, fontSize: '0.88rem', color: '#272321', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {selectedProductRow.name}
+              </div>
+              {(selectedProductRow.size || selectedProductRow.color) && (
+                <div style={{ fontSize: '0.72rem', color: '#665F70', marginTop: '0.1rem' }}>
+                  {selectedProductRow.size ? `Tam: ${selectedProductRow.size}` : ''}
+                  {selectedProductRow.size && selectedProductRow.color ? ' · ' : ''}
+                  {selectedProductRow.color ? `Cor: ${selectedProductRow.color}` : ''}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {selectedProductRow ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem' }}>

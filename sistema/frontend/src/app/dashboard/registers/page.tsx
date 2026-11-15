@@ -21,6 +21,7 @@ import {
 import { api } from '@/lib/api';
 import { CloseRegisterModal } from '@/components/CloseRegisterModal';
 import { PdvLojistaLoader, RetailDatePicker } from '@/components/ui';
+import { OperatorInlineBadge } from '@/components/EntityPhotos';
 import {
   StoreModuleHeader,
   StoreKpiCard,
@@ -30,7 +31,7 @@ import {
 type CashRegisterRow = {
   id: string;
   userId?: string;
-  operator?: { id: string; name: string; isManager?: boolean };
+  operator?: { id: string; name: string; imageUrl?: string | null; isManager?: boolean };
   code?: number;
   openingTime: string;
   closingTime?: string | null;
@@ -537,9 +538,12 @@ export default function CashRegistersHistoryPage() {
                         <strong className="text-sm font-bold text-ink tabular-nums">
                           #{reg.code ?? '--'}
                         </strong>
-                        <span className="text-xs font-semibold text-ink">
-                          {reg.operator?.name || 'Administrador'}
-                        </span>
+                        <OperatorInlineBadge
+                          name={reg.operator?.name || 'Administrador'}
+                          operatorId={reg.operator?.id || reg.userId}
+                          imageUrl={reg.operator?.imageUrl}
+                          size="sm"
+                        />
                       </div>
                       <span className="text-[11px] text-muted tabular-nums block mt-0.5">
                         {reg.salesCount ?? 0}{' '}
@@ -679,11 +683,19 @@ export default function CashRegistersHistoryPage() {
             return (
               <div key={reg.id} className="p-4 space-y-3 bg-surface">
                 <div className="flex items-center justify-between gap-2">
-                  <div>
-                    <strong className="text-sm font-bold text-ink tabular-nums">
-                      Caixa #{reg.code ?? '--'} · {reg.operator?.name || 'Administrador'}
-                    </strong>
-                    <span className="text-[11px] text-muted block tabular-nums">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <strong className="text-sm font-bold text-ink tabular-nums">
+                        Caixa #{reg.code ?? '--'}
+                      </strong>
+                      <OperatorInlineBadge
+                        name={reg.operator?.name || 'Administrador'}
+                        operatorId={reg.operator?.id || reg.userId}
+                        imageUrl={reg.operator?.imageUrl}
+                        size="xs"
+                      />
+                    </div>
+                    <span className="text-[11px] text-muted block tabular-nums mt-0.5">
                       {formatDateTimeBr(reg.openingTime)} · {reg.salesCount ?? 0} vendas
                     </span>
                   </div>

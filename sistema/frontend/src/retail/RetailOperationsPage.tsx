@@ -17,6 +17,7 @@ import {
 import { useAuthStore } from '@/store/auth';
 import { useShift } from '@/contexts/ShiftContext';
 import {
+  getCachedProducts,
   getPendingSales,
   getReviewSales,
   getTenantPendingAndReviewSales,
@@ -28,6 +29,11 @@ import {
 import { sendCheckout } from '@/lib/checkout-api';
 import { withSaleOperationLock } from '@/lib/sale-operation-lock';
 import PdvLojistaLoader from '@/components/PdvLojistaLoader';
+import {
+  OperatorAvatarThumb,
+  OperatorInlineBadge,
+  StockItemThumb,
+} from '@/components/EntityPhotos';
 import {
   StoreModuleHeader,
   StoreKpiCard,
@@ -44,6 +50,9 @@ export function RetailOperationsPage() {
     typeof navigator !== 'undefined' ? navigator.onLine : true,
   );
   const [rows, setRows] = useState<OfflineSale[]>([]);
+  const [cachedProductImageMap, setCachedProductImageMap] = useState<
+    Map<string, string>
+  >(() => new Map());
   const [diagnostics, setDiagnostics] = useState<{
     cachedProductsCount: number;
     lastCatalogSyncAt: number | null;
@@ -99,7 +108,19 @@ export function RetailOperationsPage() {
         salesList = [...pending, ...review];
       }
 
-      const diag = await diagPromise;
+      const [diag, cachedProds] = await Promise.all([
+        diagPromise,
+        getCachedProducts(tenantId).catch(() => []),
+      ]);
+      const imgMap = new Map<string, string>();
+      for (const p of cachedProds) {
+        const url =
+          (p as any).imageUrl || (p as any).retailGroup?.imageUrl || null;
+        if (p.id && url) {
+          imgMap.set(p.id, url);
+        }
+      }
+      setCachedProductImageMap(imgMap);
       setRows(salesList);
       setDiagnostics(diag);
       setLastCheckedAt(new Date());
@@ -121,6 +142,17 @@ export function RetailOperationsPage() {
     }
     if (shift.operator) {
       map.set(shift.operator.id, shift.operator.name);
+    }
+    return map;
+  }, [shift.operators, shift.operator]);
+
+  const operatorImageMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const op of shift.operators || []) {
+      if (op.imageUrl) map.set(op.id, op.imageUrl);
+    }
+    if (shift.operator?.imageUrl) {
+      map.set(shift.operator.id, shift.operator.imageUrl);
     }
     return map;
   }, [shift.operators, shift.operator]);
@@ -329,9 +361,14 @@ export function RetailOperationsPage() {
           icon={<Database size={17} />}
           badge={
             shift.operator && !shift.needsOperatorReauth ? (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-support border border-brand text-[11px] font-semibold text-brand">
-                <UserCheck size={11} />
-                {shift.operator.name}
+              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-support border border-brand text-[11px] font-semibold text-brand">
+                <OperatorAvatarThumb
+                  name={shift.operator.name}
+                  imageUrl={shift.operator.imageUrl}
+                  operatorId={shift.operator.id}
+                  size="xs"
+                />
+                <span>{shift.operator.name}</span>
               </span>
             ) : (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-page border border-line text-[11px] font-medium text-muted">
@@ -477,9 +514,17 @@ export function RetailOperationsPage() {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2 text-[11px]">
-                      <span className="px-2 py-0.5 rounded bg-page border border-line text-ink font-semibold">
-                        Operador: {opName}
-                      </span>
+                      <OperatorInlineBadge
+                        size="xs"
+                        variant="pill"
+                        label="Operador:"
+                        name={row.operatorName || opName}
+                        imageUrl={
+                          row.operatorImageUrl ||
+                          operatorImageMap.get(row.operatorId)
+                        }
+                        operatorId={row.operatorId}
+                      />
                       {row.payments?.map((p, idx) => (
                         <span
                           key={idx}
@@ -490,15 +535,26 @@ export function RetailOperationsPage() {
                       ))}
                     </div>
 
-                    <div className="p-3 rounded-lg bg-page border border-line space-y-1">
+                    <div className="p-3 rounded-lg bg-page border border-line space-y-1.5">
                       {row.items.map((item, iIdx) => (
                         <div
                           key={`${item.productId}-${iIdx}`}
                           className="flex items-center justify-between gap-2 text-xs tabular-nums"
                         >
-                          <span className="text-ink font-medium truncate">
-                            <strong className="text-brand">{item.quantity}×</strong>{' '}
-                            {item.productName}
+                          <span className="inline-flex items-center gap-2 text-ink font-medium min-w-0">
+                            <StockItemThumb
+                              size="xs"
+                              name={item.productName}
+                              imageUrl={
+                                item.imageUrl ||
+                                cachedProductImageMap.get(item.productId)
+                              }
+                              product={item}
+                            />
+                            <span className="truncate">
+                              <strong className="text-brand">{item.quantity}×</strong>{' '}
+                              {item.productName}
+                            </span>
                           </span>
                           <span className="text-muted shrink-0">
                             {formatBrl(item.subtotal)}

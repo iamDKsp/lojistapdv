@@ -8,6 +8,11 @@ import { useShift } from '@/contexts/ShiftContext';
 import { usePinAuthStore } from '@/store/pinAuth';
 import { EditPaymentModal } from './EditPaymentModal';
 import PdvLojistaLoader from './PdvLojistaLoader';
+import {
+  OperatorAvatarThumb,
+  OperatorInlineBadge,
+  StockItemThumb,
+} from './EntityPhotos';
 
 // Mapa de IDs de métodos padrão → nome legível para exibição na auditoria
 const METHOD_DISPLAY: Record<string, string> = {
@@ -69,6 +74,7 @@ export function CloseRegisterModal({
 
   const { user } = useAuthStore();
   const { operator } = useShift();
+  const pinAuthActor = usePinAuthStore((s) => s.actor);
 
   const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
 
@@ -94,7 +100,14 @@ export function CloseRegisterModal({
     try {
       const res = await api.post('/tenants/me/verify-cashier-pin', { pin: cashierPinInput, registerId });
       if (res.data?.pinAuthToken) {
-        usePinAuthStore.getState().setPinAuth(res.data.pinAuthToken);
+        usePinAuthStore.getState().setPinAuth(res.data.pinAuthToken, {
+          id: res.data.managerOpId || null,
+          name:
+            res.data.managerName ||
+            (res.data.authType === 'shared_pin' ? 'PIN do Caixa' : 'Gerência'),
+          imageUrl: res.data.managerImageUrl || null,
+          authType: res.data.authType,
+        });
       }
       setIsUnlockedByPin(true);
       setUnlockModalOpen(false);
@@ -459,9 +472,25 @@ export function CloseRegisterModal({
               }`}>
                 <div className="p-4 md:p-6 space-y-4 md:space-y-6 flex-1 overflow-y-auto custom-scrollbar">
                   {isUnlockedByPin && (
-                    <div className="flex items-center justify-between p-3 bg-support border border-brand rounded-2xl text-brand text-xs font-bold animate-in fade-in duration-200">
-                      <span className="flex items-center gap-2"><ShieldCheck size={16} className="text-brand" /> Auditoria Desbloqueada via PIN</span>
-                      <span className="text-[10px] uppercase bg-support px-2 py-0.5 rounded font-mono">Visão Completa</span>
+                    <div className="flex items-center justify-between gap-2 p-3 bg-support border border-brand rounded-2xl text-brand text-xs font-bold animate-in fade-in duration-200">
+                      <span className="flex items-center gap-2 min-w-0">
+                        <ShieldCheck size={16} className="text-brand shrink-0" />
+                        <span className="truncate">
+                          Auditoria Desbloqueada via PIN
+                          {pinAuthActor?.name && pinAuthActor.authType === 'manager_pin'
+                            ? ` · ${pinAuthActor.name}`
+                            : ''}
+                        </span>
+                        {pinAuthActor?.name && pinAuthActor.authType === 'manager_pin' && (
+                          <OperatorAvatarThumb
+                            operatorId={pinAuthActor.id}
+                            name={pinAuthActor.name}
+                            imageUrl={pinAuthActor.imageUrl}
+                            size="xs"
+                          />
+                        )}
+                      </span>
+                      <span className="text-[10px] uppercase bg-support px-2 py-0.5 rounded font-mono shrink-0">Visão Completa</span>
                     </div>
                   )}
 
@@ -473,10 +502,19 @@ export function CloseRegisterModal({
                   )}
 
                   <div className="flex flex-wrap justify-between items-center gap-2 text-xs text-muted pb-2 border-b border-line">
-                    <span>
-                      Abertura: <strong className="text-muted text-sm ml-1">{new Date(data.register.openingTime).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}</strong>
+                    <span className="inline-flex items-center gap-2 flex-wrap">
+                      <span>
+                        Abertura: <strong className="text-muted text-sm ml-1">{new Date(data.register.openingTime).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}</strong>
+                      </span>
                       {data.register.operator?.name && (
-                        <span className="ml-1.5 text-brand font-semibold">({data.register.operator.name})</span>
+                        <OperatorInlineBadge
+                          operatorId={data.register.operator.id}
+                          name={data.register.operator.name}
+                          imageUrl={data.register.operator.imageUrl}
+                          size="xs"
+                          variant="pill"
+                          nameClassName="text-brand"
+                        />
                       )}
                     </span>
                     <span>Vendas do Turno: <strong className="text-muted text-sm ml-1">{data.report.countSales}</strong></span>
@@ -501,9 +539,17 @@ export function CloseRegisterModal({
                       </div>
                       <div className="space-y-1.5 mt-1">
                         {data.report.movements.filter((m: any) => m.type === 'IN').map((m: any) => (
-                           <div key={m.id} className="flex justify-between text-xs text-brand items-center">
-                             <div className="flex items-center gap-2">
-                               <span className="bg-support px-1.5 py-0.5 rounded font-mono border border-brand">{new Date(m.createdAt).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}</span>
+                           <div key={m.id} className="flex justify-between text-xs text-brand items-center gap-2">
+                             <div className="flex items-center gap-2 min-w-0">
+                               <span className="bg-support px-1.5 py-0.5 rounded font-mono border border-brand shrink-0">{new Date(m.createdAt).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}</span>
+                               {data.register.operator?.name && (
+                                 <OperatorAvatarThumb
+                                   operatorId={data.register.operator.id}
+                                   name={data.register.operator.name}
+                                   imageUrl={data.register.operator.imageUrl}
+                                   size="xs"
+                                 />
+                               )}
                                <span className="line-clamp-1">{m.reason || 'Sem descrição informada'}</span>
                              </div>
                              <span className="font-bold whitespace-nowrap">{renderMoney(m.value)}</span>
@@ -521,9 +567,17 @@ export function CloseRegisterModal({
                       </div>
                       <div className="space-y-1.5 mt-1">
                         {data.report.movements.filter((m: any) => m.type === 'OUT').map((m: any) => (
-                           <div key={m.id} className="flex justify-between text-xs text-brand items-center">
-                             <div className="flex items-center gap-2">
-                               <span className="bg-support px-1.5 py-0.5 rounded font-mono border border-brand">{new Date(m.createdAt).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}</span>
+                           <div key={m.id} className="flex justify-between text-xs text-brand items-center gap-2">
+                             <div className="flex items-center gap-2 min-w-0">
+                               <span className="bg-support px-1.5 py-0.5 rounded font-mono border border-brand shrink-0">{new Date(m.createdAt).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}</span>
+                               {data.register.operator?.name && (
+                                 <OperatorAvatarThumb
+                                   operatorId={data.register.operator.id}
+                                   name={data.register.operator.name}
+                                   imageUrl={data.register.operator.imageUrl}
+                                   size="xs"
+                                 />
+                               )}
                                <span className="line-clamp-1">{m.reason || 'Sem descrição informada'}</span>
                              </div>
                              <span className="font-bold whitespace-nowrap">{renderMoney(m.value)}</span>
@@ -599,6 +653,27 @@ export function CloseRegisterModal({
                         Obs: {adjustNotes}
                       </div>
                     )}
+                    {Array.isArray(data?.conferenceRevisions) &&
+                      data.conferenceRevisions[0]?.savedByOpName && (
+                        <div className="pt-2 border-t border-line flex items-center justify-between gap-2 text-[11px] text-muted">
+                          <OperatorInlineBadge
+                            operatorId={data.conferenceRevisions[0].savedByOpId}
+                            name={data.conferenceRevisions[0].savedByOpName}
+                            imageUrl={data.conferenceRevisions[0].savedByOpImageUrl}
+                            label="Conferido por:"
+                            size="xs"
+                          />
+                          {data.conferenceRevisions[0].pinAuthManagerName && (
+                            <OperatorInlineBadge
+                              operatorId={data.conferenceRevisions[0].pinAuthManagerId}
+                              name={data.conferenceRevisions[0].pinAuthManagerName}
+                              imageUrl={data.conferenceRevisions[0].pinAuthManagerImageUrl}
+                              label="PIN:"
+                              size="xs"
+                            />
+                          )}
+                        </div>
+                      )}
                   </div>
 
                   {Array.isArray(data.report.salesByOperator) && data.report.salesByOperator.length > 0 && (
@@ -607,10 +682,16 @@ export function CloseRegisterModal({
                         Vendas por Funcionário neste Turno
                       </p>
                       {data.report.salesByOperator.map((opStat: any) => (
-                        <div key={opStat.operatorId} className="flex justify-between items-center text-ink">
+                        <div key={opStat.operatorId} className="flex justify-between items-center text-ink gap-2">
                           <div className="flex items-center gap-2 min-w-0">
+                            <OperatorAvatarThumb
+                              operatorId={opStat.operatorId}
+                              name={opStat.operatorName}
+                              imageUrl={opStat.operatorImageUrl}
+                              size="sm"
+                            />
                             <span className="font-semibold truncate">{opStat.operatorName}</span>
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-support text-brand border border-brand">
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-support text-brand border border-brand shrink-0">
                               {opStat.countSales} {opStat.countSales === 1 ? 'venda' : 'vendas'}
                             </span>
                           </div>
@@ -780,8 +861,14 @@ export function CloseRegisterModal({
                           </span>
                           <span className="text-muted text-[11px] font-mono bg-page px-2 py-0.5 rounded">ID: {s.id.split('-')[0]}</span>
                           {s.operator?.name && (
-                            <span className="bg-support text-brand text-[11px] font-bold px-2.5 py-0.5 rounded-full border border-brand">
-                              Vendedor: {s.operator.name}
+                            <span className="inline-flex items-center gap-1.5 bg-support text-brand text-[11px] font-bold pl-1 pr-2.5 py-0.5 rounded-full border border-brand">
+                              <OperatorAvatarThumb
+                                operatorId={s.operator.id || s.operatorId}
+                                name={s.operator.name}
+                                imageUrl={s.operator.imageUrl}
+                                size="xs"
+                              />
+                              <span>Vendedor: {s.operator.name}</span>
                             </span>
                           )}
                           {s.status === 'cancelled' && (
@@ -809,9 +896,15 @@ export function CloseRegisterModal({
                       <ul className="text-muted text-sm space-y-2 mb-5 ml-1">
                         {s.items.map((i: any) => (
                           <li key={i.id} className="flex items-center gap-3 p-2 hover:bg-surface rounded-lg transition-colors">
-                             <span className="text-ink font-bold bg-surface px-2 py-0.5 rounded text-xs">{i.quantity}x</span> 
-                             <span className={`flex-1 font-medium text-xs md:text-sm ${s.status === 'cancelled' ? 'line-through text-muted' : ''}`}>{i.product?.name || 'Item Removido/Desconhecido'}</span>
-                             <span className="text-muted font-mono text-xs">R$ {(Number(i.priceUnit || 0) * Number(i.quantity || 0)).toFixed(2)}</span>
+                             <StockItemThumb
+                               name={i.product?.name || i.productName}
+                               imageUrl={i.imageUrl}
+                               product={i.product}
+                               size="sm"
+                             />
+                             <span className="text-ink font-bold bg-surface px-2 py-0.5 rounded text-xs shrink-0">{i.quantity}x</span> 
+                             <span className={`flex-1 font-medium text-xs md:text-sm ${s.status === 'cancelled' ? 'line-through text-muted' : ''}`}>{i.product?.name || i.productName || 'Item Removido/Desconhecido'}</span>
+                             <span className="text-muted font-mono text-xs shrink-0">R$ {(Number(i.priceUnit || 0) * Number(i.quantity || 0)).toFixed(2)}</span>
                           </li>
                         ))}
                       </ul>

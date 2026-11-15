@@ -1,6 +1,7 @@
-import { Injectable, BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, ConflictException, NotFoundException, Optional } from '@nestjs/common';
 import { TenantConnectionManager } from '../prisma/tenant-prisma.service';
 import { TenantContextService } from '../prisma/tenant-context.service';
+import { EntityPhotoResolverService } from '../prisma/entity-photo-resolver.service';
 import { PrismaClient, Prisma } from '@prisma/client';
 import { IntegrationsService } from '../integrations/integrations.service';
 import { bulkImageIdentities, BulkImageIdentity } from './bulk-images.helper';
@@ -132,7 +133,8 @@ export class ProductsService {
     private tenantManager: TenantConnectionManager,
     private tenantContext: TenantContextService,
     private heartPrisma: HeartPrismaService,
-    private integrationsService: IntegrationsService
+    private integrationsService: IntegrationsService,
+    @Optional() private readonly photoResolver?: EntityPhotoResolverService,
   ) {}
 
   /** Atalho para pegar o cliente prisma do contexto atual */
@@ -218,11 +220,17 @@ export class ProductsService {
     
     // 1. Busca no banco da loja (Tenant) primeiro
     const localProduct = await prisma.product.findUnique({
-      where: { barcode }
+      where: { barcode },
+      include: {
+        retailGroup: { select: { id: true, name: true, imageUrl: true } },
+      },
     });
     
     if (localProduct) {
-      return { source: 'local', data: localProduct };
+      return {
+        source: 'local',
+        data: EntityPhotoResolverService.withResolvedProductImage(localProduct),
+      };
     }
 
     // 2. Não achou? Busca no banco Mestre (Heart)
@@ -315,7 +323,11 @@ export class ProductsService {
             include: {
               options: {
                 include: {
-                  componentProduct: true
+                  componentProduct: {
+                    include: {
+                      retailGroup: { select: { imageUrl: true } },
+                    },
+                  },
                 }
               }
             }
@@ -327,8 +339,28 @@ export class ProductsService {
       }),
     ]);
 
+    const hydratedData = data.map((p: any) => ({
+      ...p,
+      imageUrl: EntityPhotoResolverService.resolveProductImageUrl(p),
+      modifierGroups: Array.isArray(p.modifierGroups)
+        ? p.modifierGroups.map((mg: any) => ({
+            ...mg,
+            options: Array.isArray(mg.options)
+              ? mg.options.map((opt: any) => ({
+                  ...opt,
+                  componentProduct: opt.componentProduct
+                    ? EntityPhotoResolverService.withResolvedProductImage(
+                        opt.componentProduct,
+                      )
+                    : opt.componentProduct,
+                }))
+              : mg.options,
+          }))
+        : p.modifierGroups,
+    }));
+
     const result = {
-      data,
+      data: hydratedData,
       meta: {
         total,
         page,
@@ -346,16 +378,31 @@ export class ProductsService {
 
   async getComposition(id: string) {
     const prisma = await this.getPrisma();
-    return prisma.productModifierGroup.findMany({
+    const groups = await prisma.productModifierGroup.findMany({
       where: { productId: id },
       include: {
         options: {
           include: {
-            componentProduct: true,
+            componentProduct: {
+              include: {
+                retailGroup: { select: { imageUrl: true } },
+              },
+            },
           },
         },
       },
     });
+    return groups.map((mg: any) => ({
+      ...mg,
+      options: (mg.options || []).map((opt: any) => ({
+        ...opt,
+        componentProduct: opt.componentProduct
+          ? EntityPhotoResolverService.withResolvedProductImage(
+              opt.componentProduct,
+            )
+          : opt.componentProduct,
+      })),
+    }));
   }
 
   async create(data: ProductCreateDto) {
@@ -623,23 +670,47 @@ export class ProductsService {
    */
   async inventoryHistory() {
     const prisma = await this.getPrisma();
+    const { tenantId } = this.tenantContext.get();
 
-    const logs = await prisma.inventoryLog.findMany({
-      where: { reason: { contains: 'Contagem Física', mode: 'insensitive' } },
-      include: { product: { select: { name: true } } },
-      orderBy: { createdAt: 'desc' },
-      take: 2000,
-    });
+    const [logs, actors] = await Promise.all([
+      prisma.inventoryLog.findMany({
+        where: { reason: { contains: 'Contagem Física', mode: 'insensitive' } },
+        include: {
+          product: {
+            select: {
+              id: true,
+              name: true,
+              imageUrl: true,
+              retailGroup: { select: { imageUrl: true } },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 2000,
+      }),
+      this.photoResolver
+        ? this.photoResolver.loadTenantActors(tenantId, prisma)
+        : Promise.resolve(null),
+    ]);
 
     // Agrupa por janela de 30 minutos
     const sessions: Record<string, {
       sessionId: string;
       date: string;
+      operatorName: string | null;
+      operatorImageUrl: string | null;
       totalProducts: number;
       increases: number;
       decreases: number;
       unchanged: number;
-      items: { name: string; before: number; after: number; diff: number }[];
+      items: {
+        productId: string;
+        name: string;
+        imageUrl: string | null;
+        before: number;
+        after: number;
+        diff: number;
+      }[];
     }> = {};
 
     for (const log of logs as any[]) {
@@ -647,16 +718,29 @@ export class ProductsService {
       const windowMinutes = Math.floor(d.getMinutes() / 30) * 30;
       const sessionKey = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}-${d.getHours()}-${windowMinutes}`;
 
+      const opMatch = log.reason?.match(/\|\s*Operador:\s*(.+)$/i);
+      const parsedOpName = opMatch ? opMatch[1].trim() : null;
+
       if (!sessions[sessionKey]) {
         sessions[sessionKey] = {
           sessionId: sessionKey,
           date: log.createdAt,
+          operatorName: parsedOpName,
+          operatorImageUrl:
+            parsedOpName && actors
+              ? actors.resolveImageUrl({ name: parsedOpName })
+              : null,
           totalProducts: 0,
           increases: 0,
           decreases: 0,
           unchanged: 0,
           items: [],
         };
+      } else if (!sessions[sessionKey].operatorName && parsedOpName) {
+        sessions[sessionKey].operatorName = parsedOpName;
+        sessions[sessionKey].operatorImageUrl = actors
+          ? actors.resolveImageUrl({ name: parsedOpName })
+          : null;
       }
 
       // Extrai before/after do reason: "Antes: X, Depois: Y"
@@ -672,7 +756,11 @@ export class ProductsService {
       else sessions[sessionKey].unchanged++;
 
       sessions[sessionKey].items.push({
+        productId: log.productId,
         name: log.product?.name || 'Desconhecido',
+        imageUrl: EntityPhotoResolverService.resolveProductImageUrl(
+          log.product,
+        ),
         before,
         after,
         diff,
@@ -701,7 +789,10 @@ export class ProductsService {
 
     const products = await prisma.product.findMany({
       where,
-      include: { category: true },
+      include: {
+        category: true,
+        retailGroup: { select: { imageUrl: true } },
+      },
       orderBy: [{ category: { name: 'asc' } }, { name: 'asc' }],
     });
 
@@ -709,6 +800,7 @@ export class ProductsService {
       id: p.id,
       shortCode: p.shortCode || '',
       name: p.name,
+      imageUrl: EntityPhotoResolverService.resolveProductImageUrl(p),
       category: p.category?.name || '',
       unit: p.unit || 'UN',
       stock: Number(p.stock),
@@ -723,8 +815,19 @@ export class ProductsService {
   async inventoryImport(items: { productId: string; newStock: number }[]) {
     if (items.some(item => !Number.isInteger(Number(item.newStock)) || Number(item.newStock) < 0)) throw new BadRequestException('A contagem deve informar quantidades inteiras e não negativas.');
     const prisma = await this.getPrisma();
+    const ctx = this.tenantContext.get();
+    const actors = this.photoResolver
+      ? await this.photoResolver.loadTenantActors(ctx.tenantId, prisma)
+      : null;
+    const actor = actors ? actors.resolveActor({ id: ctx.userId }) : null;
 
-    const results: { productId: string; name: string; before: number; after: number }[] = [];
+    const results: {
+      productId: string;
+      name: string;
+      imageUrl: string | null;
+      before: number;
+      after: number;
+    }[] = [];
     const errors: { productId: string; error: string }[] = [];
 
     for (const item of items) {
@@ -734,7 +837,10 @@ export class ProductsService {
 
       try {
         await prisma.$transaction(async (tx: any) => {
-          const product = await tx.product.findUnique({ where: { id: item.productId } });
+          const product = await tx.product.findUnique({
+            where: { id: item.productId },
+            include: { retailGroup: { select: { imageUrl: true } } },
+          });
           if (!product) throw new Error('Produto não encontrado');
 
           const before = Number(product.stock);
@@ -750,11 +856,17 @@ export class ProductsService {
               type: diff >= 0 ? 'IN' : 'OUT',
               quantity: Math.abs(diff),
               costPrice: Number(product.priceCost),
-              reason: `Ajuste de Inventário (Contagem Física) — Antes: ${before}, Depois: ${after}`,
+              reason: `Ajuste de Inventário (Contagem Física) — Antes: ${before}, Depois: ${after}${actor?.name ? ` | Operador: ${actor.name}` : ''}`,
             },
           });
 
-          results.push({ productId: item.productId, name: product.name, before, after });
+          results.push({
+            productId: item.productId,
+            name: product.name,
+            imageUrl: EntityPhotoResolverService.resolveProductImageUrl(product),
+            before,
+            after,
+          });
         });
       } catch (err: any) {
         errors.push({ productId: item.productId, error: err.message });
@@ -762,7 +874,13 @@ export class ProductsService {
     }
 
     this.invalidateCache(this.tenantContext.get().tenantId);
-    return { updated: results.length, errors, results };
+    return {
+      updated: results.length,
+      operatorName: actor?.name || null,
+      operatorImageUrl: actor?.imageUrl || null,
+      errors,
+      results,
+    };
   }
 
   // ── Entrada de Estoque Incremental ────────────────────────────────────────
@@ -1289,7 +1407,15 @@ export class ProductsService {
         remaining: { gt: 0 },
       },
       include: {
-        product: { select: { id: true, name: true, unit: true } },
+        product: {
+          select: {
+            id: true,
+            name: true,
+            unit: true,
+            imageUrl: true,
+            retailGroup: { select: { imageUrl: true } },
+          },
+        },
         supplier: { select: { id: true, name: true } },
       },
       orderBy: { expiresAt: 'asc' },
@@ -1300,6 +1426,7 @@ export class ProductsService {
       productId: lot.productId,
       productName: lot.product.name,
       productUnit: lot.product.unit,
+      imageUrl: EntityPhotoResolverService.resolveProductImageUrl(lot.product),
       supplierId: lot.supplierId,
       supplierName: lot.supplier?.name ?? null,
       lotNumber: lot.lotNumber,
@@ -1326,7 +1453,15 @@ export class ProductsService {
         remaining: { gt: 0 },
       },
       include: {
-        product: { select: { id: true, name: true, unit: true } },
+        product: {
+          select: {
+            id: true,
+            name: true,
+            unit: true,
+            imageUrl: true,
+            retailGroup: { select: { imageUrl: true } },
+          },
+        },
         supplier: { select: { id: true, name: true } },
       },
       orderBy: { expiresAt: 'asc' },
@@ -1337,6 +1472,7 @@ export class ProductsService {
       productId: lot.productId,
       productName: lot.product.name,
       productUnit: lot.product.unit,
+      imageUrl: EntityPhotoResolverService.resolveProductImageUrl(lot.product),
       supplierId: lot.supplierId,
       supplierName: lot.supplier?.name ?? null,
       lotNumber: lot.lotNumber,

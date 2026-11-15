@@ -586,7 +586,7 @@ export function RetailDashboardPage() {
               </section>
             </div>
 
-            {/* Faixa de Atalhos Rápidos das Abas do Módulo */}
+            {/* Atalhos Rápidos para o Módulo de Histórico de Caixas e Relatórios */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Link
                 to="/inicio/historico-de-caixas"

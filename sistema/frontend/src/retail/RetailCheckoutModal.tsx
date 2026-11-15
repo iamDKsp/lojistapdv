@@ -36,6 +36,11 @@ import { submitDurableCheckout } from "@/lib/durable-checkout";
 import { sendCheckout } from "@/lib/checkout-api";
 import { saveOfflineSale, type OfflineSale } from "@/lib/db";
 import PdvLojistaLoader from "@/components/PdvLojistaLoader";
+import {
+  OperatorAvatarThumb,
+  OperatorInlineBadge,
+  StockItemThumb,
+} from "@/components/EntityPhotos";
 import { RetailSelect } from "@/components/ui/Select";
 import { RetailSwitch } from "@/components/ui/Switch";
 import { RetailDialog } from "./RetailDialog";
@@ -658,6 +663,8 @@ export function RetailCheckoutModal({
       idempotencyKey: operationId,
       createdAt: new Date().toISOString(),
       operatorId,
+      operatorName: operator.name || null,
+      operatorImageUrl: operator.imageUrl || null,
       tenantId,
       cashRegisterId: cashRegister.id,
       subtotal: subtotalSnapshot,
@@ -666,6 +673,7 @@ export function RetailCheckoutModal({
       items: snapshot.map((i) => ({
         productId: i.id,
         productName: i.name,
+        imageUrl: i.imageUrl || i.retailGroup?.imageUrl || null,
         unit: "UN",
         quantity: i.quantity,
         priceUnit: i.effectivePriceSell,
@@ -772,11 +780,33 @@ export function RetailCheckoutModal({
               </span>
             </div>
 
+            {(result.data?.operatorName || operator?.name) && (
+              <div className="px-1 pb-2 text-xs">
+                <OperatorInlineBadge
+                  size="xs"
+                  label="Operador:"
+                  name={result.data?.operatorName || operator?.name}
+                  imageUrl={
+                    result.data?.operatorImageUrl || operator?.imageUrl
+                  }
+                  operatorId={operator?.id}
+                />
+              </div>
+            )}
+
             <div className="retail-ticket-items-list">
               {result.snapshot.map((item) => (
                 <div className="retail-ticket-item-line" key={item.cartKey}>
-                  <span>
-                    <strong>{item.quantity}×</strong> {item.name}
+                  <span className="inline-flex items-center gap-2 min-w-0">
+                    <StockItemThumb
+                      size="xs"
+                      name={item.name}
+                      imageUrl={item.imageUrl || item.retailGroup?.imageUrl}
+                      product={item}
+                    />
+                    <span className="truncate">
+                      <strong>{item.quantity}×</strong> {item.name}
+                    </span>
                   </span>
                   <strong className="retail-number">
                     {money(item.subtotal)}
@@ -891,8 +921,14 @@ export function RetailCheckoutModal({
             {totalPieces} {totalPieces === 1 ? "peça" : "peças"}
           </span>
           {operator?.name && (
-            <span className="retail-checkout-meta-pill is-subtle">
-              {operator.name.split(" ")[0]}
+            <span className="retail-checkout-meta-pill is-subtle inline-flex items-center gap-1.5">
+              <OperatorAvatarThumb
+                name={operator.name}
+                imageUrl={operator.imageUrl}
+                operatorId={operator.id}
+                size="xs"
+              />
+              <span>{operator.name.split(" ")[0]}</span>
             </span>
           )}
         </div>
@@ -1390,8 +1426,16 @@ export function RetailCheckoutModal({
                       className="retail-ticket-mini-item"
                       key={item.cartKey}
                     >
-                      <span className="retail-ticket-mini-name">
-                        <strong>{item.quantity}×</strong> {item.name}
+                      <span className="retail-ticket-mini-name inline-flex items-center gap-1.5 min-w-0">
+                        <StockItemThumb
+                          size="xs"
+                          name={item.name}
+                          imageUrl={item.imageUrl || item.retailGroup?.imageUrl}
+                          product={item}
+                        />
+                        <span className="truncate">
+                          <strong>{item.quantity}×</strong> {item.name}
+                        </span>
                       </span>
                       <span className="retail-number">
                         {money(item.subtotal)}

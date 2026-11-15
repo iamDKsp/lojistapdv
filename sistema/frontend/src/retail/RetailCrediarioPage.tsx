@@ -22,6 +22,12 @@ import {
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import PdvLojistaLoader from "@/components/PdvLojistaLoader";
+import { useShift } from "@/contexts/ShiftContext";
+import { useAuthStore } from "@/store/auth";
+import {
+  OperatorInlineBadge,
+  StockItemThumb,
+} from "@/components/EntityPhotos";
 import { RetailSwitch } from "@/components/ui/Switch";
 import { RetailSelect } from "@/components/ui/Select";
 import { RetailDialog } from "./RetailDialog";
@@ -68,6 +74,8 @@ function formatInstallmentDescription(r: any): string {
 export function RetailCrediarioPage() {
   const location = useLocation();
   const navigate = useNavigate();
+  const shift = useShift();
+  const authUser = useAuthStore((s) => s.user);
 
   const activeSection: "customers" | "receivables" | "whatsapp" =
     location.pathname.includes("/crediario/whatsapp")
@@ -817,7 +825,47 @@ export function RetailCrediarioPage() {
                               {r.customer?.phone}
                             </small>
                           </td>
-                          <td>{r.description}</td>
+                          <td>
+                            <div className="space-y-1.5">
+                              <div>{r.description}</div>
+                              {r.sale?.items?.length > 0 && (
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  {r.sale.items.slice(0, 3).map((it: any) => (
+                                    <span
+                                      key={it.id}
+                                      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-page border border-line text-[11px] text-ink"
+                                    >
+                                      <StockItemThumb
+                                        size="xs"
+                                        name={it.productName}
+                                        imageUrl={it.imageUrl}
+                                        product={it}
+                                      />
+                                      <span className="truncate max-w-[140px]">
+                                        {it.quantity}× {it.productName}
+                                      </span>
+                                    </span>
+                                  ))}
+                                  {r.sale.items.length > 3 && (
+                                    <small className="retail-muted">
+                                      +{r.sale.items.length - 3}
+                                    </small>
+                                  )}
+                                </div>
+                              )}
+                              {r.operatorName && (
+                                <div className="text-[11px]">
+                                  <OperatorInlineBadge
+                                    size="xs"
+                                    label="Operador:"
+                                    name={r.operatorName}
+                                    imageUrl={r.operatorImageUrl}
+                                    operatorId={r.operatorId}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          </td>
                           <td>
                             {r.installmentNumber}/{r.totalInstallments}
                           </td>
@@ -1534,6 +1582,18 @@ export function RetailCrediarioPage() {
             className="retail-dialog-body retail-stack"
             onSubmit={handleSubmitPayment}
           >
+            {(shift.operator?.name || authUser?.name) && (
+              <div>
+                <OperatorInlineBadge
+                  size="xs"
+                  variant="pill"
+                  label="Recebido por:"
+                  name={shift.operator?.name || authUser?.name}
+                  imageUrl={shift.operator?.imageUrl ?? authUser?.imageUrl}
+                  operatorId={shift.operator?.id || authUser?.id}
+                />
+              </div>
+            )}
             <p className="retail-muted">
               {paymentModal.receivableLabel
                 ? `Baixa referente a: ${paymentModal.receivableLabel}`
@@ -1901,7 +1961,47 @@ export function RetailCrediarioPage() {
                     {selectedCustomerDetail.receivables.map((r: any) => (
                       <tr key={r.id}>
                         <td>{formatDateBr(r.dueDate)}</td>
-                        <td>{formatInstallmentDescription(r)}</td>
+                        <td>
+                          <div className="space-y-1.5">
+                            <div>{formatInstallmentDescription(r)}</div>
+                            {r.sale?.items?.length > 0 && (
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                {r.sale.items.slice(0, 3).map((it: any) => (
+                                  <span
+                                    key={it.id}
+                                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-page border border-line text-[11px] text-ink"
+                                  >
+                                    <StockItemThumb
+                                      size="xs"
+                                      name={it.productName}
+                                      imageUrl={it.imageUrl}
+                                      product={it}
+                                    />
+                                    <span className="truncate max-w-[140px]">
+                                      {it.quantity}× {it.productName}
+                                    </span>
+                                  </span>
+                                ))}
+                                {r.sale.items.length > 3 && (
+                                  <small className="retail-muted">
+                                    +{r.sale.items.length - 3}
+                                  </small>
+                                )}
+                              </div>
+                            )}
+                            {r.operatorName && (
+                              <div className="text-[11px]">
+                                <OperatorInlineBadge
+                                  size="xs"
+                                  label="Lançado por:"
+                                  name={r.operatorName}
+                                  imageUrl={r.operatorImageUrl}
+                                  operatorId={r.operatorId}
+                                />
+                              </div>
+                            )}
+                          </div>
+                        </td>
                         <td className="retail-number">
                           {money(r.originalAmount)}
                         </td>
@@ -1939,6 +2039,39 @@ export function RetailCrediarioPage() {
               </div>
             ) : (
               <p className="retail-muted">Nenhuma parcela registrada.</p>
+            )}
+
+            {selectedCustomerDetail.payments?.length > 0 && (
+              <>
+                <h3>Baixas e Recebimentos</h3>
+                <div className="retail-stack" style={{ gap: 8 }}>
+                  {selectedCustomerDetail.payments.map((pay: any) => (
+                    <div className="retail-payment-line" key={pay.id}>
+                      <div className="flex flex-wrap items-center gap-2 min-w-0">
+                        <span className="text-xs font-semibold text-ink">
+                          {new Date(pay.createdAt).toLocaleString("pt-BR")}
+                        </span>
+                        <span className="retail-badge">
+                          {String(pay.paymentMethod || "").toUpperCase()}
+                        </span>
+                        {pay.operatorName && (
+                          <OperatorInlineBadge
+                            size="xs"
+                            variant="pill"
+                            label="Recebido por:"
+                            name={pay.operatorName}
+                            imageUrl={pay.operatorImageUrl}
+                            operatorId={pay.operatorId}
+                          />
+                        )}
+                      </div>
+                      <strong className="retail-number shrink-0">
+                        {money(pay.amount)}
+                      </strong>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
 
             <div className="retail-dialog-footer">

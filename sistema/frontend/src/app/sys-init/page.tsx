@@ -16,6 +16,7 @@ import { exportTelemetry, clearTelemetry } from "@/lib/telemetry";
 import { db } from "@/lib/db";
 import { useAuthStore } from "@/store/auth";
 import { useOperatorTokenStore } from "@/store/operatorToken";
+import { OperatorAvatarThumb } from "@/components/EntityPhotos";
 import { TenantBillingCalendar } from "@/components/TenantBillingCalendar";
 import { TenantInvoicesManager } from "@/components/sys-init/TenantInvoicesManager";
 import { LeadgerIntegrationPanel } from "@/components/sys-init/LeadgerIntegrationPanel";
@@ -1466,12 +1467,25 @@ export default function SysInitPage() {
                             </div>
                           )}
                           {(t.emailContato || admin?.email) && (
-                            <div className="flex items-center justify-between gap-1">
-                              <span className="truncate">Login: {admin?.email || t.emailContato}</span>
+                            <div className="flex items-center justify-between gap-1.5 pt-0.5">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                {admin && (
+                                  <OperatorAvatarThumb
+                                    name={admin.name || admin.email}
+                                    operatorId={admin.id}
+                                    imageUrl={admin.imageUrl}
+                                    size="xs"
+                                  />
+                                )}
+                                <span className="truncate">
+                                  {admin?.name ? `${admin.name} · ` : 'Login: '}
+                                  {admin?.email || t.emailContato}
+                                </span>
+                              </div>
                               <button
                                 type="button"
                                 onClick={() => handleCopyValue(admin?.email || t.emailContato)}
-                                className="text-muted hover:text-brand p-0.5"
+                                className="text-muted hover:text-brand p-0.5 shrink-0"
                                 title="Copiar e-mail de login"
                               >
                                 <Copy size={11} />
@@ -3023,32 +3037,41 @@ export default function SysInitPage() {
                       <div className="space-y-3">
                         {tenantUsers.map(user => (
                           <div key={user.id} className="bg-page border border-line rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                            <div>
-                              <div className="font-bold text-ink flex flex-wrap items-center gap-2">
-                                <span>{user.name}</span>
-                                <select
-                                  value={user.role}
-                                  onChange={async (e) => {
-                                    const newRole = e.target.value;
-                                    try {
-                                      const pinSetup = pinDigits.join('');
-                                      await api.patch(`/tenants/setup/${editingTenant.id}/users/${user.id}`, { role: newRole }, { headers: { 'x-setup-pin': pinSetup } });
-                                      toast.success(`Cargo de ${user.name} alterado para ${newRole}.`);
-                                      const { data: users } = await api.get(`/tenants/setup/${editingTenant.id}/users`, { headers: { 'x-setup-pin': pinSetup } });
-                                      setTenantUsers(users || []);
-                                    } catch (err: any) {
-                                      toast.error(err.response?.data?.message || 'Erro ao alterar cargo.');
-                                    }
-                                  }}
-                                  className="text-[11px] font-bold px-2 py-0.5 rounded-full border border-brand bg-support text-brand outline-none cursor-pointer"
-                                >
-                                  <option value="admin">admin</option>
-                                  <option value="operator">operator</option>
-                                  <option value="stockist">stockist</option>
-                                </select>
-                                {!user.active && <span className="text-[10px] px-2 py-0.5 rounded-full bg-surface text-muted border border-line">Bloqueado</span>}
+                            <div className="flex items-center gap-3 min-w-0">
+                              <OperatorAvatarThumb
+                                name={user.name}
+                                operatorId={user.id}
+                                imageUrl={user.imageUrl}
+                                size="lg"
+                                className="border-brand"
+                              />
+                              <div className="min-w-0">
+                                <div className="font-bold text-ink flex flex-wrap items-center gap-2">
+                                  <span>{user.name}</span>
+                                  <select
+                                    value={user.role}
+                                    onChange={async (e) => {
+                                      const newRole = e.target.value;
+                                      try {
+                                        const pinSetup = pinDigits.join('');
+                                        await api.patch(`/tenants/setup/${editingTenant.id}/users/${user.id}`, { role: newRole }, { headers: { 'x-setup-pin': pinSetup } });
+                                        toast.success(`Cargo de ${user.name} alterado para ${newRole}.`);
+                                        const { data: users } = await api.get(`/tenants/setup/${editingTenant.id}/users`, { headers: { 'x-setup-pin': pinSetup } });
+                                        setTenantUsers(users || []);
+                                      } catch (err: any) {
+                                        toast.error(err.response?.data?.message || 'Erro ao alterar cargo.');
+                                      }
+                                    }}
+                                    className="text-[11px] font-bold px-2 py-0.5 rounded-full border border-brand bg-support text-brand outline-none cursor-pointer"
+                                  >
+                                    <option value="admin">admin</option>
+                                    <option value="operator">operator</option>
+                                    <option value="stockist">stockist</option>
+                                  </select>
+                                  {!user.active && <span className="text-[10px] px-2 py-0.5 rounded-full bg-surface text-muted border border-line">Bloqueado</span>}
+                                </div>
+                                <p className="text-xs text-muted font-mono mt-0.5 truncate">{user.email}</p>
                               </div>
-                              <p className="text-xs text-muted font-mono mt-0.5">{user.email}</p>
                             </div>
                             <div className="flex flex-wrap items-center gap-1.5">
                               <button
@@ -3386,7 +3409,19 @@ export default function SysInitPage() {
                     ) : (
                       groupUsers.map((u: any) => (
                         <div key={u.id} className="bg-page border border-line rounded-xl p-3 flex justify-between items-center gap-2">
-                          <div><p className="font-semibold text-ink text-sm">{u.name}</p><p className="text-xs text-muted">{u.email}</p></div>
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <OperatorAvatarThumb
+                              name={u.name}
+                              operatorId={u.id}
+                              imageUrl={u.imageUrl}
+                              size="md"
+                              className="border-brand"
+                            />
+                            <div className="min-w-0">
+                              <p className="font-semibold text-ink text-sm truncate">{u.name}</p>
+                              <p className="text-xs text-muted truncate">{u.email}</p>
+                            </div>
+                          </div>
                           <button
                             type="button"
                             onClick={() => handleDeleteGroupUser(u.id)}

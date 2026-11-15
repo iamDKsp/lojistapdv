@@ -11,6 +11,7 @@ export interface MasterProductLookupResult {
     ncm: string | null;
     cest: string | null;
     unit: string;
+    imageUrl?: string | null;
   } | null;
 }
 
@@ -90,7 +91,7 @@ export class MasterProductsService {
     // ── 1. Tenta o cache local (MasterProduct no Heart DB) ──────────────────
     const cached = await this.heartPrisma.masterProduct.findUnique({
       where: { ean: cleanEan },
-      select: { ean: true, name: true, brand: true, ncm: true, cest: true, unit: true },
+      select: { ean: true, name: true, brand: true, ncm: true, cest: true, unit: true, imageUrl: true },
     });
 
     if (cached) {
@@ -167,6 +168,10 @@ export class MasterProductsService {
       if (!name) return null; // Produto sem nome é inútil
 
       // Monta o produto
+      const cosmosImageUrl =
+        (typeof data.thumbnail === 'string' && data.thumbnail.trim()) ||
+        (typeof data.picture === 'string' && data.picture.trim()) ||
+        null;
       const productData = {
         ean,
         name:     name.charAt(0).toUpperCase() + name.slice(1).toLowerCase(),
@@ -175,13 +180,20 @@ export class MasterProductsService {
         cest:     fiscal.cest,
         unit,
         category: categories[0] || null,
+        imageUrl: cosmosImageUrl,
         source:   'cosmos',
       };
 
       // Salva no cache permanente (upsert — idempotente)
       await this.heartPrisma.masterProduct.upsert({
         where:  { ean },
-        update: { name: productData.name, brand: productData.brand, ncm: productData.ncm, cest: productData.cest },
+        update: {
+          name: productData.name,
+          brand: productData.brand,
+          ncm: productData.ncm,
+          cest: productData.cest,
+          ...(productData.imageUrl ? { imageUrl: productData.imageUrl } : {}),
+        },
         create: productData,
       });
 
@@ -190,11 +202,12 @@ export class MasterProductsService {
         source: 'cosmos',
         product: {
           ean,
-          name:  productData.name,
-          brand: productData.brand,
-          ncm:   productData.ncm,
-          cest:  productData.cest,
+          name:     productData.name,
+          brand:    productData.brand,
+          ncm:      productData.ncm,
+          cest:     productData.cest,
           unit,
+          imageUrl: productData.imageUrl,
         },
       };
     } catch {

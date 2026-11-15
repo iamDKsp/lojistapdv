@@ -1,6 +1,7 @@
-import { Injectable, BadRequestException, ConflictException, Logger } from '@nestjs/common';
+import { Injectable, BadRequestException, ConflictException, Logger, Optional } from '@nestjs/common';
 import { TenantConnectionManager } from '../../prisma/tenant-prisma.service';
 import { TenantContextService } from '../../prisma/tenant-context.service';
+import { EntityPhotoResolverService } from '../../prisma/entity-photo-resolver.service';
 import { FiscalLoggerService } from '../audit/fiscal-logger.service';
 import { FiscalStorageService } from '../audit/fiscal-storage.service';
 import { XmlParserService } from './xml-parser.service';
@@ -23,11 +24,64 @@ export class FiscalImportService {
     private readonly parser: XmlParserService,
     private readonly validation: ValidationStage,
     private readonly matchStage: MatchStage,
+    @Optional() private readonly photoResolver?: EntityPhotoResolverService,
   ) {}
 
   private async getPrisma() {
     const { tenantId, databaseUrl } = this.tenantContext.get();
     return this.tenantManager.getTenantClient(tenantId, databaseUrl);
+  }
+
+  private hydrateNfeItem(item: any) {
+    if (!item) return item;
+    const product = item.product
+      ? EntityPhotoResolverService.withResolvedProductImage(item.product)
+      : null;
+    return {
+      ...item,
+      imageUrl: product?.imageUrl || null,
+      product,
+    };
+  }
+
+  private async hydrateNfeList(rows: any[], prisma: any) {
+    if (!Array.isArray(rows) || rows.length === 0) return rows;
+    const { tenantId } = this.tenantContext.get();
+    const actors = this.photoResolver
+      ? await this.photoResolver.loadTenantActors(tenantId, prisma)
+      : null;
+    return rows.map((nfe) => this.hydrateSingleNfe(nfe, actors));
+  }
+
+  private hydrateSingleNfe(nfe: any, actors: any) {
+    if (!nfe) return nfe;
+    const eventsWithUser = Array.isArray(nfe.eventos)
+      ? nfe.eventos.filter((ev: any) => Boolean(ev?.performedByUserId))
+      : [];
+    const importEvent =
+      eventsWithUser.find((ev: any) =>
+        String(ev.type || '').includes('IMPORT'),
+      ) ||
+      eventsWithUser[0] ||
+      null;
+    const actor =
+      importEvent?.performedByUserId && actors
+        ? actors.resolveActor({ id: importEvent.performedByUserId })
+        : {
+            id: importEvent?.performedByUserId || null,
+            name: null,
+            imageUrl: null,
+          };
+
+    return {
+      ...nfe,
+      importedByUserId: actor.id,
+      importedByName: actor.name,
+      importedByImageUrl: actor.imageUrl,
+      itens: Array.isArray(nfe.itens)
+        ? nfe.itens.map((it: any) => this.hydrateNfeItem(it))
+        : nfe.itens,
+    };
   }
 
   /**
@@ -194,7 +248,15 @@ export class FiscalImportService {
       where: { id: nfeEntrada.id },
       data: { status: finalStatus as any },
       include: {
-        itens: { include: { product: true } },
+        itens: {
+          include: {
+            product: {
+              include: {
+                retailGroup: { select: { id: true, name: true, imageUrl: true } },
+              },
+            },
+          },
+        },
         supplier: true,
       },
     });
@@ -213,6 +275,13 @@ export class FiscalImportService {
     const traceResult = trace.finish();
     trace.log(`Upload concluído | NfeEntrada.id: ${nfeEntrada.id}`);
 
+    const actors =
+      userId && this.photoResolver
+        ? await this.photoResolver.loadTenantActors(tenantId, prisma)
+        : null;
+    const uploader =
+      userId && actors ? actors.resolveActor({ id: userId }) : null;
+
     return {
       id:            nfeFinal.id,
       correlationId,
@@ -223,7 +292,10 @@ export class FiscalImportService {
       fornecedor:    parsed.fornecedor,
       valorTotal:    parsed.valorTotal,
       status:        nfeFinal.status,
-      itens:         nfeFinal.itens,
+      importedByUserId: uploader?.id || userId || null,
+      importedByName: uploader?.name || null,
+      importedByImageUrl: uploader?.imageUrl || null,
+      itens:         nfeFinal.itens.map((it: any) => this.hydrateNfeItem(it)),
       trace:         traceResult,
     };
   }
@@ -233,13 +305,30 @@ export class FiscalImportService {
    */
   async listarPendentes() {
     const prisma = await this.getPrisma();
-    return prisma.nfeEntrada.findMany({
+    const rows = await prisma.nfeEntrada.findMany({
       where: {
         status: { in: ['RECEBIDA', 'PROCESSANDO', 'AGUARDANDO_CONCILIACAO', 'PRONTA_IMPORTAR', 'IMPORTANDO', 'ERRO'] } as any,
       },
       orderBy: { dataEmissao: 'desc' },
-      include: { supplier: true, itens: true },
+      include: {
+        supplier: true,
+        itens: {
+          include: {
+            product: {
+              include: {
+                retailGroup: { select: { id: true, name: true, imageUrl: true } },
+              },
+            },
+          },
+        },
+        eventos: {
+          where: { performedByUserId: { not: null } },
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+        },
+      },
     });
+    return this.hydrateNfeList(rows, prisma);
   }
 
   /**
@@ -247,13 +336,30 @@ export class FiscalImportService {
    */
   async listarHistorico() {
     const prisma = await this.getPrisma();
-    return prisma.nfeEntrada.findMany({
+    const rows = await prisma.nfeEntrada.findMany({
       where: {
         status: { in: ['IMPORTADA', 'CANCELADA'] } as any,
       },
       orderBy: { importadaEm: 'desc' },
-      include: { supplier: true, itens: true },
+      include: {
+        supplier: true,
+        itens: {
+          include: {
+            product: {
+              include: {
+                retailGroup: { select: { id: true, name: true, imageUrl: true } },
+              },
+            },
+          },
+        },
+        eventos: {
+          where: { performedByUserId: { not: null } },
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+        },
+      },
     });
+    return this.hydrateNfeList(rows, prisma);
   }
 
   /**
@@ -362,9 +468,20 @@ export class FiscalImportService {
       where: { id: nfeId },
       include: {
         itens: {
-          include: { product: true },
+          include: {
+            product: {
+              include: {
+                retailGroup: { select: { id: true, name: true, imageUrl: true } },
+              },
+            },
+          },
         },
         supplier: true,
+        eventos: {
+          where: { performedByUserId: { not: null } },
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+        },
       },
     });
 
@@ -372,7 +489,11 @@ export class FiscalImportService {
       throw new BadRequestException('Nota fiscal não encontrada.');
     }
 
-    return nfe;
+    const { tenantId } = this.tenantContext.get();
+    const actors = this.photoResolver
+      ? await this.photoResolver.loadTenantActors(tenantId, prisma)
+      : null;
+    return this.hydrateSingleNfe(nfe, actors);
   }
 
   /**
@@ -477,7 +598,13 @@ export class FiscalImportService {
         qCom:          data.qCom !== undefined ? data.qCom : undefined,
         vUnCom:        data.vUnCom !== undefined ? data.vUnCom : undefined,
       },
-      include: { product: true },
+      include: {
+        product: {
+          include: {
+            retailGroup: { select: { id: true, name: true, imageUrl: true } },
+          },
+        },
+      },
     });
 
     // Verifica se todos os itens da nota agora possuem productId
@@ -498,7 +625,7 @@ export class FiscalImportService {
       });
     }
 
-    return updatedItem;
+    return this.hydrateNfeItem(updatedItem);
   }
 
   /**
@@ -603,13 +730,31 @@ export class FiscalImportService {
     const allMatched = matchResults.every(r => r.matchStatus === 'matched');
     const finalStatus = allMatched ? 'PRONTA_IMPORTAR' : 'AGUARDANDO_CONCILIACAO';
 
-    return prisma.nfeEntrada.update({
+    const updatedNfe = await prisma.nfeEntrada.update({
       where: { id: nfeId },
       data: { status: finalStatus as any },
       include: {
-        itens: { include: { product: true } },
+        itens: {
+          include: {
+            product: {
+              include: {
+                retailGroup: { select: { id: true, name: true, imageUrl: true } },
+              },
+            },
+          },
+        },
         supplier: true,
+        eventos: {
+          where: { performedByUserId: { not: null } },
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+        },
       },
     });
+    const { tenantId } = this.tenantContext.get();
+    const actors = this.photoResolver
+      ? await this.photoResolver.loadTenantActors(tenantId, prisma)
+      : null;
+    return this.hydrateSingleNfe(updatedNfe, actors);
   }
 }

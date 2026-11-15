@@ -142,6 +142,65 @@ export const DEMO_PRODUCT_IMAGES: Record<string, string> = {
   `),
 };
 
+/**
+ * Retratos vetoriais dos colaboradores da Loja Demonstração na paleta aprovada.
+ */
+export const DEMO_OPERATOR_AVATARS = {
+  manager: buildSvgDataUri(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" fill="none">
+      <rect width="160" height="160" rx="80" fill="#F3E8FF"/>
+      <circle cx="80" cy="80" r="72" stroke="#E5E1ED" stroke-width="3"/>
+      <path d="M30 148 C34 114, 54 102, 80 102 C106 102, 126 114, 130 148 Z" fill="#7C3AED" stroke="#272321" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M66 102 L80 124 L94 102 Z" fill="#FFFFFF" stroke="#272321" stroke-width="3" stroke-linejoin="round"/>
+      <circle cx="80" cy="64" r="26" fill="#FFFFFF" stroke="#272321" stroke-width="4"/>
+      <path d="M54 62 C54 42, 66 32, 82 32 C98 32, 108 44, 106 62 C100 52, 90 48, 78 48 C66 48, 58 54, 54 62 Z" fill="#272321"/>
+      <circle cx="71" cy="66" r="2.8" fill="#272321"/>
+      <circle cx="89" cy="66" r="2.8" fill="#272321"/>
+      <path d="M73 76 Q80 81 87 76" stroke="#6D28D9" stroke-width="3" stroke-linecap="round"/>
+    </svg>
+  `),
+  cashier: buildSvgDataUri(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" fill="none">
+      <rect width="160" height="160" rx="80" fill="#F8F7FC"/>
+      <circle cx="80" cy="80" r="72" fill="#F3E8FF" stroke="#E5E1ED" stroke-width="3"/>
+      <path d="M32 148 C36 114, 55 103, 80 103 C105 103, 124 114, 128 148 Z" fill="#272321" stroke="#272321" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M68 103 L80 128 L92 103 Z" fill="#FFFFFF"/>
+      <path d="M77 108 H83 L85 134 L80 140 L75 134 Z" fill="#7C3AED"/>
+      <circle cx="80" cy="64" r="25" fill="#FFFFFF" stroke="#272321" stroke-width="4"/>
+      <path d="M56 58 C58 40, 70 34, 84 35 C96 36, 104 44, 104 58 C96 50, 66 50, 56 58 Z" fill="#272321"/>
+      <circle cx="71" cy="65" r="2.8" fill="#272321"/>
+      <circle cx="89" cy="65" r="2.8" fill="#272321"/>
+      <path d="M73 75 Q80 80 87 75" stroke="#272321" stroke-width="3" stroke-linecap="round"/>
+    </svg>
+  `),
+  mariana: buildSvgDataUri(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" fill="none">
+      <rect width="160" height="160" rx="80" fill="#F3E8FF"/>
+      <circle cx="80" cy="80" r="72" stroke="#7C3AED" stroke-width="3"/>
+      <path d="M48 66 C48 40, 62 30, 80 30 C98 30, 112 40, 112 66 L116 98 H44 Z" fill="#272321"/>
+      <path d="M32 148 C36 114, 55 103, 80 103 C105 103, 124 114, 128 148 Z" fill="#6D28D9" stroke="#272321" stroke-width="4" stroke-linejoin="round"/>
+      <circle cx="80" cy="66" r="24" fill="#FFFFFF" stroke="#272321" stroke-width="4"/>
+      <path d="M56 60 C62 46, 98 46, 104 60 C96 52, 64 52, 56 60 Z" fill="#272321"/>
+      <circle cx="72" cy="66" r="2.8" fill="#272321"/>
+      <circle cx="88" cy="66" r="2.8" fill="#272321"/>
+      <path d="M73 76 Q80 81 87 76" stroke="#7C3AED" stroke-width="3" stroke-linecap="round"/>
+    </svg>
+  `),
+  beatriz: buildSvgDataUri(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" fill="none">
+      <rect width="160" height="160" rx="80" fill="#F8F7FC"/>
+      <circle cx="80" cy="80" r="72" fill="#F3E8FF" stroke="#E5E1ED" stroke-width="3"/>
+      <path d="M46 68 C46 40, 62 32, 80 32 C98 32, 114 40, 114 68 L112 96 H48 Z" fill="#665F70"/>
+      <path d="M32 148 C36 114, 55 103, 80 103 C105 103, 124 114, 128 148 Z" fill="#FFFFFF" stroke="#272321" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M66 104 H94 L88 148 H72 Z" fill="#7C3AED"/>
+      <circle cx="80" cy="66" r="24" fill="#FFFFFF" stroke="#272321" stroke-width="4"/>
+      <circle cx="72" cy="66" r="2.8" fill="#272321"/>
+      <circle cx="88" cy="66" r="2.8" fill="#272321"/>
+      <path d="M73 76 Q80 81 87 76" stroke="#6D28D9" stroke-width="3" stroke-linecap="round"/>
+    </svg>
+  `),
+};
+
 export interface DemoCatalogGroupSeed {
   key: string;
   name: string;
@@ -267,7 +326,20 @@ export async function resetDemoDatabaseState(
   client: PrismaClient,
   visitorName?: string,
 ): Promise<{
-  primaryOperator: { id: string; name: string; jobTitle: string | null; isManager: boolean };
+  primaryOperator: {
+    id: string;
+    name: string;
+    jobTitle: string | null;
+    isManager: boolean;
+    imageUrl: string;
+  };
+  operators: Array<{
+    id: string;
+    name: string;
+    jobTitle: string | null;
+    isManager: boolean;
+    imageUrl: string;
+  }>;
   openRegister: { id: string; code: number; status: string; openingValue: number };
 }> {
   const defaultPinHash = await bcrypt.hash(DEMO_OPERATOR_PIN, 10);
@@ -1252,8 +1324,8 @@ export async function resetDemoDatabaseState(
         active: true,
         version: 1,
         publishedAt: new Date(),
-        publishedByUserId: 'demo-admin',
-        publishedByName: 'Carla Mendes (Gerente)',
+        publishedByUserId: opManager.id,
+        publishedByName: opManager.name,
         draftUpdatedAt: new Date(),
         theme: 'dark_premium',
         showLogo: true,
@@ -1272,8 +1344,8 @@ export async function resetDemoDatabaseState(
         active: true,
         version: 1,
         publishedAt: new Date(),
-        publishedByUserId: 'demo-admin',
-        publishedByName: 'Carla Mendes (Gerente)',
+        publishedByUserId: opManager.id,
+        publishedByName: opManager.name,
         draftUpdatedAt: new Date(),
         theme: 'dark_premium',
         showLogo: true,
@@ -1290,13 +1362,40 @@ export async function resetDemoDatabaseState(
     })
     .catch(() => {});
 
-  return {
-    primaryOperator: {
+  const demoOperators = [
+    {
       id: opManager.id,
       name: opManager.name,
       jobTitle: opManager.jobTitle,
       isManager: opManager.isManager,
+      imageUrl: DEMO_OPERATOR_AVATARS.manager,
     },
+    {
+      id: opCashier.id,
+      name: opCashier.name,
+      jobTitle: opCashier.jobTitle,
+      isManager: opCashier.isManager,
+      imageUrl: DEMO_OPERATOR_AVATARS.cashier,
+    },
+    {
+      id: opMariana.id,
+      name: opMariana.name,
+      jobTitle: opMariana.jobTitle,
+      isManager: opMariana.isManager,
+      imageUrl: DEMO_OPERATOR_AVATARS.mariana,
+    },
+    {
+      id: opBeatriz.id,
+      name: opBeatriz.name,
+      jobTitle: opBeatriz.jobTitle,
+      isManager: opBeatriz.isManager,
+      imageUrl: DEMO_OPERATOR_AVATARS.beatriz,
+    },
+  ];
+
+  return {
+    primaryOperator: demoOperators[0],
+    operators: demoOperators,
     openRegister: {
       id: openReg.id,
       code: openReg.code || 2,

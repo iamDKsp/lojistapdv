@@ -274,9 +274,9 @@ export function StorefrontCartDrawer({
                                   }}
                                   className="w-14 h-18 rounded-xl overflow-hidden border border-line bg-page shrink-0 cursor-pointer"
                                 >
-                                  {item.imageUrl ? (
+                                  {(item.imageUrl || valItem?.imageUrl) ? (
                                     <img
-                                      src={getFullUrl(item.imageUrl)}
+                                      src={getFullUrl(item.imageUrl || valItem?.imageUrl)}
                                       alt={item.productName}
                                       className="w-full h-full object-cover"
                                     />

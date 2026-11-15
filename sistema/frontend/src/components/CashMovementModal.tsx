@@ -2,7 +2,10 @@ import { useState } from "react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { X, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { useShift } from "@/contexts/ShiftContext";
+import { useAuthStore } from "@/store/auth";
 import PdvLojistaLoader from "./PdvLojistaLoader";
+import { OperatorInlineBadge } from "./EntityPhotos";
 
 export function CashMovementModal({
   isOpen,
@@ -17,6 +20,13 @@ export function CashMovementModal({
   const [value, setValue] = useState<number | "">("");
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const { operator, cashRegister } = useShift();
+  const authUser = useAuthStore((s) => s.user);
+  const activeActorName =
+    operator?.name || cashRegister?.operator?.name || authUser?.name || "Operador";
+  const activeActorId = operator?.id || cashRegister?.operator?.id || authUser?.id;
+  const activeActorImg =
+    operator?.imageUrl || cashRegister?.operator?.imageUrl || authUser?.imageUrl;
 
   if (!isOpen) return null;
 
@@ -54,9 +64,20 @@ export function CashMovementModal({
       >
         <div className="retail-sheet-handle" aria-hidden="true" />
         <div className="flex justify-between items-center p-6 border-b border-line">
-          <h2 className="text-xl font-bold flex items-center gap-2">
-            Sangria / Suprimento
-          </h2>
+          <div className="min-w-0">
+            <h2 className="text-xl font-bold flex items-center gap-2">
+              Sangria / Suprimento
+            </h2>
+            <div className="mt-1 text-xs">
+              <OperatorInlineBadge
+                operatorId={activeActorId}
+                name={activeActorName}
+                imageUrl={activeActorImg}
+                label="Responsável:"
+                size="xs"
+              />
+            </div>
+          </div>
           <button
             type="button"
             onClick={() => onClose(false)}

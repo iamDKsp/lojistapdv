@@ -6,7 +6,6 @@ import {
   Plus,
   Edit,
   Trash,
-  Package,
   Search,
   Phone,
   Save,
@@ -18,6 +17,7 @@ import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { PdvLojistaLoader } from '@/components/ui';
 import { SpWholesaleMapHub } from '@/components/suppliers/SpWholesaleMapHub';
+import { StockItemThumb } from '@/components/EntityPhotos';
 
 export default function SuppliersPage() {
   const [activeView, setActiveView] = useState<'sp_hub' | 'local'>('sp_hub');
@@ -392,15 +392,9 @@ function SupplierCatalog({ supplier, onUpdate }: { supplier: any; onUpdate: () =
                   className="flex items-center justify-between p-3 hover:bg-support/50 rounded-lg transition"
                 >
                   <div>
-                    <strong className="block text-sm text-muted flex items-center gap-2">
-                      {p.imageUrl && (
-                        <img
-                          src={p.imageUrl}
-                          alt={p.name}
-                          className="w-6 h-6 rounded object-cover bg-page"
-                        />
-                      )}
-                      {p.name}
+                    <strong className="text-sm text-ink flex items-center gap-2">
+                      <StockItemThumb product={p} name={p.name} size="xs" />
+                      <span>{p.name}</span>
                     </strong>
                     <span className="text-xs text-muted">
                       Custo atual: R$ {Number(p.priceCost).toFixed(2)}
@@ -434,19 +428,13 @@ function SupplierCatalog({ supplier, onUpdate }: { supplier: any; onUpdate: () =
               className="flex items-center justify-between p-4 bg-page border border-line rounded-xl group hover:border-line transition"
             >
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-page flex items-center justify-center overflow-hidden">
-                  {sp.product?.imageUrl ? (
-                    <img
-                      src={sp.product.imageUrl}
-                      alt={sp.product.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <Package size={18} className="text-muted" />
-                  )}
-                </div>
+                <StockItemThumb
+                  product={sp.product}
+                  name={sp.product?.name}
+                  size="md"
+                />
                 <div>
-                  <strong className="block text-sm text-muted">{sp.product.name}</strong>
+                  <strong className="block text-sm text-ink">{sp.product.name}</strong>
                   <span className="text-xs text-muted">
                     Custo atual no sistema: R$ {Number(sp.product.priceCost).toFixed(2)}
                   </span>

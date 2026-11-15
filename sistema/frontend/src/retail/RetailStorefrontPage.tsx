@@ -63,6 +63,9 @@ import {
   StorefrontOrderExpressDispatchCard,
 } from './StorefrontExpressDeliveryTab';
 import { apiError, money } from './types';
+import { OperatorInlineBadge, StockItemThumb } from '@/components/EntityPhotos';
+import { useShift } from '@/contexts/ShiftContext';
+import { useAuthStore } from '@/store/auth';
 
 type TabKey =
   | 'overview'
@@ -295,6 +298,8 @@ function formatRemainingReservation(expiresAtIso?: string | null): string | null
 export function RetailStorefrontPage() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { operator: shiftOperator } = useShift();
+  const authUser = useAuthStore((s) => s.user);
 
   const activeTab: TabKey = useMemo(() => {
     const p = location.pathname;
@@ -387,6 +392,23 @@ export function RetailStorefrontPage() {
   const [orderSearch, setOrderSearch] = useState('');
   const [debouncedOrderSearch, setDebouncedOrderSearch] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
+
+  useEffect(() => {
+    const orderId = selectedOrder?.id;
+    if (!orderId || Array.isArray(selectedOrder?.events)) return;
+    let cancelled = false;
+    api
+      .get(`/storefront/admin/orders/${orderId}`)
+      .then((res) => {
+        if (!cancelled && res.data?.id === orderId) {
+          setSelectedOrder(normalizeAdminOrder(res.data));
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedOrder?.id, selectedOrder?.events]);
 
   // Dialog de Conversão em Venda no PDV
   const [showConvertDialog, setShowConvertDialog] = useState(false);
@@ -1266,6 +1288,26 @@ export function RetailStorefrontPage() {
             >
               {isPublished ? '● Loja Publicada' : '○ Rascunho Offline'}
             </span>
+            {(overview?.config?.publishedByName ||
+              overview?.settings?.publishedByName) && (
+              <OperatorInlineBadge
+                label="Publicado por:"
+                name={
+                  overview?.config?.publishedByName ||
+                  overview?.settings?.publishedByName
+                }
+                imageUrl={
+                  overview?.config?.publishedByImageUrl ||
+                  overview?.settings?.publishedByImageUrl
+                }
+                operatorId={
+                  overview?.config?.publishedByUserId ||
+                  overview?.settings?.publishedByUserId
+                }
+                size="xs"
+                variant="pill"
+              />
+            )}
             {overview?.hasUnpublishedChanges && isPublished && (
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-page text-brand border border-line">
                 Alterações de aparência pendentes de publicação
@@ -1497,6 +1539,41 @@ export function RetailStorefrontPage() {
                               {money(ord.total)}
                             </strong>
                           </p>
+                          {Array.isArray(ord.items) && ord.items.length > 0 && (
+                            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                              {ord.items.slice(0, 3).map((it: any, itIdx: number) => (
+                                <span
+                                  key={it.id || itIdx}
+                                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-surface border border-line text-[11px] text-ink"
+                                >
+                                  <StockItemThumb
+                                    name={it.productName}
+                                    imageUrl={it.imageUrl}
+                                    size="xs"
+                                  />
+                                  <span className="truncate max-w-[140px]">
+                                    {it.quantity}x {it.productName}
+                                  </span>
+                                </span>
+                              ))}
+                              {ord.items.length > 3 && (
+                                <span className="text-[11px] font-bold text-muted">
+                                  +{ord.items.length - 3}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          {ord.confirmedByName && (
+                            <div className="pt-0.5 text-xs">
+                              <OperatorInlineBadge
+                                label="Confirmado por:"
+                                name={ord.confirmedByName}
+                                imageUrl={ord.confirmedByImageUrl}
+                                operatorId={ord.confirmedByUserId}
+                                size="xs"
+                              />
+                            </div>
+                          )}
                         </div>
 
                         <div className="flex items-center gap-2 shrink-0">
@@ -1812,6 +1889,31 @@ export function RetailStorefrontPage() {
                             : 'Retirada'}
                         </p>
 
+                        {Array.isArray(ord.items) && ord.items.length > 0 && (
+                          <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                            {ord.items.slice(0, 3).map((it: any, itIdx: number) => (
+                              <span
+                                key={it.id || itIdx}
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-surface border border-line text-[11px] text-ink"
+                              >
+                                <StockItemThumb
+                                  name={it.productName}
+                                  imageUrl={it.imageUrl}
+                                  size="xs"
+                                />
+                                <span className="truncate max-w-[110px]">
+                                  {it.quantity}x {it.productName}
+                                </span>
+                              </span>
+                            ))}
+                            {ord.items.length > 3 && (
+                              <span className="text-[10px] font-bold text-muted">
+                                +{ord.items.length - 3}
+                              </span>
+                            )}
+                          </div>
+                        )}
+
                         <div className="flex items-center justify-between mt-2 pt-2 border-t border-line text-xs">
                           <div className="flex items-center gap-2 text-muted">
                             <span>
@@ -1877,6 +1979,42 @@ export function RetailStorefrontPage() {
                           'pt-BR',
                         )}
                       </p>
+                      {(selectedOrder.confirmedByName ||
+                        selectedOrder.cancelledByName ||
+                        selectedOrder.sale?.operatorName) && (
+                        <div className="flex flex-wrap items-center gap-2 mt-2 text-xs">
+                          {selectedOrder.confirmedByName && (
+                            <OperatorInlineBadge
+                              label="Confirmado por:"
+                              name={selectedOrder.confirmedByName}
+                              imageUrl={selectedOrder.confirmedByImageUrl}
+                              operatorId={selectedOrder.confirmedByUserId}
+                              size="xs"
+                              variant="pill"
+                            />
+                          )}
+                          {selectedOrder.cancelledByName && (
+                            <OperatorInlineBadge
+                              label="Cancelado por:"
+                              name={selectedOrder.cancelledByName}
+                              imageUrl={selectedOrder.cancelledByImageUrl}
+                              operatorId={selectedOrder.cancelledByUserId}
+                              size="xs"
+                              variant="pill"
+                            />
+                          )}
+                          {selectedOrder.sale?.operatorName && (
+                            <OperatorInlineBadge
+                              label="Faturado por:"
+                              name={selectedOrder.sale.operatorName}
+                              imageUrl={selectedOrder.sale.operatorImageUrl}
+                              operatorId={selectedOrder.sale.operatorId}
+                              size="xs"
+                              variant="pill"
+                            />
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex flex-wrap gap-2">
@@ -2230,6 +2368,57 @@ export function RetailStorefrontPage() {
                         </span>
                       </div>
                     </div>
+
+                    {Array.isArray(selectedOrder.events) &&
+                      selectedOrder.events.length > 0 && (
+                        <div className="pt-3 border-t border-line space-y-2">
+                          <h5 className="font-bold text-[11px] uppercase tracking-wider text-muted">
+                            Histórico de Ações do Pedido
+                          </h5>
+                          <div className="space-y-1.5">
+                            {selectedOrder.events.map((ev: any) => {
+                              const isStaff =
+                                ev.actorType !== 'CUSTOMER' &&
+                                ev.actorType !== 'SYSTEM' &&
+                                Boolean(ev.actorName);
+                              return (
+                                <div
+                                  key={ev.id}
+                                  className="px-3 py-2 rounded-lg bg-page border border-line flex flex-wrap items-center justify-between gap-2 text-xs"
+                                >
+                                  <div className="flex flex-wrap items-center gap-2 min-w-0">
+                                    <span className="font-semibold text-ink">
+                                      {ev.eventType}
+                                    </span>
+                                    {ev.reason && (
+                                      <span className="text-muted">
+                                        — {ev.reason}
+                                      </span>
+                                    )}
+                                    {isStaff ? (
+                                      <OperatorInlineBadge
+                                        name={ev.actorName}
+                                        imageUrl={ev.actorImageUrl}
+                                        operatorId={ev.actorId}
+                                        size="xs"
+                                      />
+                                    ) : ev.actorName ? (
+                                      <span className="text-muted">
+                                        ({ev.actorName})
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                  <span className="text-[11px] text-muted tabular-nums shrink-0">
+                                    {new Date(ev.createdAt).toLocaleString(
+                                      'pt-BR',
+                                    )}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                   </div>
                 </div>
               )}
@@ -3850,6 +4039,23 @@ export function RetailStorefrontPage() {
           wide
         >
           <form onSubmit={handleSaveProductModal} className="space-y-4">
+            <div className="p-3 rounded-xl border border-line bg-page flex items-center gap-3">
+              <StockItemThumb
+                name={editingProduct.displayTitle || editingProduct.name}
+                imageUrl={editingProduct.imageUrl}
+                size="lg"
+              />
+              <div className="min-w-0">
+                <p className="font-bold text-sm text-ink truncate">
+                  {editingProduct.displayTitle || editingProduct.name}
+                </p>
+                <p className="text-xs text-muted">
+                  {money(editingProduct.priceSale)} •{' '}
+                  {editingProduct.availableStock ?? 0} un. disponíveis no PDV
+                </p>
+              </div>
+            </div>
+
             <div className="retail-form-grid">
               <label className="retail-field">
                 <span>Título público na vitrine</span>
@@ -4123,14 +4329,49 @@ export function RetailStorefrontPage() {
           busy={saving}
         >
           <form onSubmit={handleConvertOrderToSale} className="space-y-4">
-            <div className="p-3.5 rounded-xl bg-support/50 border border-brand text-xs space-y-1">
-              <p className="font-bold text-ink">
-                Cliente: {selectedOrder.customerName}
-              </p>
+            <div className="p-3.5 rounded-xl bg-support/50 border border-brand text-xs space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="font-bold text-ink">
+                  Cliente: {selectedOrder.customerName}
+                </p>
+                <OperatorInlineBadge
+                  label="Operador:"
+                  name={shiftOperator?.name || authUser?.name || 'Administrador'}
+                  imageUrl={shiftOperator?.imageUrl || authUser?.imageUrl}
+                  operatorId={shiftOperator?.id || authUser?.id}
+                  size="xs"
+                  variant="pill"
+                />
+              </div>
               <p className="text-muted">
                 Esta ação consumirá definitivamente a reserva de estoque e
                 registrará a venda no histórico do PDV Lojista.
               </p>
+              {Array.isArray(selectedOrder.items) &&
+                selectedOrder.items.length > 0 && (
+                  <div className="pt-1 space-y-1.5">
+                    {selectedOrder.items.map((it: any, itIdx: number) => (
+                      <div
+                        key={it.id || itIdx}
+                        className="flex items-center justify-between gap-2 rounded-lg bg-surface border border-line px-2.5 py-1.5"
+                      >
+                        <span className="inline-flex items-center gap-2 min-w-0">
+                          <StockItemThumb
+                            name={it.productName}
+                            imageUrl={it.imageUrl}
+                            size="xs"
+                          />
+                          <span className="font-semibold text-ink truncate">
+                            {it.quantity}x {it.productName}
+                          </span>
+                        </span>
+                        <span className="font-bold text-ink shrink-0">
+                          {money(it.subtotal)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               <p className="font-black text-base text-brand pt-1">
                 Total a faturar: {money(selectedOrder.total)}
               </p>

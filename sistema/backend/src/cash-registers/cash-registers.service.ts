@@ -395,17 +395,57 @@ export class CashRegistersService {
         operator: { select: { id: true, name: true, isManager: true } },
         sales: {
           where: { NOT: [{ status: 'cancelled' }, { source: 'ajuste_fiscal' }] },
-          select: { total: true }
-        }
-      }
+          select: {
+            total: true,
+            payments: { select: { method: true, value: true } },
+          },
+        },
+        movements: {
+          select: { type: true, value: true },
+        },
+      },
     });
 
-    return registers.map(reg => {
+    return registers.map((reg) => {
       let totalSales = reg.sales.reduce((acc, s) => acc + Number(s.total || 0), 0);
+      let totalCashDec = new Prisma.Decimal(0);
+      let totalDigitalDec = new Prisma.Decimal(0);
+
+      for (const s of reg.sales) {
+        const payments = Array.isArray((s as any).payments) ? (s as any).payments : [];
+        for (const p of payments) {
+          const val = new Prisma.Decimal(p.value || 0);
+          if (p.method === 'dinheiro') {
+            totalCashDec = totalCashDec.add(val);
+          } else if (p.method !== 'consumo_funcionario') {
+            totalDigitalDec = totalDigitalDec.add(val);
+          }
+        }
+      }
+
+      let suprimentosDec = new Prisma.Decimal(0);
+      let sangriasDec = new Prisma.Decimal(0);
+      const movementsList = Array.isArray((reg as any).movements) ? (reg as any).movements : [];
+      for (const m of movementsList) {
+        const mv = new Prisma.Decimal(m.value || 0);
+        if (m.type === 'IN') suprimentosDec = suprimentosDec.add(mv);
+        if (m.type === 'OUT') sangriasDec = sangriasDec.add(mv);
+      }
+
+      const openingDec = new Prisma.Decimal(reg.openingValue || 0);
+      const expectedCashDec = openingDec
+        .add(totalCashDec)
+        .add(suprimentosDec)
+        .sub(sangriasDec);
+      const expectedCash = expectedCashDec.toNumber();
+
       let closingDetailsParsed: any = null;
       if (reg.closingDetails) {
         try {
-          closingDetailsParsed = typeof reg.closingDetails === 'string' ? JSON.parse(reg.closingDetails) : reg.closingDetails;
+          closingDetailsParsed =
+            typeof reg.closingDetails === 'string'
+              ? JSON.parse(reg.closingDetails)
+              : reg.closingDetails;
           if (closingDetailsParsed?.totalVendasAjustado != null) {
             totalSales = Number(closingDetailsParsed.totalVendasAjustado);
           }
@@ -414,10 +454,27 @@ export class CashRegistersService {
         }
       }
 
-      const { sales, ...rest } = reg;
+      const hasClosedAudit =
+        reg.status === 'closed' &&
+        reg.closingValue !== null &&
+        reg.closingValue !== undefined;
+      const diffCash = hasClosedAudit
+        ? new Prisma.Decimal(reg.closingValue as any)
+            .sub(expectedCashDec)
+            .toNumber()
+        : null;
+
+      const { sales, movements, ...rest } = reg as any;
       return {
         ...rest,
         totalSales,
+        salesCount: Array.isArray(sales) ? sales.length : 0,
+        totalCashSales: totalCashDec.toNumber(),
+        totalDigitalSales: totalDigitalDec.toNumber(),
+        totalSuprimentos: suprimentosDec.toNumber(),
+        totalSangrias: sangriasDec.toNumber(),
+        expectedCash,
+        diffCash,
         closingDetails: closingDetailsParsed,
       };
     });

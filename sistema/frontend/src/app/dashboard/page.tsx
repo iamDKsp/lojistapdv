@@ -1,26 +1,63 @@
 "use client";
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { api } from '@/lib/api';
-import { ReemitNfceModal } from '@/components/ReemitNfceModal';
-import { PeriodReportModal } from '@/components/PeriodReportModal';
-import { PdvLojistaLoader, RetailDatePicker, RetailSelect } from '@/components/ui';
-import { 
-  DollarSign, TrendingUp, Package, CheckCircle2, 
-  XCircle, Clock, Receipt, Download, Calendar, ArrowUpRight, 
-  ArrowDownRight, CreditCard, Banknote, QrCode, Search, ChevronLeft, ChevronRight,
-  Printer
-} from 'lucide-react';
 import { toast } from 'sonner';
-import { 
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
-  PieChart, Pie, Legend
-} from 'recharts';
-import { UserIcon } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { FileText, FileSpreadsheet } from 'lucide-react';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+  ReferenceLine,
+} from 'recharts';
+import {
+  TrendingUp,
+  Package,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  Receipt,
+  CreditCard,
+  Banknote,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  Printer,
+  FileText,
+  FileSpreadsheet,
+  ShoppingBag,
+  Percent,
+  Sparkles,
+  AlertTriangle,
+  Eye,
+  RefreshCw,
+  User,
+  X,
+} from 'lucide-react';
+import { api } from '@/lib/api';
+import { ReemitNfceModal } from '@/components/ReemitNfceModal';
+import { PeriodReportModal } from '@/components/PeriodReportModal';
+import { PdvLojistaLoader, RetailSelect } from '@/components/ui';
+import {
+  StoreModuleHeader,
+  StorePeriodFilterBar,
+  StoreKpiCard,
+  BrandChartTooltip,
+  PaymentMixDonut,
+  ProductThumb,
+  getSaoPauloPresetRange,
+  getPaymentMethodLabel,
+  formatBrl,
+  formatCompactBrl,
+  formatIsoDateBr,
+  type StorePeriodPreset,
+} from '@/components/analytics/StoreAnalyticsUI';
 
 type RegisterSummary = {
   cashRegisterId: string;
@@ -33,6 +70,18 @@ type RegisterSummary = {
   salesCount: number;
 };
 
+type ProductStat = {
+  productId?: string;
+  name: string;
+  groupName?: string | null;
+  size?: string | null;
+  color?: string | null;
+  imageUrl?: string | null;
+  qty: number;
+  revenue: number;
+  pct?: number;
+};
+
 type SummaryData = {
   openRegisters: RegisterSummary[];
   currentRegister: RegisterSummary | null;
@@ -42,14 +91,33 @@ type SummaryData = {
   period: {
     revenue: number;
     transactions: number;
+    pieces?: number;
+    pa?: number;
     avgTicket: number;
+    maxTicket?: number;
+    totalDiscount?: number;
+    discountRatePct?: number;
+    identifiedSalesCount?: number;
+    previousPeriod?: {
+      startDate: string;
+      endDate: string;
+      revenue: number;
+      transactions: number;
+      avgTicket: number;
+      vsPreviousPct: number | null;
+    };
     byPaymentMethod: Record<string, number>;
+    countByPaymentMethod?: Record<string, number>;
     byHour: Record<number, number>;
+    countByHour?: Record<number, number>;
     byDay?: Record<string, number>;
+    countByDay?: Record<string, number>;
     byWeek?: Record<string, number>;
+    countByWeek?: Record<string, number>;
     byMonth?: Record<string, number>;
-    topProducts: Array<{ name: string; qty: number; revenue: number; pct: number }>;
-    productsSold?: Array<{ name: string; qty: number; revenue: number }>;
+    countByMonth?: Record<string, number>;
+    topProducts: ProductStat[];
+    productsSold?: ProductStat[];
   };
   alerts?: {
     overduePayables: Array<{ id: string; description: string; amount: string; dueDate: string }>;
@@ -61,23 +129,36 @@ type SaleItem = {
   id: string;
   quantity: number;
   priceUnit: number;
+  discount?: number;
   subtotal: number;
-  product: { name: string };
+  productName?: string;
+  product: {
+    id?: string;
+    name: string;
+    size?: string | null;
+    color?: string | null;
+    imageUrl?: string | null;
+  };
 };
 
 type Payment = {
   method: string;
   label?: string;
   value: number;
+  troco?: number;
 };
 
 type Sale = {
   id: string;
+  code?: number | null;
   subtotal: number;
   discount: number;
   status: string;
   cancelReason?: string | null;
   operator?: { name: string } | null;
+  customer?: { name: string; phone?: string } | null;
+  consumidorCpf?: string | null;
+  consumidorNome?: string | null;
   total: number;
   createdAt: string;
   items: SaleItem[];
@@ -85,44 +166,18 @@ type Sale = {
   emitirNfce: boolean;
   nfceStatus: string | null;
   nfceNumero: number | null;
+  nfceSerie?: number | null;
+  nfceChave?: string | null;
   nfceCodRejeicao?: string | null;
   nfceMotivoRejeicao?: string | null;
   operatorId?: string;
   cashRegisterId?: string;
 };
 
-// --- Helpers ---
-const formatCurrency = (value: number) => {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
-};
-
-const getMethodColor = (method: string) => {
-  switch(method) {
-    case 'dinheiro': return '#7C3AED';
-    case 'pix': return '#6D28D9';
-    case 'credito': return '#665F70';
-    case 'debito': return '#272321';
-    case 'crediario': return '#7C3AED';
-    case 'credito_loja': return '#6D28D9';
-    default: return '#E5E1ED';
-  }
-};
-
-const getMethodName = (method: string) => {
-  switch(method) {
-    case 'dinheiro': return 'Dinheiro';
-    case 'pix': return 'Pix';
-    case 'credito': return 'Crédito';
-    case 'debito': return 'Débito';
-    case 'crediario': return 'Crediário (Fiado)';
-    case 'fiado': return 'Crediário (Fiado)';
-    case 'credito_loja': return 'Vale-troca / Crédito';
-    case 'store_credit': return 'Vale-troca / Crédito';
-    default: return method;
-  }
-};
-
-class ErrorBoundary extends React.Component<{ children?: React.ReactNode }, { hasError: boolean; error: Error | null }> {
+class ErrorBoundary extends React.Component<
+  { children?: React.ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
   constructor(props: any) {
     super(props);
     this.state = { hasError: false, error: null };
@@ -133,28 +188,33 @@ class ErrorBoundary extends React.Component<{ children?: React.ReactNode }, { ha
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error("ErrorBoundary caught an error", error, errorInfo);
+    console.error('ErrorBoundary caught an error', error, errorInfo);
   }
 
   render() {
     if (this.state.hasError) {
       return (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-ink/80 backdrop-blur-sm p-4 animate-in fade-in">
-          <div className="bg-page border border-brand rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl p-6 space-y-4 animate-in zoom-in-95">
-            <h2 className="text-lg font-bold text-brand flex items-center gap-2">
-               Falha ao Renderizar Modal
-            </h2>
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-ink/80 p-4"
+        >
+          <div className="bg-surface border border-brand rounded-2xl w-full max-w-lg overflow-hidden p-6 space-y-4">
+            <h2 className="text-lg font-bold text-brand">Falha ao Renderizar Modal</h2>
             <div className="p-4 bg-support border border-brand rounded-xl space-y-2 font-mono text-[11px] text-muted max-h-60 overflow-auto">
-              <p className="font-bold text-brand">{this.state.error?.name}: {this.state.error?.message}</p>
+              <p className="font-bold text-brand">
+                {this.state.error?.name}: {this.state.error?.message}
+              </p>
               <pre className="whitespace-pre-wrap">{this.state.error?.stack}</pre>
             </div>
             <div className="flex justify-end gap-3">
-              <button 
+              <button
+                type="button"
                 onClick={() => {
                   this.setState({ hasError: false, error: null });
                   window.location.reload();
                 }}
-                className="px-4 py-2 bg-surface hover:bg-support text-ink rounded-xl transition text-xs font-semibold border border-line"
+                className="px-4 py-2 bg-surface hover:bg-support text-ink rounded-xl transition text-xs font-semibold border border-line cursor-pointer"
               >
                 Recarregar Página
               </button>
@@ -169,90 +229,108 @@ class ErrorBoundary extends React.Component<{ children?: React.ReactNode }, { ha
 }
 
 export default function SalesDashboard() {
+  const initialRange = useMemo(() => getSaoPauloPresetRange('month'), []);
+  const [preset, setPreset] = useState<StorePeriodPreset>('month');
+  const [startDate, setStartDate] = useState(initialRange.startDate);
+  const [endDate, setEndDate] = useState(initialRange.endDate);
+  const [chartGrouping, setChartGrouping] = useState<'hour' | 'day' | 'week' | 'month'>('day');
+
   const [summary, setSummary] = useState<SummaryData | null>(null);
   const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
   const [emittingId, setEmittingId] = useState<string | null>(null);
   const [isReemitModalOpen, setIsReemitModalOpen] = useState(false);
   const [saleToReemit, setSaleToReemit] = useState<Sale | null>(null);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [selectedSaleDetail, setSelectedSaleDetail] = useState<Sale | null>(null);
   const [tenantConfig, setTenantConfig] = useState<any>(null);
 
-  useEffect(() => {
-    api.get(`/tenants/me?_t=${Date.now()}`).then(res => setTenantConfig(res.data)).catch(console.error);
-  }, []);
+  // Ranking toggle: Receita ou Peças
+  const [rankingMetric, setRankingMetric] = useState<'revenue' | 'qty'>('revenue');
 
-  // Filtros de data
-  const [preset, setPreset] = useState<'today' | 'week' | 'month' | 'custom'>('today');
-  const [startDate, setStartDate] = useState(() => new Date().toISOString().split('T')[0]);
-  const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
-  const [chartGrouping, setChartGrouping] = useState<'hour' | 'day' | 'week' | 'month'>('hour');
-  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
-
-  // Busca manual para datas customizadas
-  const [appliedStartDate, setAppliedStartDate] = useState(startDate);
-  const [appliedEndDate, setAppliedEndDate] = useState(endDate);
-
-  // Paginação e busca na tabela
+  // Filtros e paginação da listagem de vendas
   const [searchTerm, setSearchTerm] = useState('');
   const [filterPayment, setFilterPayment] = useState<string>('todos');
+  const [filterNfce, setFilterNfce] = useState<string>('todas');
   const [sortBy, setSortBy] = useState<'recentes' | 'maior_valor'>('recentes');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 15;
+
+  // Modal de cancelamento de venda
   const [cancelSaleTarget, setCancelSaleTarget] = useState<Sale | null>(null);
   const [cancelReasonInput, setCancelReasonInput] = useState('');
   const [cancellingSale, setCancellingSale] = useState(false);
 
-  const { computedStartDate, computedEndDate } = useMemo(() => {
-    let sDate = preset === 'custom' ? appliedStartDate : startDate;
-    let eDate = preset === 'custom' ? appliedEndDate : endDate;
+  useEffect(() => {
+    api
+      .get(`/tenants/me?_t=${Date.now()}`)
+      .then((res) => setTenantConfig(res.data))
+      .catch(console.error);
+  }, []);
 
-    if (preset === 'today') {
-      const localToday = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD local
-      sDate = localToday; eDate = localToday;
-    } else if (preset === 'week') {
-      const now = new Date();
-      const start = new Date(now);
-      start.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1));
-      sDate = start.toLocaleDateString('en-CA');
-      eDate = new Date().toLocaleDateString('en-CA');
-    } else if (preset === 'month') {
-      const now = new Date();
-      const start = new Date(now.getFullYear(), now.getMonth(), 1);
-      sDate = start.toLocaleDateString('en-CA');
-      eDate = new Date().toLocaleDateString('en-CA');
-    }
-    return { computedStartDate: sDate, computedEndDate: eDate };
-  }, [preset, appliedStartDate, appliedEndDate, startDate, endDate]);
-
-  const fetchDashboardData = async () => {
-    try {
-      // Fetch summary
-      const sumRes = await api.get(`/dashboard/summary?startDate=${computedStartDate}&endDate=${computedEndDate}`);
-      setSummary(sumRes.data);
-
-      const { data } = await api.get(`/sales?startDate=${computedStartDate}&endDate=${computedEndDate}&limit=200`);
-      setSales(data.data || []);
-    } catch (error) {
-      console.error("Erro ao buscar dados do dashboard", error);
-      toast.error('Erro ao carregar dados. Tente novamente.');
-    } finally {
-      setLoading(false);
+  const handleSelectPreset = (nextPreset: StorePeriodPreset) => {
+    setPreset(nextPreset);
+    setCurrentPage(1);
+    if (nextPreset !== 'custom') {
+      const range = getSaoPauloPresetRange(nextPreset);
+      setStartDate(range.startDate);
+      setEndDate(range.endDate);
+      if (nextPreset === 'today' || nextPreset === 'yesterday') {
+        setChartGrouping('hour');
+      } else {
+        setChartGrouping('day');
+      }
     }
   };
 
-  useEffect(() => {
-    setLoading(true);
-    fetchDashboardData();
+  const handleChangeRange = (nextStart: string, nextEnd: string) => {
+    setPreset('custom');
+    setStartDate(nextStart);
+    setEndDate(nextEnd);
+    setCurrentPage(1);
+    setChartGrouping(nextStart === nextEnd ? 'hour' : 'day');
+  };
 
-    // Auto-refresh a cada 60 segundos
-    const intervalId = setInterval(fetchDashboardData, 60000);
-    
-    // Polling rápido para NFC-e pendente
+  const fetchDashboardData = useCallback(
+    async (silent = false) => {
+      if (silent) setRefreshing(true);
+      else setLoading(true);
+      try {
+        const [sumRes, salesRes] = await Promise.all([
+          api.get(`/dashboard/summary?startDate=${startDate}&endDate=${endDate}`),
+          api.get(`/sales?startDate=${startDate}&endDate=${endDate}&limit=250`),
+        ]);
+        setSummary(sumRes.data);
+        setSales(salesRes.data?.data || []);
+      } catch (error) {
+        console.error('Erro ao buscar dados do relatório de vendas', error);
+        if (!silent) {
+          toast.error('Erro ao carregar dados do relatório. Tente novamente.');
+        }
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [startDate, endDate],
+  );
+
+  useEffect(() => {
+    void fetchDashboardData(false);
+
+    const intervalId = setInterval(() => {
+      void fetchDashboardData(true);
+    }, 60000);
+
     const pendingInterval = setInterval(() => {
-      setSales(current => {
-        const hasPending = current.some(s => s.nfceStatus === 'pendente' || s.nfceStatus === 'em_processamento');
+      setSales((current) => {
+        const hasPending = current.some(
+          (s) => s.nfceStatus === 'pendente' || s.nfceStatus === 'em_processamento',
+        );
         if (hasPending) {
-          fetchDashboardData();
+          void fetchDashboardData(true);
         }
         return current;
       });
@@ -262,14 +340,18 @@ export default function SalesDashboard() {
       clearInterval(intervalId);
       clearInterval(pendingInterval);
     };
-  }, [preset, computedStartDate, computedEndDate]);
+  }, [fetchDashboardData]);
 
-  const handleEmitNfce = async (saleId: string, forceNewNumber: boolean, manualNumber?: number) => {
+  const handleEmitNfce = async (
+    saleId: string,
+    forceNewNumber: boolean,
+    manualNumber?: number,
+  ) => {
     setEmittingId(saleId);
     try {
       await api.post(`/sales/${saleId}/emit-nfce`, { forceNewNumber, manualNumber });
-      toast.success('Emissão solicitada com sucesso!');
-      fetchDashboardData();
+      toast.success('Emissão de NFC-e solicitada com sucesso!');
+      void fetchDashboardData(true);
     } catch (err: unknown) {
       const msg = (err as any)?.response?.data?.message || 'Erro ao emitir NFC-e';
       toast.error(msg);
@@ -283,7 +365,7 @@ export default function SalesDashboard() {
       setSaleToReemit(sale);
       setIsReemitModalOpen(true);
     } else {
-      handleEmitNfce(sale.id, false);
+      void handleEmitNfce(sale.id, false);
     }
   };
 
@@ -296,24 +378,24 @@ export default function SalesDashboard() {
     if (!cancelSaleTarget) return;
     const reason = cancelReasonInput.trim();
     if (reason.length < 15) {
-      toast.error("O motivo deve ter pelo menos 15 caracteres.");
+      toast.error('O motivo deve ter pelo menos 15 caracteres.');
       return;
     }
 
     setCancellingSale(true);
     try {
-      // 1. Se tem NFC-e autorizada, cancela na SEFAZ primeiro
       if (cancelSaleTarget.nfceStatus === 'autorizada') {
         await api.post(`/v1/fiscal/nfce/${cancelSaleTarget.id}/cancelar`, { motivo: reason });
       }
-
-      // 2. Cancela a venda localmente e estorna estoque
       await api.post(`/sales/${cancelSaleTarget.id}/cancel`, { reason });
-      
-      toast.success("Venda cancelada com sucesso!");
+
+      toast.success('Venda cancelada com sucesso!');
+      if (selectedSaleDetail?.id === cancelSaleTarget.id) {
+        setSelectedSaleDetail(null);
+      }
       setCancelSaleTarget(null);
       setCancelReasonInput('');
-      fetchDashboardData();
+      void fetchDashboardData(true);
     } catch (err: unknown) {
       const msg = (err as any)?.response?.data?.message || 'Erro ao cancelar venda.';
       toast.error(msg);
@@ -328,47 +410,67 @@ export default function SalesDashboard() {
     }
   };
 
-  // ── Impressão de cupom 80mm ────────────────────────────────────────────
+  // ── Impressão de cupom térmico 80mm ─────────────────────────────────────
   const printReceipt = (sale: Sale) => {
     const saleDate = new Date(sale.createdAt);
     const dateStr = saleDate.toLocaleDateString('pt-BR');
-    const timeStr = saleDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const timeStr = saleDate.toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
 
     const companyName = tenantConfig?.name || tenantConfig?.razaoSocial || 'Estabelecimento';
-    const cnpj        = tenantConfig?.cnpj  || '';
-    const address     = tenantConfig?.address || tenantConfig?.endereco || '';
-    const phone       = tenantConfig?.phone  || tenantConfig?.telefone  || '';
-    const footerMsg   = tenantConfig?.receiptFooter || 'Obrigado pela preferência! Volte sempre!';
+    const cnpj = tenantConfig?.cnpj || '';
+    const address = tenantConfig?.address || tenantConfig?.endereco || '';
+    const phone = tenantConfig?.phone || tenantConfig?.telefone || '';
+    const footerMsg =
+      tenantConfig?.receiptFooter || 'Obrigado pela preferência! Volte sempre!';
+    const saleCodeStr = sale.code ? `#${sale.code}` : `#${sale.id.slice(0, 8)}`;
 
-    const itemsHtml = sale.items.map((item, idx) => `
+    const itemsHtml = sale.items
+      .map((item, idx) => {
+        const itemLabel = item.product?.name || item.productName || 'Mercadoria';
+        const gradeSuffix = [
+          item.product?.size ? `Tam ${item.product.size}` : '',
+          item.product?.color || '',
+        ]
+          .filter(Boolean)
+          .join(' · ');
+        return `
       <div class="item">
         <div class="item-header">
           <span class="item-num">${String(idx + 1).padStart(2, '0')}</span>
-          <span class="item-name">${item.product?.name || 'Desconhecido'}</span>
+          <span class="item-name">${itemLabel}${gradeSuffix ? ` (${gradeSuffix})` : ''}</span>
           <span class="item-total">R$ ${Number(item.subtotal || 0).toFixed(2)}</span>
         </div>
         <div class="item-detail">
-          ${item.quantity} UN x R$ ${Number(item.priceUnit || 0).toFixed(2)}
+          ${Number(item.quantity)} UN x R$ ${Number(item.priceUnit || 0).toFixed(2)}
         </div>
       </div>
-    `).join('');
+    `;
+      })
+      .join('');
 
-    const paymentsHtml = sale.payments.map(p => `
+    const paymentsHtml = sale.payments
+      .map(
+        (p) => `
       <div class="payment-row">
-        <span>${{ dinheiro: 'DINHEIRO', pix: 'PIX', credito: 'CRÉDITO', debito: 'DÉBITO' }[p.method] || p.method.toUpperCase()}</span>
+        <span>${(p.label || getPaymentMethodLabel(p.method)).toUpperCase()}</span>
         <span>R$ ${Number(p.value || 0).toFixed(2)}</span>
       </div>
-    `).join('');
+    `,
+      )
+      .join('');
 
     const subtotalVal = Number(sale.subtotal || sale.total || 0);
     const discountVal = Number(sale.discount || 0);
-    const totalVal    = Number(sale.total || 0);
+    const totalVal = Number(sale.total || 0);
 
     const receiptHtml = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>Cupom</title>
+  <title>Cupom ${saleCodeStr}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     @page { size: 80mm auto; margin: 4mm 3mm; }
@@ -381,8 +483,6 @@ export default function SalesDashboard() {
       background: #FFFFFF;
       line-height: 1.4;
     }
-    .center  { text-align: center; }
-    .bold    { font-weight: bold; }
     .divider { border-top: 1px dashed #272321; margin: 7px 0; }
     .header  { text-align: center; margin-bottom: 7px; }
     .header .company { font-size: 19px; font-weight: bold; text-transform: uppercase; line-height: 1.2; }
@@ -408,20 +508,20 @@ export default function SalesDashboard() {
 <body>
   <div class="header">
     <div class="company">${companyName}</div>
-    ${cnpj    ? `<div class="subtitle">CNPJ: ${cnpj}</div>` : ''}
-    ${address ? `<div class="subtitle">${address}</div>`  : ''}
-    ${phone   ? `<div class="subtitle">Tel: ${phone}</div>` : ''}
+    ${cnpj ? `<div class="subtitle">CNPJ: ${cnpj}</div>` : ''}
+    ${address ? `<div class="subtitle">${address}</div>` : ''}
+    ${phone ? `<div class="subtitle">Tel: ${phone}</div>` : ''}
   </div>
   <div class="divider"></div>
   <div class="label-row">REIMPRESSÃO DE CUPOM</div>
-  <div class="meta"><span>${dateStr} ${timeStr}</span><span>Venda #${sale.id.slice(0, 8)}</span></div>
+  <div class="meta"><span>${dateStr} ${timeStr}</span><span>Venda ${saleCodeStr}</span></div>
   <div class="meta"><span>Operador: ${sale.operator?.name || 'Operador'}</span></div>
   <div class="divider"></div>
   ${itemsHtml}
   <div class="divider"></div>
   <div class="totals">
     <div class="totals-row"><span>SUBTOTAL:</span><span>R$ ${subtotalVal.toFixed(2)}</span></div>
-    ${ discountVal > 0 ? `<div class="totals-row"><span>DESCONTO:</span><span>-R$ ${discountVal.toFixed(2)}</span></div>` : '' }
+    ${discountVal > 0 ? `<div class="totals-row"><span>DESCONTO:</span><span>-R$ ${discountVal.toFixed(2)}</span></div>` : ''}
     <div class="totals-row grand"><span>TOTAL:</span><span>R$ ${totalVal.toFixed(2)}</span></div>
   </div>
   <div class="divider"></div>
@@ -432,8 +532,15 @@ export default function SalesDashboard() {
 </body>
 </html>`;
 
-    const printWin = window.open('', '_blank', 'width=340,height=600,toolbar=0,menubar=0,scrollbars=0');
-    if (!printWin) { toast.error('Popup bloqueado. Permita pop-ups para imprimir.'); return; }
+    const printWin = window.open(
+      '',
+      '_blank',
+      'width=340,height=600,toolbar=0,menubar=0,scrollbars=0',
+    );
+    if (!printWin) {
+      toast.error('Popup bloqueado. Permita pop-ups para imprimir.');
+      return;
+    }
     printWin.document.open();
     printWin.document.write(receiptHtml);
     printWin.document.close();
@@ -445,34 +552,38 @@ export default function SalesDashboard() {
     };
   };
 
-  // --- Renderização de Dados ---
-  const isCustomOrPast = preset === 'custom' || preset === 'month' || preset === 'week'; // Define se o card de "Caixa Atual" deve estar cinza
-
-  // Dados para gráficos
+  // ── Série do Gráfico Principal com Contagem e Rótulos Completos ────────
   const chartData = useMemo(() => {
     if (!summary?.period) return [];
 
     if (chartGrouping === 'hour') {
       const byHour = summary.period.byHour || {};
-      const peak = Object.values(byHour).reduce((a, b) => Math.max(a, b), 0);
-      return Object.entries(byHour).map(([hour, value]) => ({
-        name: `${hour}h`,
-        value,
-        isPeak: value > 0 && value === peak,
-      }));
+      const counts = summary.period.countByHour || {};
+      const peak = Object.values(byHour).reduce((a, b) => Math.max(a, Number(b || 0)), 0);
+      return Array.from({ length: 24 }, (_, h) => {
+        const value = Number(byHour[h] || 0);
+        return {
+          name: `${String(h).padStart(2, '0')}h`,
+          fullLabel: `Faixa das ${String(h).padStart(2, '0')}:00`,
+          value,
+          transactions: Number(counts[h] || 0),
+          isPeak: value > 0 && value === peak,
+        };
+      });
     }
 
     if (chartGrouping === 'day') {
       const byDay = summary.period.byDay || {};
+      const counts = summary.period.countByDay || {};
       const sortedKeys = Object.keys(byDay).sort();
-      const peak = Object.values(byDay).reduce((a, b) => Math.max(a, b), 0);
-      return sortedKeys.map(key => {
-        const value = byDay[key];
-        const parts = key.split('-');
-        const label = parts.length === 3 ? `${parts[2]}/${parts[1]}` : key;
+      const peak = Object.values(byDay).reduce((a, b) => Math.max(a, Number(b || 0)), 0);
+      return sortedKeys.map((key) => {
+        const value = Number(byDay[key] || 0);
         return {
-          name: label,
+          name: formatIsoDateBr(key, true),
+          fullLabel: formatIsoDateBr(key),
           value,
+          transactions: Number(counts[key] || 0),
           isPeak: value > 0 && value === peak,
         };
       });
@@ -480,105 +591,181 @@ export default function SalesDashboard() {
 
     if (chartGrouping === 'week') {
       const byWeek = summary.period.byWeek || {};
+      const counts = summary.period.countByWeek || {};
       const sortedKeys = Object.keys(byWeek).sort();
-      const peak = Object.values(byWeek).reduce((a, b) => Math.max(a, b), 0);
-      return sortedKeys.map(key => {
-        const value = byWeek[key];
-        const parts = key.split('-');
-        const label = parts.length === 3 ? `Sem. ${parts[2]}/${parts[1]}` : key;
+      const peak = Object.values(byWeek).reduce((a, b) => Math.max(a, Number(b || 0)), 0);
+      return sortedKeys.map((key) => {
+        const value = Number(byWeek[key] || 0);
+        const label = `Sem. ${formatIsoDateBr(key, true)}`;
         return {
           name: label,
+          fullLabel: `Semana iniciada em ${formatIsoDateBr(key)}`,
           value,
+          transactions: Number(counts[key] || 0),
           isPeak: value > 0 && value === peak,
         };
       });
     }
 
-    if (chartGrouping === 'month') {
-      const byMonth = summary.period.byMonth || {};
-      const sortedKeys = Object.keys(byMonth).sort();
-      const peak = Object.values(byMonth).reduce((a, b) => Math.max(a, b), 0);
-      const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-      return sortedKeys.map(key => {
-        const value = byMonth[key];
-        const parts = key.split('-');
-        let label = key;
-        if (parts.length === 2) {
-          const monthIdx = parseInt(parts[1]) - 1;
-          const monthLabel = monthNames[monthIdx] || parts[1];
-          label = `${monthLabel}/${parts[0].slice(-2)}`;
-        }
-        return {
-          name: label,
-          value,
-          isPeak: value > 0 && value === peak,
-        };
-      });
-    }
-
-    return [];
+    // month
+    const byMonth = summary.period.byMonth || {};
+    const counts = summary.period.countByMonth || {};
+    const sortedKeys = Object.keys(byMonth).sort();
+    const peak = Object.values(byMonth).reduce((a, b) => Math.max(a, Number(b || 0)), 0);
+    const monthNames = [
+      'Jan',
+      'Fev',
+      'Mar',
+      'Abr',
+      'Mai',
+      'Jun',
+      'Jul',
+      'Ago',
+      'Set',
+      'Out',
+      'Nov',
+      'Dez',
+    ];
+    return sortedKeys.map((key) => {
+      const value = Number(byMonth[key] || 0);
+      const parts = key.split('-');
+      let label = key;
+      if (parts.length === 2) {
+        const mIdx = parseInt(parts[1], 10) - 1;
+        label = `${monthNames[mIdx] || parts[1]}/${parts[0].slice(-2)}`;
+      }
+      return {
+        name: label,
+        fullLabel: `Mês ${label}`,
+        value,
+        transactions: Number(counts[key] || 0),
+        isPeak: value > 0 && value === peak,
+      };
+    });
   }, [summary, chartGrouping]);
 
-  const chartDataPayment = useMemo(() => {
-    if (!summary?.period.byPaymentMethod) return [];
-    return Object.entries(summary.period.byPaymentMethod)
-      .filter(([_, val]) => val > 0)
-      .map(([method, value]) => ({
-        name: getMethodName(method),
-        value,
-        color: getMethodColor(method)
-      }));
-  }, [summary]);
+  const chartStats = useMemo(() => {
+    let peakBucket: (typeof chartData)[number] | null = null;
+    let sum = 0;
+    let nonZeroCount = 0;
+    for (const pt of chartData) {
+      sum += pt.value;
+      if (pt.value > 0) {
+        nonZeroCount += 1;
+        if (!peakBucket || pt.value > peakBucket.value) {
+          peakBucket = pt;
+        }
+      }
+    }
+    return {
+      peakBucket,
+      hasData: nonZeroCount > 0,
+      avgActive: nonZeroCount > 0 ? sum / nonZeroCount : 0,
+    };
+  }, [chartData]);
 
-  // Filtragem da tabela
+  // Ranking Top 8 ordenado por Receita ou Peças
+  const rankedProducts = useMemo(() => {
+    const source = summary?.period?.productsSold?.length
+      ? summary.period.productsSold
+      : summary?.period?.topProducts || [];
+    const sorted = [...source].sort((a, b) =>
+      rankingMetric === 'revenue' ? b.revenue - a.revenue : b.qty - a.qty,
+    );
+    const maxVal = Math.max(
+      1,
+      ...sorted.slice(0, 8).map((p) => (rankingMetric === 'revenue' ? p.revenue : p.qty)),
+    );
+    const totRev = summary?.period?.revenue || 0;
+    const totPieces =
+      summary?.period?.pieces ||
+      source.reduce((acc, item) => acc + Number(item.qty || 0), 0);
+
+    return sorted.slice(0, 8).map((p) => ({
+      ...p,
+      barWidthPct:
+        ((rankingMetric === 'revenue' ? p.revenue : p.qty) / maxVal) * 100,
+      sharePct:
+        rankingMetric === 'revenue'
+          ? totRev > 0
+            ? (p.revenue / totRev) * 100
+            : 0
+          : totPieces > 0
+            ? (p.qty / totPieces) * 100
+            : 0,
+    }));
+  }, [summary, rankingMetric]);
+
+  // Filtragem da listagem de cupons (as datas já vêm filtradas do backend /sales?startDate=&endDate=)
   const filteredSales = useMemo(() => {
     let result = sales;
 
-    // Aplica o filtro de data global do dashboard
-    if (computedStartDate && computedEndDate) {
-      const startObj = new Date(computedStartDate + 'T00:00:00');
-      const endObj = new Date(computedEndDate + 'T23:59:59');
-      result = result.filter(s => {
-        const saleDate = new Date(s.createdAt);
-        return saleDate >= startObj && saleDate <= endObj;
+    if (filterPayment !== 'todos') {
+      result = result.filter((s) =>
+        s.payments.some((p) => {
+          const m = (p.method || '').toLowerCase();
+          const lbl = (p.label || '').toLowerCase();
+          if (filterPayment === 'crediario') {
+            return m === 'crediario' || m === 'fiado' || lbl.includes('credi');
+          }
+          if (filterPayment === 'credito_loja' || filterPayment === 'store_credit') {
+            return (
+              m === 'store_credit' ||
+              m === 'credito_loja' ||
+              lbl.includes('vale') ||
+              lbl.includes('crédito da loja')
+            );
+          }
+          return m === filterPayment.toLowerCase();
+        }),
+      );
+    }
+
+    if (filterNfce !== 'todas') {
+      result = result.filter((s) => {
+        if (filterNfce === 'canceladas') return s.status === 'cancelled';
+        if (s.status === 'cancelled') return false;
+        if (filterNfce === 'autorizadas') return s.nfceStatus === 'autorizada';
+        if (filterNfce === 'rejeitadas') return s.nfceStatus === 'rejeitada';
+        if (filterNfce === 'pendentes') {
+          return !s.emitirNfce || !s.nfceStatus || s.nfceStatus === 'pendente';
+        }
+        return true;
       });
     }
 
-    // Filtro por método de pagamento
-    if (filterPayment !== 'todos') {
-      result = result.filter(s =>
-        s.payments.some(p => {
-          const m = (p.method || '').toLowerCase();
-          if (filterPayment === 'crediario') {
-            return m === 'crediario' || m === 'fiado' || (p.label || '').toLowerCase().includes('credi');
-          }
-          if (filterPayment === 'store_credit') {
-            return m === 'store_credit' || m === 'credito_loja';
-          }
-          return m === filterPayment.toLowerCase();
-        })
-      );
+    if (searchTerm.trim()) {
+      const lower = searchTerm.trim().toLowerCase();
+      result = result.filter((s) => {
+        const codeStr = s.code ? `#${s.code}` : '';
+        const custName = (s.customer?.name || s.consumidorNome || '').toLowerCase();
+        const opName = (s.operator?.name || '').toLowerCase();
+        return (
+          codeStr.includes(lower) ||
+          String(s.code || '').includes(lower) ||
+          s.total.toFixed(2).includes(lower) ||
+          custName.includes(lower) ||
+          opName.includes(lower) ||
+          s.items.some((i) =>
+            (i.product?.name || i.productName || '').toLowerCase().includes(lower),
+          ) ||
+          s.payments.some((p) =>
+            (p.label || getPaymentMethodLabel(p.method)).toLowerCase().includes(lower),
+          )
+        );
+      });
     }
 
-    // Busca geral (produto, valor, pagamento)
-    if (searchTerm) {
-      const lower = searchTerm.toLowerCase();
-      result = result.filter(s => 
-        s.total.toString().includes(lower) || 
-        s.items.some(i => i.product?.name.toLowerCase().includes(lower)) ||
-        s.payments.some(p => p.method.toLowerCase().includes(lower))
-      );
-    }
-
-    // Ordenação
     if (sortBy === 'maior_valor') {
-      result = [...result].sort((a, b) => b.total - a.total);
+      result = [...result].sort((a, b) => Number(b.total) - Number(a.total));
     } else {
-      result = [...result].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      result = [...result].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      );
     }
 
     return result;
-  }, [sales, searchTerm, filterPayment, sortBy, computedStartDate, computedEndDate]);
+  }, [sales, searchTerm, filterPayment, filterNfce, sortBy]);
 
   const handleExportSales = () => {
     try {
@@ -587,25 +774,36 @@ export default function SalesDashboard() {
         return;
       }
 
-      const dataToExport = filteredSales.map(sale => {
-        return {
-          'Data/Hora': new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(sale.createdAt)),
-          'Itens': sale.items.map(i => `${i.quantity}x ${i.product?.name || 'Produto'}`).join(', '),
-          'Pagamento': sale.payments.map(p => `${p.label || getMethodName(p.method)} (R$ ${Number(p.value).toFixed(2)})`).join(', '),
-          'Total (R$)': Number(Number(sale.total || 0).toFixed(2)),
-          'Desconto (R$)': Number(Number(sale.discount || 0).toFixed(2)),
-          'Status NFC-e': sale.nfceStatus || 'Não emitida',
-          'Status Venda': sale.status === 'cancelled' ? 'Cancelada' : 'Concluída'
-        };
-      });
+      const dataToExport = filteredSales.map((sale) => ({
+        Cupom: sale.code ? `#${sale.code}` : sale.id.slice(0, 8),
+        'Data/Hora': new Intl.DateTimeFormat('pt-BR', {
+          dateStyle: 'short',
+          timeStyle: 'short',
+        }).format(new Date(sale.createdAt)),
+        Operador: sale.operator?.name || 'Operador',
+        Cliente: sale.customer?.name || sale.consumidorNome || 'Consumidor Final',
+        Itens: sale.items
+          .map((i) => `${Number(i.quantity)}x ${i.product?.name || i.productName || 'Mercadoria'}`)
+          .join(', '),
+        Pagamento: sale.payments
+          .map(
+            (p) =>
+              `${p.label || getPaymentMethodLabel(p.method)} (R$ ${Number(p.value).toFixed(2)})`,
+          )
+          .join(', '),
+        'Desconto (R$)': Number(Number(sale.discount || 0).toFixed(2)),
+        'Total (R$)': Number(Number(sale.total || 0).toFixed(2)),
+        'Status NFC-e': sale.nfceStatus || 'Não emitida',
+        'Status Venda': sale.status === 'cancelled' ? 'Cancelada' : 'Concluída',
+      }));
 
       const worksheet = XLSX.utils.json_to_sheet(dataToExport);
       const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Histórico de Vendas');
-      
-      const fileName = `Vendas_Dashboard_${new Date().toISOString().split('T')[0]}.xlsx`;
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Relatório de Vendas');
+
+      const fileName = `Relatorio_Vendas_${startDate}_a_${endDate}.xlsx`;
       XLSX.writeFile(workbook, fileName);
-      toast.success('Exportação concluída!');
+      toast.success('Planilha Excel exportada com sucesso!');
     } catch (err: any) {
       console.error(err);
       toast.error('Erro ao exportar Excel: ' + (err.message || 'Desconhecido'));
@@ -620,25 +818,35 @@ export default function SalesDashboard() {
       }
       const doc = new jsPDF();
       doc.setFontSize(14);
-      doc.text('Histórico de Vendas', 14, 20);
-      
-      const tableData = filteredSales.map(sale => [
-        new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(sale.createdAt)),
-        sale.items.map(i => `${i.quantity}x ${i.product?.name || 'Produto'}`).join(', '),
-        sale.payments.map(p => `${p.label || getMethodName(p.method)} (R$ ${Number(p.value).toFixed(2)})`).join(', '),
-        `R$ ${Number(sale.total).toFixed(2)}`
+      doc.text(
+        `Relatório de Vendas (${formatIsoDateBr(startDate)} a ${formatIsoDateBr(endDate)})`,
+        14,
+        18,
+      );
+
+      const tableData = filteredSales.map((sale) => [
+        sale.code ? `#${sale.code}` : sale.id.slice(0, 6),
+        new Intl.DateTimeFormat('pt-BR', {
+          dateStyle: 'short',
+          timeStyle: 'short',
+        }).format(new Date(sale.createdAt)),
+        sale.items
+          .map((i) => `${Number(i.quantity)}x ${i.product?.name || i.productName || 'Item'}`)
+          .join(', '),
+        sale.payments.map((p) => p.label || getPaymentMethodLabel(p.method)).join(', '),
+        sale.status === 'cancelled' ? 'Cancelada' : formatBrl(Number(sale.total)),
       ]);
 
       autoTable(doc, {
-        startY: 25,
-        head: [['Data/Hora', 'Itens', 'Pagamento', 'Total']],
+        startY: 24,
+        head: [['Cupom', 'Data/Hora', 'Mercadorias', 'Pagamento', 'Total']],
         body: tableData,
         theme: 'grid',
         styles: { fontSize: 8 },
-        headStyles: { fillColor: [40, 40, 40] }
+        headStyles: { fillColor: [124, 58, 237] },
       });
 
-      doc.save(`Vendas_Dashboard_${new Date().toISOString().split('T')[0]}.pdf`);
+      doc.save(`Relatorio_Vendas_${startDate}_a_${endDate}.pdf`);
       toast.success('PDF exportado com sucesso!');
     } catch (err: any) {
       console.error(err);
@@ -646,563 +854,844 @@ export default function SalesDashboard() {
     }
   };
 
-  // Paginação
   const totalPages = Math.ceil(filteredSales.length / itemsPerPage);
-  const currentSales = filteredSales.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const currentSales = filteredSales.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage,
+  );
 
   if (loading && !summary) {
     return (
-      <div className="retail-card retail-loader-region">
-        <PdvLojistaLoader mode="loader" size={56} label="Consultando relatórios de vendas…" />
+      <div className="retail-loader-region py-16 flex items-center justify-center">
+        <PdvLojistaLoader mode="loader" size={64} label="Carregando relatórios de vendas…" />
       </div>
     );
   }
 
+  const totalPieces =
+    summary?.period?.pieces ??
+    (summary?.period?.productsSold || []).reduce((acc, p) => acc + Number(p.qty || 0), 0);
+  const pa =
+    summary?.period?.pa ??
+    ((summary?.period?.transactions || 0) > 0
+      ? totalPieces / (summary?.period?.transactions || 1)
+      : 0);
+  const openRegs = summary?.openRegisters || [];
+
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 pb-12">
-      {/* --- HEADER & FILTROS --- */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-        <div>
-          <h1 className="text-xl md:text-3xl font-bold tracking-tight text-ink">Dashboard Analytics</h1>
-          <p className="text-muted mt-1 hidden md:block">Acompanhe o desempenho do seu negócio em tempo real.</p>
-        </div>
-        
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
-          <div className="flex flex-col lg:flex-row bg-page p-2 rounded-2xl border border-line gap-2 overflow-x-auto custom-scrollbar">
-            <div className="flex bg-page p-1 rounded-xl min-w-max">
-            {(['today', 'week', 'month', 'custom'] as const).map(p => (
-              <button 
-                key={p} 
-                onClick={() => setPreset(p)}
-                className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${preset === p ? 'bg-brand text-on-brand shadow-sm' : 'text-muted hover:text-ink hover:bg-surface'}`}
-              >
-                {p === 'today' ? 'Hoje' : p === 'week' ? 'Semana' : p === 'month' ? 'Mês' : 'Personalizado'}
-              </button>
-            ))}
-          </div>
-
-          {preset === 'custom' && (
-            <div className="flex items-center gap-2 px-1 py-1 min-w-max">
-              <div style={{ width: 158 }}>
-                <RetailDatePicker
-                  value={startDate}
-                  onValueChange={setStartDate}
-                  rangeStart={startDate}
-                  rangeEnd={endDate}
-                  max={endDate}
-                  allowClear={false}
-                  aria-label="Data inicial"
-                />
-              </div>
-              <span className="text-muted text-sm">até</span>
-              <div style={{ width: 158 }}>
-                <RetailDatePicker
-                  value={endDate}
-                  onValueChange={setEndDate}
-                  rangeStart={startDate}
-                  rangeEnd={endDate}
-                  min={startDate}
-                  allowClear={false}
-                  aria-label="Data final"
-                />
-              </div>
-              <button
-                onClick={() => {
-                  setAppliedStartDate(startDate);
-                  setAppliedEndDate(endDate);
-                }}
-                className="bg-brand hover:bg-brand-hover text-on-brand p-2.5 rounded-lg transition-colors cursor-pointer"
-                data-tooltip="Aplicar filtro de período"
-                aria-label="Aplicar filtro de período"
-              >
-                <Search size={18} />
-              </button>
-            </div>
-          )}
-          </div>
-          
-          <div className="w-px h-8 bg-surface mx-1 hidden lg:block"></div>
-
-          {preset === 'custom' && (
-            <button 
-              onClick={() => setIsReportModalOpen(true)} 
-              className="flex items-center justify-center gap-2 bg-brand hover:bg-brand text-on-brand px-4 py-3 sm:py-2 rounded-xl transition-colors font-bold w-full sm:w-auto mt-2 sm:mt-0 shadow-lg shadow-line hover:text-on-brand"
+    <div className="space-y-6 pb-12">
+      {/* Cabeçalho Unificado */}
+      <StoreModuleHeader
+        title="Relatórios de Vendas"
+        subtitle="Análise comercial de faturamento, mix de recebimentos, giro de grade e auditoria de cupons e NFC-e."
+        actions={
+          <>
+            <button
+              type="button"
+              onClick={() => setIsReportModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-support border border-brand text-brand hover:bg-brand hover:text-on-brand text-xs font-bold transition-colors cursor-pointer"
             >
-              <TrendingUp size={18} /> <span>Relatório de Vendas</span>
+              <TrendingUp size={14} />
+              Resumo Consolidado
             </button>
-          )}
-        </div>
-      </div>
-      
-      {/* --- ALERTAS --- */}
-      {summary?.alerts && (summary.alerts.overduePayables.length > 0 || summary.alerts.upcomingPayables.length > 0) && (
-        <div className="bg-support border border-brand rounded-2xl p-4 md:p-5 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between shadow-lg">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-support rounded-full shrink-0">
-              <Banknote size={24} className="text-brand" />
-            </div>
-            <div>
-              <h3 className="text-ink font-bold text-lg">Atenção: Contas a Pagar!</h3>
-              <p className="text-muted text-sm">
-                Você tem {summary.alerts.overduePayables.length > 0 && <strong className="text-brand">{summary.alerts.overduePayables.length} conta(s) vencida(s)</strong>}
-                {summary.alerts.overduePayables.length > 0 && summary.alerts.upcomingPayables.length > 0 && ' e '}
-                {summary.alerts.upcomingPayables.length > 0 && <strong className="text-brand">{summary.alerts.upcomingPayables.length} conta(s) vencendo em breve</strong>}.
-              </p>
-            </div>
-          </div>
-          <Link to="/financeiro/contas-a-pagar" className="shrink-0 bg-brand hover:bg-brand text-on-brand font-bold py-2 px-4 rounded-xl shadow-lg transition text-sm hover:text-on-brand">
-            Ver Contas a Pagar
-          </Link>
-        </div>
-      )}
+            <button
+              type="button"
+              onClick={handleExportPDF}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface border border-line text-ink hover:bg-support hover:border-brand text-xs font-semibold transition-colors cursor-pointer"
+              data-tooltip="Exportar listagem atual em PDF"
+            >
+              <FileText size={14} className="text-brand" />
+              PDF
+            </button>
+            <button
+              type="button"
+              onClick={handleExportSales}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface border border-line text-ink hover:bg-support hover:border-brand text-xs font-semibold transition-colors cursor-pointer"
+              data-tooltip="Exportar listagem atual em Excel"
+            >
+              <FileSpreadsheet size={14} className="text-brand" />
+              Excel
+            </button>
+          </>
+        }
+      />
 
-      {/* --- KPI CARDS --- */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
-        
-        {/* Cards de Caixas Abertos — dinâmico */}
-        {preset === 'today' && (summary?.openRegisters ?? []).length > 0 ? (
-          (summary!.openRegisters).map((reg, idx) => (
-            <div key={reg.cashRegisterId} className="col-span-2 lg:col-span-1 relative overflow-hidden p-4 md:p-6 rounded-2xl border-2 border-brand bg-surface shadow-xl flex flex-col justify-between">
-              {/* Badge ABERTO */}
-              <div className="absolute top-0 right-0 p-4 flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-brand animate-pulse"></span>
-                <span className="text-xs font-bold text-brand tracking-wider">ABERTO</span>
-              </div>
-              <div className="flex items-center gap-3 text-muted font-medium mb-3">
-                <DollarSign size={20} className="text-brand" />
-                <span>Caixa #{reg.code ?? (idx + 1)}</span>
+      {/* Barra Unificada de Período */}
+      <StorePeriodFilterBar
+        preset={preset}
+        startDate={startDate}
+        endDate={endDate}
+        onSelectPreset={handleSelectPreset}
+        onChangeRange={handleChangeRange}
+        rightSlot={
+          <button
+            type="button"
+            onClick={() => void fetchDashboardData(true)}
+            disabled={refreshing}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface border border-line text-ink hover:bg-support hover:border-brand text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
+          >
+            <RefreshCw size={13} className={refreshing ? 'animate-spin text-brand' : 'text-brand'} />
+            Atualizar
+          </button>
+        }
+      />
+
+      {/* Alerta Financeiro de Contas a Pagar */}
+      {summary?.alerts &&
+        (summary.alerts.overduePayables.length > 0 ||
+          summary.alerts.upcomingPayables.length > 0) && (
+          <div className="bg-support border border-brand rounded-xl p-4 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 bg-surface border border-brand rounded-lg flex items-center justify-center shrink-0">
+                <Banknote size={18} className="text-brand" />
               </div>
               <div>
-                <h3 className="text-2xl md:text-3xl font-black text-ink tracking-tight">
-                  {formatCurrency(reg.total)}
-                </h3>
-                <p className="text-sm text-muted mt-2 flex items-center gap-1.5 font-semibold">
-                  <UserIcon size={14} className="text-brand" />
-                  {reg.operatorName}
-                </p>
-                <p className="text-xs text-muted mt-1 flex items-center gap-1.5">
-                  <Receipt size={12} />
-                  {reg.salesCount} venda{reg.salesCount !== 1 ? 's' : ''} · desde {new Date(reg.openedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                <h3 className="text-ink font-bold text-sm">Lembrete Financeiro · Contas a Pagar</h3>
+                <p className="text-muted text-xs mt-0.5">
+                  Você possui{' '}
+                  {summary.alerts.overduePayables.length > 0 && (
+                    <strong className="text-brand">
+                      {summary.alerts.overduePayables.length} conta(s) vencida(s)
+                    </strong>
+                  )}
+                  {summary.alerts.overduePayables.length > 0 &&
+                    summary.alerts.upcomingPayables.length > 0 &&
+                    ' e '}
+                  {summary.alerts.upcomingPayables.length > 0 && (
+                    <strong className="text-ink">
+                      {summary.alerts.upcomingPayables.length} vencendo nos próximos 3 dias
+                    </strong>
+                  )}
+                  .
                 </p>
               </div>
             </div>
-          ))
-        ) : preset !== 'today' ? (
-          /* Fora do filtro "Hoje", mostra card genérico desativado */
-          <div className="col-span-2 lg:col-span-1 relative overflow-hidden p-4 md:p-6 rounded-2xl border bg-page/50 border-line opacity-60 flex flex-col justify-between">
-            <div className="flex items-center gap-3 text-muted font-medium mb-3">
-              <DollarSign size={20} className="text-muted" /> Caixa Atual
-            </div>
-            <div>
-              <h3 className="text-2xl md:text-3xl font-black text-ink tracking-tight">N/A</h3>
-              <p className="text-sm text-muted mt-2">Mude para &quot;Hoje&quot;</p>
-            </div>
-          </div>
-        ) : (
-          /* Hoje selecionado mas nenhum caixa aberto */
-          <div className="col-span-2 lg:col-span-1 relative overflow-hidden p-4 md:p-6 rounded-2xl border bg-page/50 border-line flex flex-col justify-between">
-            <div className="flex items-center gap-3 text-muted font-medium mb-3">
-              <DollarSign size={20} className="text-muted" /> Caixa Atual
-            </div>
-            <div>
-              <h3 className="text-2xl md:text-3xl font-black text-muted tracking-tight">Fechado</h3>
-              <p className="text-sm text-muted mt-2">Nenhum caixa aberto</p>
-            </div>
+            <Link
+              to="/financeiro/contas-a-pagar"
+              className="shrink-0 bg-brand hover:bg-brand-hover text-on-brand font-bold py-2 px-3.5 rounded-lg transition text-xs"
+            >
+              Abrir Contas a Pagar
+            </Link>
           </div>
         )}
 
-        {/* Card 2: Hoje */}
-        <div className="bg-page border border-line p-4 md:p-6 rounded-2xl flex flex-col justify-between shadow-lg">
-          <div className="flex items-center gap-3 text-muted font-medium mb-3">
-            <Calendar size={20} className="text-brand" /> Hoje
-          </div>
-          <div>
-            <h3 className="text-2xl md:text-3xl font-black text-ink tracking-tight truncate">
-              {formatCurrency(summary?.today?.revenue || 0)}
-            </h3>
-            <p className="text-xs md:text-sm text-muted mt-2 flex items-center gap-1.5">
-              <Receipt size={14}/> {summary?.today?.transactions || 0} transações
-            </p>
-          </div>
-        </div>
+      {/* 6 KPIs Comerciais Ilustrativos */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3.5">
+        <StoreKpiCard
+          emphasis="primary"
+          label="Faturamento do Período"
+          value={formatBrl(summary?.period?.revenue || 0)}
+          icon={<TrendingUp size={16} />}
+          deltaPct={summary?.period?.previousPeriod?.vsPreviousPct ?? null}
+          subtitle={
+            <span>
+              Hoje:{' '}
+              <strong className="text-ink tabular-nums">
+                {formatBrl(summary?.today?.revenue || 0)}
+              </strong>
+            </span>
+          }
+        />
 
-        {/* Card 3: Semana */}
-        <div className="bg-page border border-line p-4 md:p-6 rounded-2xl flex flex-col justify-between shadow-lg">
-          <div className="flex items-center gap-3 text-muted font-medium mb-3">
-            <TrendingUp size={20} className="text-brand" /> Semana
-          </div>
-          <div>
-            <h3 className="text-2xl md:text-3xl font-black text-ink tracking-tight truncate">
-              {formatCurrency(summary?.week?.revenue || 0)}
-            </h3>
-            {summary?.week?.vsLastWeek !== null && summary?.week?.vsLastWeek !== undefined ? (
-              <p className={`text-xs md:text-sm mt-2 flex items-center gap-1 font-medium ${summary.week.vsLastWeek >= 0 ? 'text-brand' : 'text-brand'}`}>
-                {summary.week.vsLastWeek >= 0 ? <ArrowUpRight size={16}/> : <ArrowDownRight size={16}/>}
-                {Math.abs(summary.week.vsLastWeek).toFixed(1)}% vs. ant.
-              </p>
+        <StoreKpiCard
+          label="Volume Comercial"
+          value={
+            <span>
+              {summary?.period?.transactions || 0}{' '}
+              <span className="text-xs font-semibold text-muted">vendas</span>
+            </span>
+          }
+          icon={<Receipt size={16} />}
+          subtitle={
+            <span>
+              <strong className="text-ink tabular-nums">{totalPieces}</strong>{' '}
+              {totalPieces === 1 ? 'peça vendida' : 'peças vendidas'}
+            </span>
+          }
+        />
+
+        <StoreKpiCard
+          label="Ticket Médio"
+          value={formatBrl(summary?.period?.avgTicket || 0)}
+          icon={<CreditCard size={16} />}
+          subtitle={
+            <span>
+              Maior cupom:{' '}
+              <strong className="text-ink tabular-nums">
+                {formatBrl(summary?.period?.maxTicket || 0)}
+              </strong>
+            </span>
+          }
+        />
+
+        <StoreKpiCard
+          label="PA · Peças / Venda"
+          value={pa.toLocaleString('pt-BR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}
+          icon={<ShoppingBag size={16} />}
+          subtitle="Média de itens por atendimento"
+        />
+
+        <StoreKpiCard
+          label="Descontos Aplicados"
+          value={formatBrl(summary?.period?.totalDiscount || 0)}
+          icon={<Percent size={16} />}
+          badge={
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-page border border-line text-[10px] font-semibold text-muted tabular-nums">
+              {(summary?.period?.discountRatePct || 0).toFixed(1)}% do potencial
+            </span>
+          }
+          subtitle="Concedidos no balcão"
+        />
+
+        <StoreKpiCard
+          label="Pico & Caixa Atual"
+          value={
+            chartStats.peakBucket ? (
+              <span>{chartStats.peakBucket.name}</span>
+            ) : openRegs.length > 0 ? (
+              <span>Caixa #{openRegs[0].code ?? 1}</span>
             ) : (
-              <p className="text-xs md:text-sm text-muted mt-2 line-clamp-1">Sem histórico anterior</p>
-            )}
-          </div>
-        </div>
-
-        {/* Card 4: Mês / Personalizado */}
-        <div className="bg-page border border-line p-4 md:p-6 rounded-2xl flex flex-col justify-between shadow-lg relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-support rounded-full blur-3xl"></div>
-          <div className="flex items-center gap-3 text-muted font-medium mb-3 relative z-10">
-            <Banknote size={20} className="text-brand" /> 
-            {preset === 'custom' ? 'Total do Período' : 'Este Mês'}
-          </div>
-          <div className="relative z-10">
-            <h3 className="text-2xl md:text-3xl font-black text-ink tracking-tight truncate">
-              {formatCurrency(preset === 'custom' ? (summary?.period?.revenue || 0) : (summary?.month?.revenue || 0))}
-            </h3>
-             <p className="text-xs md:text-sm text-muted mt-2 flex items-center gap-1.5">
-               <Receipt size={14}/> Visão macro
-            </p>
-          </div>
-        </div>
-
-        {/* Card 5: Ticket Médio */}
-        <div className="bg-page border border-line p-4 md:p-6 rounded-2xl flex flex-col justify-between shadow-lg">
-          <div className="flex items-center gap-3 text-muted font-medium mb-3">
-            <Package size={20} className="text-brand" /> Ticket Médio
-          </div>
-          <div>
-            <h3 className="text-2xl md:text-3xl font-black text-ink tracking-tight truncate">
-              {formatCurrency(summary?.period?.avgTicket || 0)}
-            </h3>
-            <p className="text-xs md:text-sm text-muted mt-2 flex items-center gap-1.5">
-              Média por venda
-            </p>
-          </div>
-        </div>
-
+              <span className="text-muted">Sem pico</span>
+            )
+          }
+          icon={<Sparkles size={16} />}
+          badge={
+            chartStats.peakBucket ? (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-support border border-brand text-[10px] font-bold text-brand tabular-nums">
+                {formatBrl(chartStats.peakBucket.value)}
+              </span>
+            ) : undefined
+          }
+          subtitle={
+            <Link
+              to="/inicio/historico-de-caixas"
+              className="text-brand font-semibold hover:underline"
+            >
+              {openRegs.length > 0
+                ? `${openRegs.length} caixa(s) aberto(s) agora`
+                : 'Todos os caixas fechados'}
+            </Link>
+          }
+        />
       </div>
 
-      {/* --- GRÁFICOS & TOP PRODUTOS --- */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Gráfico: Vendas por Período */}
-        <div className="bg-page border border-line rounded-2xl p-4 md:p-6 shadow-xl lg:col-span-2">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-            <h3 className="text-lg font-bold text-ink flex items-center gap-2">
-              <Clock size={20} className="text-brand"/> Vendas por {chartGrouping === 'hour' ? 'Hora' : chartGrouping === 'day' ? 'Dia' : chartGrouping === 'week' ? 'Semana' : 'Mês'} (Período Selecionado)
-            </h3>
-            
-            <div className="flex bg-page border border-line p-0.5 rounded-xl self-start sm:self-auto">
+      {/* Gráficos Lado a Lado: Ritmo de Vendas (2/3) + Mix de Pagamentos (1/3) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        {/* Gráfico de Barras Sem Barra Preta no Hover */}
+        <section className="lg:col-span-8 bg-surface border border-line rounded-xl p-5 flex flex-col justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
+            <div>
+              <h2 className="text-base font-bold text-ink flex items-center gap-2">
+                <Clock size={18} className="text-brand" />
+                Ritmo de Vendas por{' '}
+                {chartGrouping === 'hour'
+                  ? 'Horário'
+                  : chartGrouping === 'day'
+                    ? 'Dia'
+                    : chartGrouping === 'week'
+                      ? 'Semana'
+                      : 'Mês'}
+              </h2>
+              <p className="text-xs text-muted mt-0.5">
+                {chartGrouping === 'hour'
+                  ? 'Identifique os horários de maior fluxo de clientes no balcão.'
+                  : 'Evolução cronológica contínua do período filtrado.'}
+              </p>
+            </div>
+
+            <div
+              className="inline-flex items-center bg-page border border-line p-1 rounded-lg self-start sm:self-auto"
+              role="group"
+              aria-label="Agrupamento do gráfico"
+            >
               {(['hour', 'day', 'week', 'month'] as const).map((group) => (
                 <button
                   key={group}
+                  type="button"
                   onClick={() => setChartGrouping(group)}
-                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
                     chartGrouping === group
-                      ? 'bg-brand text-on-brand shadow'
-                      : 'text-muted hover:text-ink hover:bg-page'
+                      ? 'bg-brand text-on-brand'
+                      : 'text-muted hover:text-ink hover:bg-surface'
                   }`}
                 >
-                  {group === 'hour' ? 'Hora' : group === 'day' ? 'Dia' : group === 'week' ? 'Semana' : 'Mês'}
+                  {group === 'hour'
+                    ? 'Hora'
+                    : group === 'day'
+                      ? 'Dia'
+                      : group === 'week'
+                        ? 'Semana'
+                        : 'Mês'}
                 </button>
               ))}
             </div>
           </div>
-          <div className="h-[200px] md:h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <XAxis dataKey="name" stroke="#272321" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke="#272321" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `R$${val}`} />
-                <Tooltip 
-                  cursor={{ fill: '#272321' }}
-                  contentStyle={{ backgroundColor: '#272321', borderColor: '#272321', borderRadius: '12px', color: '#FFFFFF' }}
-                  itemStyle={{ color: '#FFFFFF', fontWeight: 'bold' }}
-                  formatter={(value) => [formatCurrency(Number(value ?? 0)), 'Faturamento']}
-                />
-                <Bar dataKey="value" radius={[6, 6, 0, 0]}>
-                  {chartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.isPeak ? '#7C3AED' : '#7C3AED'} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
 
-        {/* Gráfico: Mix de Pagamentos */}
-        <div className="bg-page border border-line rounded-2xl p-6 shadow-xl flex flex-col">
-          <h3 className="text-lg font-bold text-ink mb-2 flex items-center gap-2">
-            <CreditCard size={20} className="text-brand"/> Mix de Pagamentos
-          </h3>
-          {chartDataPayment.length > 0 ? (
-            <div className="flex-1 flex flex-col items-center justify-center relative">
-              <div className="h-[220px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={chartDataPayment}
-                      innerRadius={60}
-                      outerRadius={80}
-                      paddingAngle={5}
-                      dataKey="value"
-                      stroke="none"
-                    >
-                      {chartDataPayment.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      formatter={(value) => formatCurrency(Number(value ?? 0))}
-                      contentStyle={{ backgroundColor: '#272321', borderColor: '#272321', borderRadius: '12px', color: '#FFFFFF' }}
-                      itemStyle={{ color: '#FFFFFF', fontWeight: 'bold' }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
+          {!chartStats.hasData ? (
+            <div className="h-[264px] rounded-xl bg-page border border-line flex flex-col items-center justify-center text-center px-6">
+              <div className="w-11 h-11 rounded-full bg-support text-brand flex items-center justify-center mb-3">
+                <Clock size={20} />
               </div>
-              <div className="w-full grid grid-cols-2 gap-3 mt-4">
-                {chartDataPayment.map((p, i) => (
-                  <div key={i} className="flex items-center gap-2 text-sm">
-                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: p.color }}></span>
-                    <span className="text-muted flex-1">{p.name}</span>
-                    <span className="font-bold text-ink">{((p.value / summary!.period.revenue) * 100).toFixed(0)}%</span>
+              <p className="text-sm font-semibold text-ink">
+                Nenhuma venda registrada neste recorte
+              </p>
+              <p className="text-xs text-muted mt-1 max-w-[36ch]">
+                Experimente selecionar &ldquo;Este mês&rdquo; ou outro intervalo de datas acima para visualizar o ritmo de faturamento.
+              </p>
+            </div>
+          ) : (
+            <div className="h-[272px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={chartData}
+                  margin={{ top: 10, right: 8, left: -12, bottom: 0 }}
+                >
+                  <CartesianGrid
+                    stroke="#E5E1ED"
+                    strokeDasharray="3 3"
+                    vertical={false}
+                  />
+                  <XAxis
+                    dataKey="name"
+                    stroke="#665F70"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={false}
+                    minTickGap={12}
+                  />
+                  <YAxis
+                    stroke="#665F70"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={formatCompactBrl}
+                  />
+                  <Tooltip
+                    cursor={{ fill: '#F3E8FF' }}
+                    content={<BrandChartTooltip />}
+                  />
+                  {chartStats.avgActive > 0 && chartData.length > 1 && (
+                    <ReferenceLine
+                      y={chartStats.avgActive}
+                      stroke="#6D28D9"
+                      strokeDasharray="4 4"
+                      strokeWidth={1.2}
+                    />
+                  )}
+                  <Bar
+                    dataKey="value"
+                    name="Faturamento"
+                    maxBarSize={38}
+                    radius={[6, 6, 0, 0]}
+                  >
+                    {chartData.map((entry, index) => (
+                      <Cell
+                        key={`bar-${index}`}
+                        fill={entry.isPeak ? '#6D28D9' : '#7C3AED'}
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          <div className="mt-4 pt-3 border-t border-line flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
+            <div className="flex items-center gap-4">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-xs bg-brand" />
+                Período regular
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span
+                  className="w-2.5 h-2.5 rounded-xs"
+                  style={{ backgroundColor: '#6D28D9' }}
+                />
+                Maior pico ({chartStats.peakBucket?.name || '--'})
+              </span>
+            </div>
+            <span className="tabular-nums">
+              Média ativa: <strong className="text-ink">{formatBrl(chartStats.avgActive)}</strong>
+            </span>
+          </div>
+        </section>
+
+        {/* Mix de Pagamentos Interativo */}
+        <section className="lg:col-span-4 bg-surface border border-line rounded-xl p-5 flex flex-col">
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <div>
+              <h2 className="text-base font-bold text-ink flex items-center gap-2">
+                <CreditCard size={18} className="text-brand" />
+                Mix de Pagamentos
+              </h2>
+              <p className="text-xs text-muted mt-0.5">
+                Clique em um meio para filtrar os cupons.
+              </p>
+            </div>
+            {filterPayment !== 'todos' && (
+              <button
+                type="button"
+                onClick={() => {
+                  setFilterPayment('todos');
+                  setCurrentPage(1);
+                }}
+                className="text-[11px] font-semibold text-brand bg-support border border-brand px-2 py-0.5 rounded cursor-pointer"
+              >
+                Limpar filtro
+              </button>
+            )}
+          </div>
+
+          <PaymentMixDonut
+            byPaymentMethod={summary?.period?.byPaymentMethod}
+            countByPaymentMethod={summary?.period?.countByPaymentMethod}
+            totalRevenue={summary?.period?.revenue || 0}
+            selectedMethod={filterPayment === 'todos' ? undefined : filterPayment}
+            onSelectMethod={(methodKey) => {
+              setFilterPayment((cur) => (cur === methodKey ? 'todos' : methodKey));
+              setCurrentPage(1);
+            }}
+          />
+        </section>
+      </div>
+
+      {/* Linha Inferior: Top Mercadorias & Grade (4 col) + Histórico de Cupons (8 col) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        {/* Top Mercadorias com Foto e Grade */}
+        <section className="lg:col-span-4 bg-surface border border-line rounded-xl p-5 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between gap-2 mb-4">
+              <div>
+                <h2 className="text-base font-bold text-ink flex items-center gap-2">
+                  <Package size={18} className="text-brand" />
+                  Top Mercadorias
+                </h2>
+                <p className="text-xs text-muted mt-0.5">
+                  Variações líderes no período selecionado.
+                </p>
+              </div>
+
+              <div className="inline-flex bg-page border border-line p-0.5 rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => setRankingMetric('revenue')}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-semibold cursor-pointer ${
+                    rankingMetric === 'revenue'
+                      ? 'bg-brand text-on-brand'
+                      : 'text-muted hover:text-ink'
+                  }`}
+                >
+                  R$
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRankingMetric('qty')}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-semibold cursor-pointer ${
+                    rankingMetric === 'qty'
+                      ? 'bg-brand text-on-brand'
+                      : 'text-muted hover:text-ink'
+                  }`}
+                >
+                  Peças
+                </button>
+              </div>
+            </div>
+
+            {rankedProducts.length > 0 ? (
+              <div className="space-y-3">
+                {rankedProducts.map((p, idx) => (
+                  <div
+                    key={p.productId || `${p.name}-${idx}`}
+                    className="p-2.5 rounded-xl border border-line bg-page hover:bg-surface transition-colors"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <span
+                        className={`w-6 h-6 rounded-md text-[11px] font-bold flex items-center justify-center shrink-0 tabular-nums ${
+                          idx === 0
+                            ? 'bg-brand text-on-brand'
+                            : idx < 3
+                              ? 'bg-support text-brand border border-brand'
+                              : 'bg-surface text-muted border border-line'
+                        }`}
+                      >
+                        {idx + 1}º
+                      </span>
+
+                      <ProductThumb imageUrl={p.imageUrl} alt={p.name} size={36} />
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-baseline justify-between gap-2">
+                          <strong className="text-xs font-bold text-ink truncate">
+                            {p.name}
+                          </strong>
+                          <strong className="text-xs font-bold text-brand tabular-nums shrink-0">
+                            {rankingMetric === 'revenue'
+                              ? formatBrl(p.revenue)
+                              : `${p.qty} ${p.qty === 1 ? 'peça' : 'peças'}`}
+                          </strong>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-2 mt-0.5 text-[11px] text-muted tabular-nums">
+                          <span className="truncate">
+                            {[
+                              p.size ? `Tam ${p.size}` : '',
+                              p.color || '',
+                              rankingMetric === 'revenue'
+                                ? `${p.qty} pçs`
+                                : formatBrl(p.revenue),
+                            ]
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </span>
+                          <span>{p.sharePct.toFixed(1)}%</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-2 w-full bg-support rounded-full h-1.5 overflow-hidden">
+                      <div
+                        className="bg-brand h-full rounded-full transition-all duration-300"
+                        style={{ width: `${Math.max(4, p.barWidthPct)}%` }}
+                      />
+                    </div>
                   </div>
                 ))}
               </div>
-            </div>
-          ) : (
-            <div className="flex-1 flex items-center justify-center text-muted italic text-sm">
-              Nenhuma transação no período.
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* --- TOP PRODUTOS E TABELA --- */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Top Produtos */}
-        <div className="bg-page border border-line rounded-2xl p-4 md:p-6 shadow-xl">
-          <h3 className="text-lg font-bold text-ink mb-6 flex items-center gap-2">
-            <Package size={20} className="text-brand"/> Top Produtos (Receita)
-          </h3>
-          <div className="space-y-5">
-            {summary?.period?.topProducts?.map((p, idx) => (
-              <div key={idx} className="relative">
-                <div className="flex justify-between items-end mb-1 text-sm">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-muted w-4">{idx + 1}.</span>
-                    <span className="font-semibold text-muted line-clamp-1">{p.name}</span>
-                  </div>
-                  <div className="text-right">
-                    <span className="font-bold text-brand">{formatCurrency(p.revenue)}</span>
-                  </div>
-                </div>
-                <div className="w-full bg-surface/50 rounded-full h-2 overflow-hidden flex items-center">
-                  <div className="bg-brand h-full rounded-full text-on-brand" style={{ width: `${p.pct}%` }}></div>
-                </div>
-                <div className="flex justify-between text-xs text-muted mt-1">
-                  <span>{p.qty} unidades vendidas</span>
-                  <span>{p.pct.toFixed(1)}% do total</span>
-                </div>
+            ) : (
+              <div className="py-12 px-4 rounded-xl bg-page border border-line text-center">
+                <p className="text-sm font-semibold text-ink">
+                  Nenhuma mercadoria vendida no período
+                </p>
+                <p className="text-xs text-muted mt-1">
+                  O ranking por receita e volume de peças aparecerá automaticamente.
+                </p>
               </div>
-            ))}
-            {(!summary?.period?.topProducts || summary.period.topProducts.length === 0) && (
-              <p className="text-muted text-sm italic text-center py-10">Nenhum produto vendido no período.</p>
             )}
           </div>
-        </div>
 
-        {/* Histórico de Transações */}
-        <div className="bg-page border border-line rounded-2xl shadow-xl flex flex-col lg:col-span-2 overflow-hidden">
-          <div className="p-4 md:p-6 border-b border-line flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
-            <h3 className="text-lg font-bold text-ink flex items-center gap-2 whitespace-nowrap">
-              <Receipt size={20} className="text-brand"/> Histórico de Vendas
-            </h3>
-            
-            <div className="flex flex-col sm:flex-row flex-wrap gap-3 w-full xl:w-auto">
-              <div className="relative w-full sm:w-64">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-                <input 
-                  type="text" 
-                  placeholder="Buscar valor, produto, pgto..."
+          {(summary?.period?.productsSold?.length || 0) > 8 && (
+            <button
+              type="button"
+              onClick={() => setIsReportModalOpen(true)}
+              className="mt-4 w-full py-2 rounded-lg bg-support border border-brand text-brand text-xs font-bold hover:bg-brand hover:text-on-brand transition-colors cursor-pointer"
+            >
+              Ver todas as {summary?.period?.productsSold?.length} mercadorias vendidas
+            </button>
+          )}
+        </section>
+
+        {/* Histórico de Vendas e Gestão de NFC-e */}
+        <section className="lg:col-span-8 bg-surface border border-line rounded-xl flex flex-col overflow-hidden">
+          <div className="p-4 md:p-5 border-b border-line space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <div>
+                <h2 className="text-base font-bold text-ink flex items-center gap-2">
+                  <Receipt size={18} className="text-brand" />
+                  Histórico de Cupons & NFC-e
+                </h2>
+                <p className="text-xs text-muted mt-0.5">
+                  Clique em qualquer venda para abrir o espelho completo do atendimento.
+                </p>
+              </div>
+              <span className="text-xs font-semibold text-muted tabular-nums">
+                {filteredSales.length}{' '}
+                {filteredSales.length === 1 ? 'registro listado' : 'registros listados'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5">
+              <div className="relative">
+                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+                <input
+                  type="text"
+                  placeholder="Buscar #cupom, item, cliente..."
                   value={searchTerm}
-                  onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-                  className="w-full bg-page border border-line rounded-lg pl-9 pr-3 py-2 text-sm text-ink focus:ring-1 focus:ring-brand outline-none"
-                />
-              </div>
-
-              <div className="w-full sm:w-48">
-                <RetailSelect
-                  value={filterPayment}
-                  onValueChange={(val) => {
-                    setFilterPayment(val);
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
                     setCurrentPage(1);
                   }}
-                  options={[
-                    { value: 'todos', label: 'Qualquer Pagamento' },
-                    { value: 'dinheiro', label: 'Dinheiro' },
-                    { value: 'credito', label: 'Crédito' },
-                    { value: 'debito', label: 'Débito' },
-                    { value: 'pix', label: 'PIX' },
-                    { value: 'crediario', label: 'Crediário (Fiado)' },
-                    { value: 'store_credit', label: 'Vale-troca' },
-                  ]}
+                  className="w-full bg-surface border border-line rounded-lg pl-9 pr-3 py-2 text-xs text-ink focus:border-brand outline-none"
                 />
               </div>
 
-              <div className="w-full sm:w-44">
-                <RetailSelect
-                  value={sortBy}
-                  onValueChange={(val) => {
-                    setSortBy(val as any);
-                    setCurrentPage(1);
-                  }}
-                  options={[
-                    { value: 'recentes', label: 'Mais recentes' },
-                    { value: 'maior_valor', label: 'Maior valor' },
-                  ]}
-                />
-              </div>
+              <RetailSelect
+                value={filterPayment}
+                onValueChange={(val) => {
+                  setFilterPayment(val);
+                  setCurrentPage(1);
+                }}
+                options={[
+                  { value: 'todos', label: 'Todos os pagamentos' },
+                  { value: 'dinheiro', label: 'Dinheiro' },
+                  { value: 'credito', label: 'Cartão de Crédito' },
+                  { value: 'debito', label: 'Cartão de Débito' },
+                  { value: 'pix', label: 'PIX' },
+                  { value: 'crediario', label: 'Crediário (Fiado)' },
+                  { value: 'credito_loja', label: 'Vale-troca' },
+                ]}
+              />
 
-              <div className="flex gap-2 w-full sm:w-auto">
-                <button 
-                  onClick={handleExportPDF}
-                  className="flex items-center justify-center gap-1.5 bg-support text-brand hover:bg-support border border-brand px-3 py-2 rounded-lg transition-colors text-sm font-semibold flex-1 sm:flex-none"
-                  data-tooltip="Exportar listagem atual para PDF"
-                >
-                  <FileText size={16} /> PDF
-                </button>
-                <button 
-                  onClick={handleExportSales}
-                  className="flex items-center justify-center gap-1.5 bg-support text-brand hover:bg-support border border-brand px-3 py-2 rounded-lg transition-colors text-sm font-semibold flex-1 sm:flex-none"
-                  data-tooltip="Exportar listagem atual para Excel"
-                >
-                  <FileSpreadsheet size={16} /> Excel
-                </button>
-              </div>
+              <RetailSelect
+                value={filterNfce}
+                onValueChange={(val) => {
+                  setFilterNfce(val);
+                  setCurrentPage(1);
+                }}
+                options={[
+                  { value: 'todas', label: 'Qualquer status fiscal' },
+                  { value: 'autorizadas', label: 'NFC-e Autorizada' },
+                  { value: 'pendentes', label: 'Sem nota / Pendente' },
+                  { value: 'rejeitadas', label: 'NFC-e Rejeitada' },
+                  { value: 'canceladas', label: 'Vendas Canceladas' },
+                ]}
+              />
+
+              <RetailSelect
+                value={sortBy}
+                onValueChange={(val) => {
+                  setSortBy(val as any);
+                  setCurrentPage(1);
+                }}
+                options={[
+                  { value: 'recentes', label: 'Mais recentes' },
+                  { value: 'maior_valor', label: 'Maior valor' },
+                ]}
+              />
             </div>
           </div>
-          
-          {/* Tabela para Desktop */}
+
+          {/* Tabela Desktop */}
           <div className="hidden md:block flex-1 overflow-x-auto">
             <table className="w-full text-left">
-              <thead className="bg-page/50 text-muted text-xs uppercase tracking-wider">
-                <tr>
-                  <th className="px-6 py-4 font-semibold">Data/Hora</th>
-                  <th className="px-6 py-4 font-semibold">Itens</th>
-                  <th className="px-6 py-4 font-semibold">Pagamento</th>
-                  <th className="px-6 py-4 font-semibold text-center">NFC-e</th>
-                  <th className="px-6 py-4 font-semibold text-right">Total</th>
-                  <th className="px-6 py-4 font-semibold text-center w-[80px]">Ações</th>
+              <thead>
+                <tr className="bg-page border-b border-line text-muted text-[11px] uppercase tracking-wider">
+                  <th className="px-4 py-3 font-semibold">Cupom / Hora</th>
+                  <th className="px-4 py-3 font-semibold">Mercadorias</th>
+                  <th className="px-4 py-3 font-semibold">Pagamento</th>
+                  <th className="px-4 py-3 font-semibold text-center">NFC-e</th>
+                  <th className="px-4 py-3 font-semibold text-right">Total</th>
+                  <th className="px-4 py-3 font-semibold text-right">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
-                {currentSales.map(sale => {
+                {currentSales.map((sale) => {
                   const isCancelled = sale.status === 'cancelled';
+                  const saleLabel = sale.code ? `#${sale.code}` : `#${sale.id.slice(0, 6)}`;
                   return (
-                    <tr key={sale.id} className={`hover:bg-surface transition-colors ${isCancelled ? 'opacity-55 line-through' : ''}`}>
-                      <td className="px-6 py-4 whitespace-nowrap text-muted text-sm">
-                        {new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(sale.createdAt))}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="max-h-20 overflow-y-auto custom-scrollbar pr-2 space-y-1">
-                          {sale.items.map(i => (
-                            <div key={i.id} className="text-xs flex gap-2 items-start">
-                              <span className="font-bold text-brand bg-support px-1 rounded">{i.quantity}x</span>
-                              <span className="text-muted line-clamp-1">{i.product?.name || 'Desconhecido'}</span>
-                            </div>
-                          ))}
-                          {isCancelled && sale.cancelReason && (
-                            <div className="text-[10px] text-brand mt-1 italic font-medium no-underline">
-                              Motivo: {sale.cancelReason}
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {isCancelled ? (
-                          <span className="inline-block text-[10px] uppercase font-bold text-brand bg-support border border-brand px-2 py-0.5 rounded mr-1 no-underline">
-                            CANCELADA
+                    <tr
+                      key={sale.id}
+                      onClick={() => setSelectedSaleDetail(sale)}
+                      className={`hover:bg-page transition-colors cursor-pointer ${
+                        isCancelled ? 'opacity-65' : ''
+                      }`}
+                    >
+                      <td className="px-4 py-3.5 whitespace-nowrap">
+                        <strong className="text-xs font-bold text-ink tabular-nums block">
+                          {saleLabel}
+                        </strong>
+                        <span className="text-[11px] text-muted tabular-nums block">
+                          {new Intl.DateTimeFormat('pt-BR', {
+                            dateStyle: 'short',
+                            timeStyle: 'short',
+                          }).format(new Date(sale.createdAt))}
+                        </span>
+                        {sale.operator?.name && (
+                          <span className="text-[10px] text-muted block truncate max-w-[110px]">
+                            Op. {sale.operator.name}
                           </span>
-                        ) : (
-                          sale.payments.map((p, idx) => (
-                            <span key={idx} className="inline-block text-[10px] uppercase font-bold text-muted bg-surface border border-line px-2 py-0.5 rounded mr-1">
-                              {p.label || getMethodName(p.method)}
-                            </span>
-                          ))
                         )}
                       </td>
-                    <td className="px-6 py-4 align-middle text-center whitespace-nowrap">
-                      {sale.emitirNfce ? (
-                        <div className="flex flex-col items-center justify-center gap-1">
-                          {sale.nfceStatus === 'autorizada' ? (
-                            <span className="text-brand font-semibold text-[11px] flex items-center justify-center gap-1 bg-support px-2 py-0.5 rounded border border-brand">
-                              <CheckCircle2 size={12}/> {sale.nfceNumero ? `Nº ${sale.nfceNumero}` : 'Autorizada'}
-                            </span>
-                          ) : sale.nfceStatus === 'rejeitada' ? (
-                            <div className="flex items-center gap-2">
-                              <div className="relative group">
-                                <span className="text-brand font-semibold text-[11px] flex items-center justify-center gap-1 bg-support px-2 py-0.5 rounded border border-brand cursor-help">
-                                  <XCircle size={12}/> Rejeitada
-                                </span>
-                                {sale.nfceMotivoRejeicao && (
-                                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-48 p-2 bg-surface text-ink text-[10px] rounded shadow-xl border border-brand z-50 text-center pointer-events-none break-words">
-                                    <div className="font-bold text-brand mb-0.5">Motivo da Rejeição:</div>
-                                    {sale.nfceMotivoRejeicao}
-                                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-line"></div>
-                                  </div>
-                                )}
-                              </div>
-                              <button onClick={() => triggerEmitNfce(sale)} disabled={emittingId === sale.id} className="text-brand hover:text-brand p-1 rounded bg-support hover:bg-support disabled:opacity-50" data-tooltip="Tentar novamente">
-                                {emittingId === sale.id ? <PdvLojistaLoader mode="loader" compact size={12} label="Emitindo" /> : <Receipt size={12} />}
-                              </button>
+
+                      <td className="px-4 py-3.5 max-w-[240px]">
+                        <div className="space-y-1">
+                          {sale.items.slice(0, 2).map((i) => (
+                            <div key={i.id} className="text-xs flex gap-1.5 items-center">
+                              <span className="font-bold text-brand bg-support px-1.5 py-0.2 rounded text-[11px] tabular-nums shrink-0">
+                                {Number(i.quantity)}x
+                              </span>
+                              <span
+                                className={`text-ink truncate ${
+                                  isCancelled ? 'line-through text-muted' : ''
+                                }`}
+                              >
+                                {i.product?.name || i.productName || 'Mercadoria'}
+                              </span>
                             </div>
-                          ) : sale.nfceStatus === 'cancelada' || isCancelled ? (
-                            <span className="text-brand font-semibold text-[11px] flex items-center justify-center gap-1 bg-support px-2 py-0.5 rounded border border-brand">
-                              <XCircle size={12}/> Cancelada
-                            </span>
-                          ) : (
-                            <span className="text-brand font-semibold text-[11px] flex items-center justify-center gap-1 bg-support px-2 py-0.5 rounded border border-brand">
-                              <Clock size={12}/> Pendente
+                          ))}
+                          {sale.items.length > 2 && (
+                            <span className="text-[11px] font-semibold text-brand">
+                              +{sale.items.length - 2} mais no cupom
                             </span>
                           )}
+                          {isCancelled && sale.cancelReason && (
+                            <div className="text-[10px] text-muted italic truncate">
+                              Cancelada: {sale.cancelReason}
+                            </div>
+                          )}
                         </div>
-                      ) : (
-                        <div className="flex items-center justify-center gap-2">
-                          <button onClick={() => triggerEmitNfce(sale)} disabled={emittingId === sale.id} className="text-brand hover:text-brand flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded bg-support hover:bg-support border border-brand disabled:opacity-50 transition-colors">
-                            {emittingId === sale.id ? <PdvLojistaLoader mode="loader" compact size={12} label="Emitindo" /> : <Receipt size={12} />} Gerar
-                          </button>
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-right whitespace-nowrap">
-                      <span className="text-brand font-black text-base">{formatCurrency(sale.total)}</span>
-                    </td>
-                    <td className="px-6 py-4 text-center whitespace-nowrap flex items-center justify-center gap-2">
-                      <button
-                        onClick={() => printReceipt(sale)}
-                        className="text-muted hover:text-brand p-1.5 rounded-lg bg-surface/50 hover:bg-surface border border-line transition-colors"
-                        data-tooltip="Reimprimir cupom"
-                        aria-label="Reimprimir cupom"
+                      </td>
+
+                      <td className="px-4 py-3.5 whitespace-nowrap">
+                        {isCancelled ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] uppercase font-bold text-muted bg-page border border-line px-2 py-0.5 rounded">
+                            <XCircle size={11} /> Cancelada
+                          </span>
+                        ) : (
+                          <div className="flex flex-wrap gap-1 max-w-[160px]">
+                            {sale.payments.map((p, idx) => (
+                              <span
+                                key={idx}
+                                className="inline-block text-[10px] font-bold text-ink bg-page border border-line px-2 py-0.5 rounded"
+                              >
+                                {p.label || getPaymentMethodLabel(p.method)}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </td>
+
+                      <td
+                        className="px-4 py-3.5 align-middle text-center whitespace-nowrap"
+                        onClick={(e) => e.stopPropagation()}
                       >
-                        <Printer size={16} />
-                      </button>
-                      {!isCancelled && (
-                        <button
-                          onClick={() => handleCancelSale(sale)}
-                          className="text-muted hover:text-brand p-1.5 rounded-lg bg-surface/50 hover:bg-surface border border-line transition-colors"
-                          data-tooltip="Cancelar venda"
-                          aria-label="Cancelar venda"
+                        {sale.emitirNfce ? (
+                          <div className="inline-flex items-center justify-center gap-1.5">
+                            {sale.nfceStatus === 'autorizada' ? (
+                              <span className="text-brand font-bold text-[11px] inline-flex items-center gap-1 bg-support px-2 py-0.5 rounded border border-brand">
+                                <CheckCircle2 size={12} />
+                                {sale.nfceNumero ? `Nº ${sale.nfceNumero}` : 'Autorizada'}
+                              </span>
+                            ) : sale.nfceStatus === 'rejeitada' ? (
+                              <div className="inline-flex items-center gap-1.5">
+                                <div className="relative group">
+                                  <span className="text-on-brand font-bold text-[11px] inline-flex items-center gap-1 bg-ink px-2 py-0.5 rounded border border-ink cursor-help">
+                                    <AlertTriangle size={12} /> Rejeitada
+                                  </span>
+                                  {sale.nfceMotivoRejeicao && (
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-52 p-2.5 bg-surface text-ink text-[10px] rounded-lg border border-brand z-50 text-left pointer-events-none break-words">
+                                      <div className="font-bold text-brand mb-0.5">
+                                        Motivo SEFAZ:
+                                      </div>
+                                      {sale.nfceMotivoRejeicao}
+                                    </div>
+                                  )}
+                                </div>
+                                {!isCancelled && (
+                                  <button
+                                    type="button"
+                                    onClick={() => triggerEmitNfce(sale)}
+                                    disabled={emittingId === sale.id}
+                                    className="text-brand p-1 rounded bg-support border border-brand hover:bg-brand hover:text-on-brand disabled:opacity-50 cursor-pointer"
+                                    data-tooltip="Corrigir / Reemitir NFC-e"
+                                  >
+                                    {emittingId === sale.id ? (
+                                      <PdvLojistaLoader
+                                        mode="loader"
+                                        compact
+                                        size={12}
+                                        label="Emitindo"
+                                      />
+                                    ) : (
+                                      <RefreshCw size={12} />
+                                    )}
+                                  </button>
+                                )}
+                              </div>
+                            ) : sale.nfceStatus === 'cancelada' || isCancelled ? (
+                              <span className="text-muted font-semibold text-[11px] inline-flex items-center gap-1 bg-page px-2 py-0.5 rounded border border-line">
+                                <XCircle size={12} /> Cancelada
+                              </span>
+                            ) : (
+                              <span className="text-ink font-semibold text-[11px] inline-flex items-center gap-1 bg-page px-2 py-0.5 rounded border border-dashed border-brand">
+                                <Clock size={12} className="text-brand" /> Pendente
+                              </span>
+                            )}
+                          </div>
+                        ) : !isCancelled ? (
+                          <button
+                            type="button"
+                            onClick={() => triggerEmitNfce(sale)}
+                            disabled={emittingId === sale.id}
+                            className="text-brand hover:bg-brand hover:text-on-brand inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded bg-surface border border-brand disabled:opacity-50 transition-colors cursor-pointer"
+                          >
+                            {emittingId === sale.id ? (
+                              <PdvLojistaLoader mode="loader" compact size={12} label="Emitindo" />
+                            ) : (
+                              <Receipt size={12} />
+                            )}
+                            Emitir NFC-e
+                          </button>
+                        ) : (
+                          <span className="text-[11px] text-muted">--</span>
+                        )}
+                      </td>
+
+                      <td className="px-4 py-3.5 text-right whitespace-nowrap tabular-nums">
+                        <strong
+                          className={`font-bold text-sm ${
+                            isCancelled ? 'line-through text-muted' : 'text-brand'
+                          }`}
                         >
-                          <XCircle size={16} />
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
+                          {formatBrl(sale.total)}
+                        </strong>
+                        {Number(sale.discount || 0) > 0 && (
+                          <span className="block text-[10px] text-muted">
+                            Desc. -{formatBrl(sale.discount)}
+                          </span>
+                        )}
+                      </td>
+
+                      <td
+                        className="px-4 py-3.5 text-right whitespace-nowrap"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="inline-flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedSaleDetail(sale)}
+                            className="text-muted hover:text-brand p-1.5 rounded-lg bg-surface hover:bg-support border border-line transition-colors cursor-pointer"
+                            data-tooltip="Ver detalhes do cupom"
+                            aria-label="Ver detalhes do cupom"
+                          >
+                            <Eye size={15} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => printReceipt(sale)}
+                            className="text-muted hover:text-brand p-1.5 rounded-lg bg-surface hover:bg-support border border-line transition-colors cursor-pointer"
+                            data-tooltip="Reimprimir cupom 80mm"
+                            aria-label="Reimprimir cupom 80mm"
+                          >
+                            <Printer size={15} />
+                          </button>
+                          {!isCancelled && (
+                            <button
+                              type="button"
+                              onClick={() => handleCancelSale(sale)}
+                              className="text-muted hover:text-ink p-1.5 rounded-lg bg-surface hover:bg-page border border-line transition-colors cursor-pointer"
+                              data-tooltip="Cancelar venda"
+                              aria-label="Cancelar venda"
+                            >
+                              <XCircle size={15} />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
                 {currentSales.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center text-muted italic">
-                      Nenhuma venda encontrada.
+                    <td colSpan={6} className="px-6 py-14 text-center">
+                      <p className="text-sm font-semibold text-ink">
+                        Nenhum cupom encontrado com os filtros atuais
+                      </p>
+                      <p className="text-xs text-muted mt-1">
+                        Altere o período ou limpe os filtros de busca e meio de pagamento.
+                      </p>
                     </td>
                   </tr>
                 )}
@@ -1210,168 +1699,407 @@ export default function SalesDashboard() {
             </table>
           </div>
 
-          {/* Cards para Mobile */}
+          {/* Cards Mobile */}
           <div className="md:hidden flex flex-col divide-y divide-line">
-            {currentSales.map(sale => {
+            {currentSales.map((sale) => {
               const isCancelled = sale.status === 'cancelled';
+              const saleLabel = sale.code ? `#${sale.code}` : `#${sale.id.slice(0, 6)}`;
               return (
-                <div key={sale.id} className={`p-4 flex flex-col gap-3 ${isCancelled ? 'opacity-55 line-through' : ''}`}>
-                  <div className="flex justify-between items-start">
-                    <div className="text-muted text-sm font-medium">
-                      {new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(sale.createdAt))}
+                <div
+                  key={sale.id}
+                  onClick={() => setSelectedSaleDetail(sale)}
+                  className={`p-4 flex flex-col gap-2.5 bg-surface cursor-pointer ${
+                    isCancelled ? 'opacity-65' : ''
+                  }`}
+                >
+                  <div className="flex justify-between items-start gap-2">
+                    <div>
+                      <strong className="text-xs font-bold text-ink tabular-nums">
+                        Cupom {saleLabel}
+                      </strong>
+                      <span className="text-[11px] text-muted block tabular-nums">
+                        {new Intl.DateTimeFormat('pt-BR', {
+                          dateStyle: 'short',
+                          timeStyle: 'short',
+                        }).format(new Date(sale.createdAt))}
+                      </span>
                     </div>
-                    <div className="text-brand font-black text-lg">
-                      {formatCurrency(sale.total)}
-                    </div>
+                    <strong
+                      className={`font-bold text-base tabular-nums ${
+                        isCancelled ? 'line-through text-muted' : 'text-brand'
+                      }`}
+                    >
+                      {formatBrl(sale.total)}
+                    </strong>
                   </div>
 
-                  <div className="text-sm text-muted line-clamp-2">
-                    {sale.items.map(i => `${i.quantity}x ${i.product?.name || 'Item'}`).join(', ')}
-                    {isCancelled && sale.cancelReason && (
-                      <div className="text-[10px] text-brand mt-1 italic font-medium no-underline">
-                        Motivo: {sale.cancelReason}
-                      </div>
-                    )}
+                  <div className="text-xs text-muted line-clamp-2">
+                    {sale.items
+                      .map(
+                        (i) =>
+                          `${Number(i.quantity)}x ${i.product?.name || i.productName || 'Item'}`,
+                      )
+                      .join(', ')}
                   </div>
 
-                  <div className="flex justify-between items-center">
-                    <div className="flex gap-1">
+                  <div
+                    className="flex items-center justify-between gap-2 pt-1"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="flex flex-wrap gap-1">
                       {isCancelled ? (
-                        <span className="inline-block text-[10px] uppercase font-bold text-brand bg-support border border-brand px-2 py-0.5 rounded no-underline">
-                          CANCELADA
+                        <span className="text-[10px] uppercase font-bold text-muted bg-page border border-line px-2 py-0.5 rounded">
+                          Cancelada
                         </span>
                       ) : (
                         sale.payments.map((p, idx) => (
-                          <span key={idx} className="inline-block text-[10px] uppercase font-bold text-muted bg-surface border border-line px-2 py-0.5 rounded">
-                            {p.method}
+                          <span
+                            key={idx}
+                            className="text-[10px] font-bold text-ink bg-page border border-line px-2 py-0.5 rounded"
+                          >
+                            {p.label || getPaymentMethodLabel(p.method)}
                           </span>
                         ))
                       )}
                     </div>
 
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => printReceipt(sale)}
-                      className="text-muted hover:text-brand p-1 rounded bg-surface hover:bg-support border border-line transition-colors"
-                      data-tooltip="Reimprimir cupom"
-                      aria-label="Reimprimir cupom"
-                    >
-                      <Printer size={12} className="m-0.5" />
-                    </button>
-
-                    {!isCancelled && (
+                    <div className="flex items-center gap-1.5">
                       <button
-                        onClick={() => handleCancelSale(sale)}
-                        data-tooltip="Cancelar venda"
-                        aria-label="Cancelar venda"
-                        className="p-1 text-muted hover:text-brand rounded bg-surface hover:bg-support border border-line transition-colors"
+                        type="button"
+                        onClick={() => setSelectedSaleDetail(sale)}
+                        className="p-1.5 rounded-lg bg-surface border border-line text-muted"
+                        aria-label="Ver detalhes"
                       >
-                        <XCircle size={12} className="m-0.5" />
+                        <Eye size={14} />
                       </button>
-                    )}
-
-                    {sale.emitirNfce ? (
-                      <div className="flex flex-col items-center justify-center gap-1">
-                        {sale.nfceStatus === 'autorizada' ? (
-                          <span className="text-brand font-semibold text-[11px] flex items-center justify-center gap-1 bg-support px-2 py-0.5 rounded border border-brand">
-                            <CheckCircle2 size={12}/> {sale.nfceNumero ? `Nº ${sale.nfceNumero}` : 'Autorizada'}
-                          </span>
-                        ) : sale.nfceStatus === 'rejeitada' ? (
-                          <div className="flex items-center gap-2">
-                            <div className="relative group">
-                              <span className="text-brand font-semibold text-[11px] flex items-center justify-center gap-1 bg-support px-2 py-0.5 rounded border border-brand cursor-help">
-                                <XCircle size={12}/> Rejeitada
-                              </span>
-                              {sale.nfceMotivoRejeicao && (
-                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-48 p-2 bg-surface text-ink text-[10px] rounded shadow-xl border border-brand z-50 text-center pointer-events-none break-words">
-                                  <div className="font-bold text-brand mb-0.5">Motivo da Rejeição:</div>
-                                  {sale.nfceMotivoRejeicao}
-                                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-line"></div>
-                                </div>
-                              )}
-                            </div>
-                            <button onClick={() => triggerEmitNfce(sale)} disabled={emittingId === sale.id} className="text-brand hover:text-brand p-1 rounded bg-support hover:bg-support disabled:opacity-50" data-tooltip="Tentar Novamente">
-                              {emittingId === sale.id ? <PdvLojistaLoader mode="loader" compact size={12} label="Emitindo" /> : <Receipt size={12} />}
-                            </button>
-                          </div>
-                        ) : (
-                          <span className="text-brand font-semibold text-[11px] flex items-center justify-center gap-1 bg-support px-2 py-0.5 rounded border border-brand">
-                            <Clock size={12}/> Pendente
-                          </span>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-center gap-2">
-                        <button onClick={() => triggerEmitNfce(sale)} disabled={emittingId === sale.id} className="text-brand hover:text-brand flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded bg-support hover:bg-support border border-brand disabled:opacity-50 transition-colors">
-                          {emittingId === sale.id ? <PdvLojistaLoader mode="loader" compact size={12} label="Emitindo" /> : <Receipt size={12} />} Gerar
+                      <button
+                        type="button"
+                        onClick={() => printReceipt(sale)}
+                        className="p-1.5 rounded-lg bg-surface border border-line text-muted"
+                        aria-label="Reimprimir"
+                      >
+                        <Printer size={14} />
+                      </button>
+                      {!isCancelled && (
+                        <button
+                          type="button"
+                          onClick={() => handleCancelSale(sale)}
+                          className="p-1.5 rounded-lg bg-surface border border-line text-muted"
+                          aria-label="Cancelar venda"
+                        >
+                          <XCircle size={14} />
                         </button>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
             {currentSales.length === 0 && (
-              <div className="p-12 text-center text-muted italic">
-                Nenhuma venda encontrada.
+              <div className="p-10 text-center text-xs text-muted">
+                Nenhuma venda encontrada neste filtro.
               </div>
             )}
           </div>
-          
+
           {/* Paginação */}
           {totalPages > 1 && (
-            <div className="p-4 border-t border-line bg-page flex items-center justify-between text-sm text-muted">
-              <span>Mostrando {((currentPage - 1) * itemsPerPage) + 1} até {Math.min(currentPage * itemsPerPage, filteredSales.length)} de {filteredSales.length}</span>
-              <div className="flex gap-2">
-                <button 
+            <div className="p-3.5 border-t border-line bg-page flex items-center justify-between text-xs text-muted tabular-nums">
+              <span>
+                Exibindo {(currentPage - 1) * itemsPerPage + 1}–
+                {Math.min(currentPage * itemsPerPage, filteredSales.length)} de{' '}
+                {filteredSales.length}
+              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
                   disabled={currentPage === 1}
-                  onClick={() => setCurrentPage(p => p - 1)}
-                  className="p-1.5 rounded-lg hover:bg-surface disabled:opacity-50 disabled:hover:bg-transparent transition-colors"
+                  onClick={() => setCurrentPage((p) => p - 1)}
+                  className="p-1.5 rounded-lg bg-surface border border-line hover:border-brand disabled:opacity-40 cursor-pointer"
+                  aria-label="Página anterior"
                 >
-                  <ChevronLeft size={18} />
+                  <ChevronLeft size={16} />
                 </button>
-                <button 
+                <span className="px-2 font-semibold text-ink">
+                  {currentPage} / {totalPages}
+                </span>
+                <button
+                  type="button"
                   disabled={currentPage === totalPages}
-                  onClick={() => setCurrentPage(p => p + 1)}
-                  className="p-1.5 rounded-lg hover:bg-surface disabled:opacity-50 disabled:hover:bg-transparent transition-colors"
+                  onClick={() => setCurrentPage((p) => p + 1)}
+                  className="p-1.5 rounded-lg bg-surface border border-line hover:border-brand disabled:opacity-40 cursor-pointer"
+                  aria-label="Próxima página"
                 >
-                  <ChevronRight size={18} />
+                  <ChevronRight size={16} />
                 </button>
               </div>
             </div>
           )}
-        </div>
-
+        </section>
       </div>
 
+      {/* Modal de Detalhes do Cupom */}
+      {selectedSaleDetail && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Detalhes do cupom de venda"
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-ink/50 p-4"
+          onClick={() => setSelectedSaleDetail(null)}
+        >
+          <div
+            className="w-full max-w-2xl rounded-2xl border border-line bg-surface overflow-hidden flex flex-col max-h-[88vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-5 border-b border-line flex items-start justify-between gap-3 bg-surface">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-bold text-ink tabular-nums">
+                    Cupom{' '}
+                    {selectedSaleDetail.code
+                      ? `#${selectedSaleDetail.code}`
+                      : `#${selectedSaleDetail.id.slice(0, 8)}`}
+                  </h3>
+                  {selectedSaleDetail.status === 'cancelled' ? (
+                    <span className="px-2 py-0.5 rounded bg-page border border-line text-muted text-[11px] font-bold uppercase">
+                      Cancelada
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded bg-support border border-brand text-brand text-[11px] font-bold uppercase">
+                      Concluída
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-muted mt-0.5 tabular-nums">
+                  Registrada em{' '}
+                  {new Date(selectedSaleDetail.createdAt).toLocaleString('pt-BR')}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedSaleDetail(null)}
+                className="p-1.5 rounded-lg text-muted hover:text-ink hover:bg-page cursor-pointer"
+                aria-label="Fechar detalhes"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-5 overflow-y-auto space-y-5 flex-1">
+              {/* Metadados de Atendimento */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                <div className="p-3 rounded-xl bg-page border border-line">
+                  <span className="text-[11px] text-muted block">Operador Responsável</span>
+                  <strong className="text-ink font-semibold inline-flex items-center gap-1 mt-0.5">
+                    <User size={13} className="text-brand" />
+                    {selectedSaleDetail.operator?.name || 'Operador'}
+                  </strong>
+                </div>
+                <div className="p-3 rounded-xl bg-page border border-line">
+                  <span className="text-[11px] text-muted block">Cliente / Consumidor</span>
+                  <strong className="text-ink font-semibold block truncate mt-0.5">
+                    {selectedSaleDetail.customer?.name ||
+                      selectedSaleDetail.consumidorNome ||
+                      'Consumidor não identificado'}
+                  </strong>
+                  {selectedSaleDetail.consumidorCpf && (
+                    <span className="text-[10px] text-muted tabular-nums">
+                      CPF/CNPJ: {selectedSaleDetail.consumidorCpf}
+                    </span>
+                  )}
+                </div>
+                <div className="p-3 rounded-xl bg-page border border-line">
+                  <span className="text-[11px] text-muted block">Situação NFC-e</span>
+                  <strong className="text-ink font-semibold block mt-0.5">
+                    {selectedSaleDetail.nfceStatus === 'autorizada'
+                      ? `Autorizada ${selectedSaleDetail.nfceNumero ? `Nº ${selectedSaleDetail.nfceNumero}` : ''}`
+                      : selectedSaleDetail.nfceStatus === 'rejeitada'
+                        ? 'Rejeitada na SEFAZ'
+                        : selectedSaleDetail.emitirNfce
+                          ? selectedSaleDetail.nfceStatus || 'Pendente'
+                          : 'Cupom não fiscal'}
+                  </strong>
+                </div>
+              </div>
+
+              {selectedSaleDetail.status === 'cancelled' && selectedSaleDetail.cancelReason && (
+                <div className="p-3.5 rounded-xl bg-page border border-ink text-xs text-ink">
+                  <strong className="font-bold block mb-0.5">Motivo do Cancelamento:</strong>
+                  {selectedSaleDetail.cancelReason}
+                </div>
+              )}
+
+              {selectedSaleDetail.nfceStatus === 'rejeitada' &&
+                selectedSaleDetail.nfceMotivoRejeicao && (
+                  <div className="p-3.5 rounded-xl bg-support border border-brand text-xs text-ink">
+                    <strong className="font-bold text-brand block mb-0.5">
+                      Retorno da SEFAZ:
+                    </strong>
+                    {selectedSaleDetail.nfceMotivoRejeicao}
+                  </div>
+                )}
+
+              {/* Itens da Venda */}
+              <div className="space-y-2">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-muted">
+                  Mercadorias do Atendimento ({selectedSaleDetail.items.length})
+                </h4>
+                <div className="border border-line rounded-xl divide-y divide-line">
+                  {selectedSaleDetail.items.map((item) => (
+                    <div
+                      key={item.id}
+                      className="p-3 flex items-center justify-between gap-3 text-xs"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <ProductThumb
+                          imageUrl={item.product?.imageUrl}
+                          alt={item.product?.name || item.productName || 'Item'}
+                          size={34}
+                        />
+                        <div className="min-w-0">
+                          <strong className="text-ink font-semibold block truncate">
+                            {item.product?.name || item.productName || 'Mercadoria'}
+                          </strong>
+                          <span className="text-[11px] text-muted tabular-nums">
+                            {Number(item.quantity)} un × {formatBrl(item.priceUnit)}
+                            {item.product?.size ? ` · Tam ${item.product.size}` : ''}
+                            {item.product?.color ? ` · ${item.product.color}` : ''}
+                          </span>
+                        </div>
+                      </div>
+                      <strong className="text-ink font-bold tabular-nums shrink-0">
+                        {formatBrl(item.subtotal)}
+                      </strong>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Pagamentos e Totais */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="p-3.5 rounded-xl bg-page border border-line space-y-2">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-muted block">
+                    Meios de Pagamento
+                  </span>
+                  {selectedSaleDetail.payments.map((p, idx) => (
+                    <div key={idx} className="flex justify-between text-xs tabular-nums">
+                      <span className="font-medium text-ink">
+                        {p.label || getPaymentMethodLabel(p.method)}
+                      </span>
+                      <strong className="font-bold text-ink">{formatBrl(p.value)}</strong>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-support border border-brand space-y-1.5 tabular-nums text-xs">
+                  <div className="flex justify-between text-muted">
+                    <span>Subtotal</span>
+                    <span>
+                      {formatBrl(selectedSaleDetail.subtotal || selectedSaleDetail.total)}
+                    </span>
+                  </div>
+                  {Number(selectedSaleDetail.discount || 0) > 0 && (
+                    <div className="flex justify-between text-ink font-medium">
+                      <span>Desconto concedido</span>
+                      <span>-{formatBrl(selectedSaleDetail.discount)}</span>
+                    </div>
+                  )}
+                  <div className="pt-1.5 border-t border-brand/30 flex justify-between text-sm font-bold text-brand">
+                    <span>Total Final</span>
+                    <span>{formatBrl(selectedSaleDetail.total)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {selectedSaleDetail.nfceChave && (
+                <div className="p-3 rounded-lg bg-page border border-line text-[11px] text-muted font-mono break-all">
+                  Chave NFC-e: {selectedSaleDetail.nfceChave}
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t border-line bg-page flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => printReceipt(selectedSaleDetail)}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-surface border border-line text-ink hover:border-brand text-xs font-semibold cursor-pointer"
+                >
+                  <Printer size={14} className="text-brand" />
+                  Reimprimir Cupom
+                </button>
+                {selectedSaleDetail.status !== 'cancelled' &&
+                  selectedSaleDetail.nfceStatus !== 'autorizada' && (
+                    <button
+                      type="button"
+                      onClick={() => triggerEmitNfce(selectedSaleDetail)}
+                      disabled={emittingId === selectedSaleDetail.id}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-support border border-brand text-brand hover:bg-brand hover:text-on-brand text-xs font-semibold cursor-pointer disabled:opacity-50"
+                    >
+                      <Receipt size={14} />
+                      {selectedSaleDetail.nfceStatus === 'rejeitada'
+                        ? 'Corrigir NFC-e'
+                        : 'Emitir NFC-e'}
+                    </button>
+                  )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                {selectedSaleDetail.status !== 'cancelled' && (
+                  <button
+                    type="button"
+                    onClick={() => handleCancelSale(selectedSaleDetail)}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-surface border border-line text-muted hover:text-ink text-xs font-semibold cursor-pointer"
+                  >
+                    <XCircle size={14} />
+                    Cancelar Venda
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setSelectedSaleDetail(null)}
+                  className="px-4 py-2 rounded-lg bg-brand hover:bg-brand-hover text-on-brand text-xs font-bold cursor-pointer"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isReportModalOpen && (
-        <PeriodReportModal 
-          isOpen={isReportModalOpen} 
-          onClose={() => setIsReportModalOpen(false)} 
-          startDate={startDate} 
-          endDate={endDate} 
-          summary={summary} 
+        <PeriodReportModal
+          isOpen={isReportModalOpen}
+          onClose={() => setIsReportModalOpen(false)}
+          startDate={startDate}
+          endDate={endDate}
+          summary={summary}
         />
       )}
+
       <ErrorBoundary>
-        <ReemitNfceModal 
-          isOpen={isReemitModalOpen} 
+        <ReemitNfceModal
+          isOpen={isReemitModalOpen}
           onClose={() => {
             setIsReemitModalOpen(false);
             setSaleToReemit(null);
-          }} 
-          sale={saleToReemit} 
+          }}
+          sale={saleToReemit}
           onConfirm={handleReemitConfirm}
         />
       </ErrorBoundary>
 
       {cancelSaleTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-md rounded-2xl border border-line bg-surface p-6 shadow-2xl space-y-4">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Cancelar venda"
+          className="fixed inset-0 z-[130] flex items-center justify-center bg-ink/50 p-4"
+        >
+          <div className="w-full max-w-md rounded-2xl border border-line bg-surface p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-line pb-3">
-              <h3 className="text-base font-black text-ink">Cancelar Venda</h3>
+              <h3 className="text-base font-bold text-ink">Cancelar Venda</h3>
               <button
                 type="button"
                 disabled={cancellingSale}
@@ -1379,7 +2107,7 @@ export default function SalesDashboard() {
                   setCancelSaleTarget(null);
                   setCancelReasonInput('');
                 }}
-                className="text-muted hover:text-ink text-xs font-bold"
+                className="text-muted hover:text-ink text-xs font-bold cursor-pointer"
               >
                 Fechar
               </button>
@@ -1387,8 +2115,8 @@ export default function SalesDashboard() {
             <div className="space-y-2 text-xs text-muted">
               <p>
                 Confirme o cancelamento da venda de{' '}
-                <strong className="text-ink">{formatCurrency(cancelSaleTarget.total)}</strong>.
-                O estoque das mercadorias será estornado automaticamente.
+                <strong className="text-ink">{formatBrl(cancelSaleTarget.total)}</strong>. O
+                estoque das mercadorias será estornado automaticamente.
               </p>
               <label className="block font-bold text-ink pt-1">
                 Motivo do cancelamento (mínimo de 15 caracteres)
@@ -1403,7 +2131,13 @@ export default function SalesDashboard() {
               />
               <div className="flex justify-between text-[11px]">
                 <span>Exigência fiscal e de auditoria interna</span>
-                <span className={cancelReasonInput.trim().length >= 15 ? 'text-brand font-bold' : 'text-muted'}>
+                <span
+                  className={
+                    cancelReasonInput.trim().length >= 15
+                      ? 'text-brand font-bold'
+                      : 'text-muted'
+                  }
+                >
                   {cancelReasonInput.trim().length}/15 caracteres
                 </span>
               </div>
@@ -1416,7 +2150,7 @@ export default function SalesDashboard() {
                   setCancelSaleTarget(null);
                   setCancelReasonInput('');
                 }}
-                className="rounded-xl border border-line bg-page px-4 py-2 text-xs font-bold text-ink hover:bg-support"
+                className="rounded-xl border border-line bg-page px-4 py-2 text-xs font-bold text-ink hover:bg-support cursor-pointer"
               >
                 Voltar
               </button>
@@ -1424,7 +2158,7 @@ export default function SalesDashboard() {
                 type="button"
                 disabled={cancellingSale || cancelReasonInput.trim().length < 15}
                 onClick={confirmCancelSale}
-                className="rounded-xl bg-brand px-4 py-2 text-xs font-bold text-on-brand hover:bg-brand-hover disabled:opacity-50"
+                className="rounded-xl bg-brand px-4 py-2 text-xs font-bold text-on-brand hover:bg-brand-hover disabled:opacity-50 cursor-pointer"
               >
                 {cancellingSale ? 'Cancelando...' : 'Confirmar Cancelamento'}
               </button>

@@ -308,6 +308,83 @@ export async function countPendingSales(tenantId?: string): Promise<number> {
     .count();
 }
 
+/**
+ * Lista todas as operações pendentes/em conferência da loja neste aparelho (visão gerencial/diagnóstico).
+ * Preserva isolamento estrito por tenantId; não altera regras de lock/PIN para reenvio.
+ */
+export async function getTenantPendingAndReviewSales(tenantId?: string): Promise<OfflineSale[]> {
+  if (!tenantId) return [];
+  const rows = await db.offline_sales
+    .where('syncStatus')
+    .anyOf(['PENDING', 'ERROR', 'SYNCING', 'REVIEW'])
+    .filter(row => row.tenantId === tenantId)
+    .toArray();
+  return rows.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+}
+
+/** Retorna diagnóstico local somente-leitura deste terminal para a loja atual */
+export async function getDeviceSyncDiagnostics(tenantId?: string): Promise<{
+  cachedProductsCount: number;
+  lastCatalogSyncAt: number | null;
+  syncedTodayCount: number;
+  totalSyncedCount: number;
+}> {
+  if (!tenantId) {
+    return {
+      cachedProductsCount: 0,
+      lastCatalogSyncAt: null,
+      syncedTodayCount: 0,
+      totalSyncedCount: 0,
+    };
+  }
+
+  const [cachedProducts, syncedSales] = await Promise.all([
+    db.products_cache.where('tenantId').equals(tenantId).toArray(),
+    db.offline_sales
+      .where('syncStatus')
+      .equals('SYNCED')
+      .filter(row => row.tenantId === tenantId)
+      .toArray(),
+  ]);
+
+  let lastCatalogSyncAt: number | null = null;
+  for (const prod of cachedProducts) {
+    if (typeof prod.cachedAt === 'number' && (lastCatalogSyncAt === null || prod.cachedAt > lastCatalogSyncAt)) {
+      lastCatalogSyncAt = prod.cachedAt;
+    }
+  }
+
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date());
+  const todayIso = `${parts.find(p => p.type === 'year')?.value ?? ''}-${parts.find(p => p.type === 'month')?.value ?? ''}-${parts.find(p => p.type === 'day')?.value ?? ''}`;
+
+  let syncedTodayCount = 0;
+  for (const s of syncedSales) {
+    const stamp = s.syncedAt || s.createdAt;
+    if (stamp) {
+      const spParts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Sao_Paulo',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).formatToParts(new Date(stamp));
+      const dayIso = `${spParts.find(p => p.type === 'year')?.value ?? ''}-${spParts.find(p => p.type === 'month')?.value ?? ''}-${spParts.find(p => p.type === 'day')?.value ?? ''}`;
+      if (dayIso === todayIso) syncedTodayCount += 1;
+    }
+  }
+
+  return {
+    cachedProductsCount: cachedProducts.length,
+    lastCatalogSyncAt,
+    syncedTodayCount,
+    totalSyncedCount: syncedSales.length,
+  };
+}
+
 /** Atualiza o cache completo de produtos */
 export async function updateProductsCache(products: CachedProduct[], tenantId = useAuthStore.getState().user?.tenant): Promise<void> {
   if (!tenantId) throw new Error('Loja obrigatória para salvar o catálogo.');

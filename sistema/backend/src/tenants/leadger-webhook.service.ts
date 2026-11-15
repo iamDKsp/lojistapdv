@@ -3,7 +3,11 @@ import * as crypto from 'crypto';
 import { HeartPrismaService } from '../prisma/heart-prisma.service';
 import { DEMO_LEGACY_DB_NAMES } from './demo-store.seed';
 
-export type LeadgerEventType = 'base.upsert' | 'invoice.upsert' | 'client.upsert';
+export type LeadgerEventType =
+  | 'base.upsert'
+  | 'invoice.upsert'
+  | 'client.upsert'
+  | 'lead.demo_accessed';
 export type LeadgerPaymentMethod = 'pix' | 'boleto' | 'credit_card' | 'bank_transfer' | 'cash';
 
 export interface LeadgerValidationResult {
@@ -69,7 +73,8 @@ export class LeadgerWebhookService implements OnModuleInit, OnModuleDestroy {
       endpointUrl,
       secret,
       publicBaseUrl,
-      configured: Boolean(secret && secret.length >= 16),
+      configured: Boolean(secret && secret.length >= 32),
+      secretTooShort: Boolean(secret && secret.length > 0 && secret.length < 32),
     };
   }
 
@@ -147,11 +152,11 @@ export class LeadgerWebhookService implements OnModuleInit, OnModuleDestroy {
     return new Date().toISOString().slice(0, 7);
   }
 
-  mapTenantStatusToLeadger(status?: string | null): 'active' | 'paused' | 'canceled' {
+  mapTenantStatusToLeadger(status?: string | null): 'active' | 'paused' | 'cancelled' {
     const s = (status || 'active').toLowerCase();
     if (s === 'active') return 'active';
     if (s === 'suspended' || s === 'paused' || s === 'blocked') return 'paused';
-    if (s === 'canceled' || s === 'cancelled' || s === 'deleted' || s === 'inactive') return 'canceled';
+    if (s === 'canceled' || s === 'cancelled' || s === 'deleted' || s === 'inactive') return 'cancelled';
     return 'active';
   }
 
@@ -203,10 +208,10 @@ export class LeadgerWebhookService implements OnModuleInit, OnModuleDestroy {
   }
 
   buildClientObject(tenant: any) {
-    const primaryEmail = (tenant.emailContato || tenant.emailContador || tenant.users?.[0]?.email || '').trim() || undefined;
-    const document = this.normalizeCnpjOrCpf(tenant.cnpj);
-    const phone = this.normalizeE164Phone(tenant.telefoneContato || tenant.telefone);
-    const logoUrl = this.buildPublicLogoUrl(tenant);
+    const rawEmail = (tenant.emailContato || tenant.emailContador || tenant.users?.[0]?.email || '').trim();
+    const validEmail = rawEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail) ? rawEmail.slice(0, 254) : null;
+    const document = this.normalizeCnpjOrCpf(tenant.cnpj) || null;
+    const phone = this.normalizeE164Phone(tenant.telefoneContato || tenant.telefone) || null;
 
     const addressParts = [
       tenant.logradouro,
@@ -216,115 +221,107 @@ export class LeadgerWebhookService implements OnModuleInit, OnModuleDestroy {
       tenant.uf,
     ].filter(Boolean);
 
-    const clientObj: Record<string, any> = {
+    const extraNotes = [
+      tenant.nomeFantasia && tenant.razaoSocial && tenant.nomeFantasia !== tenant.razaoSocial
+        ? `Fantasia: ${tenant.nomeFantasia}`
+        : null,
+      addressParts.length > 0 ? `Endereço: ${addressParts.join(', ')}` : null,
+      tenant.observacoes ? String(tenant.observacoes).trim() : null,
+    ]
+      .filter(Boolean)
+      .join(' | ');
+
+    return {
       externalId: tenant.clientExternalId || `cli-${tenant.id}`,
-      name: (tenant.razaoSocial || tenant.nomeFantasia || tenant.name || 'Cliente PDV Lojista').trim(),
-      tradeName: (tenant.nomeFantasia || tenant.name || undefined)?.trim(),
+      version: Math.max(1, Number(tenant.clientVersion || 1)),
+      name: (tenant.razaoSocial || tenant.nomeFantasia || tenant.name || 'Cliente PDV Lojista').trim().slice(0, 200),
       document,
-      email: primaryEmail,
+      email: validEmail,
       phone,
-      address: addressParts.length > 0 ? addressParts.join(', ') : undefined,
-      notes: tenant.observacoes || undefined,
-      logoUrl,
-      status: tenant.status === 'active' ? 'active' : 'inactive',
-      version: Number(tenant.clientVersion || 1),
+      status: (tenant.status === 'active' ? 'active' : 'inactive') as 'active' | 'inactive',
+      notes: extraNotes ? extraNotes.slice(0, 2000) : null,
     };
-
-    Object.keys(clientObj).forEach((k) => {
-      if (clientObj[k] === undefined || clientObj[k] === '') delete clientObj[k];
-    });
-
-    return clientObj;
   }
 
   buildBaseObject(tenant: any) {
     const dueDateIso = this.toIsoDateOnly(tenant.mensalidadeVencimento);
-    const dueDay = dueDateIso ? Math.min(31, Math.max(1, Number(dueDateIso.split('-')[2]))) : 10;
+    const billingDay = dueDateIso ? Math.min(31, Math.max(1, Number(dueDateIso.split('-')[2]))) : 10;
+    const startDate = this.toIsoDateOnly(tenant.createdAt) || new Date().toISOString().slice(0, 10);
+    const candidateEffective = dueDateIso || startDate;
+    const effectiveDate = candidateEffective >= startDate ? candidateEffective : startDate;
 
-    const baseObj: Record<string, any> = {
+    return {
       externalId: tenant.baseExternalId || `base-${tenant.id}`,
-      name: `${(tenant.nomeFantasia || tenant.name || 'PDV Lojista').trim()} - Mensalidade PDV Lojista`,
-      description: `Assinatura SaaS PDV Lojista (${tenant.databaseName})`,
-      amount: this.toBrlCents(tenant.mensalidadeValor),
-      currency: 'BRL',
-      billingCycle: 'monthly',
-      dueDay,
-      startDate: this.toIsoDateOnly(tenant.createdAt) || new Date().toISOString().slice(0, 10),
-      nextDueDate: dueDateIso,
+      version: Math.max(1, Number(tenant.baseVersion || 1)),
+      name: `${(tenant.nomeFantasia || tenant.name || 'PDV Lojista').trim()} - Mensalidade PDV Lojista`.slice(0, 200),
+      monthlyAmount: this.toBrlCents(tenant.mensalidadeValor),
+      billingDay,
+      startDate,
+      endDate: null,
+      effectiveDate,
       status: this.mapTenantStatusToLeadger(tenant.status),
-      version: Number(tenant.baseVersion || 1),
     };
-
-    Object.keys(baseObj).forEach((k) => {
-      if (baseObj[k] === undefined || baseObj[k] === '') delete baseObj[k];
-    });
-
-    return baseObj;
   }
 
   buildInvoiceObject(invoice: any) {
-    const invObj: Record<string, any> = {
+    const status = (invoice.status || 'pending') as 'pending' | 'paid' | 'cancelled';
+    const isPaid = status === 'paid';
+    return {
       externalId: invoice.externalId,
-      referenceMonth: invoice.referenceMonth,
-      dueDate: this.toIsoDateOnly(invoice.dueDate) || new Date().toISOString().slice(0, 10),
+      version: Math.max(1, Number(invoice.version || 1)),
+      description: String(invoice.description || `Mensalidade ${invoice.referenceMonth}`).trim().slice(0, 300),
       amount: Number(invoice.amount || 0),
-      status: invoice.status as 'pending' | 'paid' | 'cancelled',
-      paidAt: invoice.status === 'paid' && invoice.paidAt ? new Date(invoice.paidAt).toISOString() : undefined,
-      paymentMethod: invoice.status === 'paid' ? this.mapPaymentMethodToLeadger(invoice.paymentMethod || 'pix') : undefined,
-      description: invoice.description || `Mensalidade ${invoice.referenceMonth}`,
-      notes: invoice.notes || undefined,
-      version: Number(invoice.version || 1),
+      dueDate: this.toIsoDateOnly(invoice.dueDate) || new Date().toISOString().slice(0, 10),
+      referenceMonth: invoice.referenceMonth,
+      status,
+      paidAt: isPaid ? (invoice.paidAt ? new Date(invoice.paidAt).toISOString() : new Date().toISOString()) : null,
+      paymentMethod: isPaid ? (this.mapPaymentMethodToLeadger(invoice.paymentMethod || 'pix') || 'pix') : null,
     };
+  }
 
-    Object.keys(invObj).forEach((k) => {
-      if (invObj[k] === undefined || invObj[k] === '') delete invObj[k];
-    });
-
-    return invObj;
+  buildTenantEventData(eventType: LeadgerEventType, tenant: any, invoice?: any): Record<string, any> {
+    if (eventType === 'client.upsert') {
+      return this.buildClientObject(tenant);
+    }
+    if (eventType === 'invoice.upsert') {
+      return {
+        baseExternalId: tenant.baseExternalId || `base-${tenant.id}`,
+        invoice: invoice ? this.buildInvoiceObject(invoice) : undefined,
+      };
+    }
+    const invoices =
+      invoice && Number(invoice.amount || 0) > 0 ? [this.buildInvoiceObject(invoice)] : [];
+    return {
+      client: this.buildClientObject(tenant),
+      base: this.buildBaseObject(tenant),
+      invoices,
+    };
   }
 
   validateLeadgerEnvelope(eventType: LeadgerEventType, data: Record<string, any>): LeadgerValidationResult {
     const errors: string[] = [];
     const warnings: string[] = [];
 
-    const client = data.client;
-    if (!client) {
-      errors.push('Objeto `data.client` ausente.');
-    } else {
-      if (!client.externalId) errors.push('`client.externalId` é obrigatório.');
-      if (!client.name) errors.push('`client.name` é obrigatório.');
-      if (!client.document && !client.email) {
-        warnings.push(
-          'Cliente sem CNPJ/CPF (`document`) e sem `email`: o Leadger criará um novo cadastro sem conseguir conciliar por documento/e-mail.'
-        );
+    if (eventType === 'lead.demo_accessed') {
+      if (!data.externalId) errors.push('`externalId` do lead é obrigatório.');
+      if (!data.name || String(data.name).trim().length < 1) errors.push('`name` do lead é obrigatório.');
+      const phoneDigits = String(data.phone || '').replace(/\D/g, '');
+      if (phoneDigits.length < 10) {
+        errors.push('`phone` do lead deve conter DDD + número válido.');
       }
-      if (client.document && ![11, 14].includes(String(client.document).length)) {
-        errors.push(`\`client.document\` deve conter 11 (CPF) ou 14 (CNPJ) dígitos (atual: "${client.document}").`);
-      }
-    }
-
-    if (eventType === 'base.upsert' || eventType === 'invoice.upsert') {
-      const base = data.base;
-      if (!base) {
-        errors.push('Objeto `data.base` é obrigatório.');
-      } else {
-        if (!base.externalId) errors.push('`base.externalId` é obrigatório.');
-        if (typeof base.amount !== 'number' || !Number.isInteger(base.amount) || base.amount <= 0) {
-          errors.push('`base.amount` deve ser inteiro positivo em centavos (> 0). Defina o valor da mensalidade.');
-        }
-        if (typeof base.dueDay !== 'number' || base.dueDay < 1 || base.dueDay > 31) {
-          errors.push('`base.dueDay` deve estar entre 1 e 31.');
-        }
-      }
+      return { valid: errors.length === 0, errors, warnings };
     }
 
     if (eventType === 'invoice.upsert') {
+      if (!data.baseExternalId) {
+        errors.push('`data.baseExternalId` é obrigatório em `invoice.upsert`.');
+      }
       const inv = data.invoice;
       if (!inv) {
         errors.push('Objeto `data.invoice` é obrigatório em `invoice.upsert`.');
       } else {
         if (!inv.externalId) errors.push('`invoice.externalId` é obrigatório.');
-        if (!/^\d{4}-\d{2}$/.test(String(inv.referenceMonth || ''))) {
+        if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(String(inv.referenceMonth || ''))) {
           errors.push('`invoice.referenceMonth` deve estar no formato YYYY-MM.');
         }
         if (!/^\d{4}-\d{2}-\d{2}$/.test(String(inv.dueDate || ''))) {
@@ -338,6 +335,38 @@ export class LeadgerWebhookService implements OnModuleInit, OnModuleDestroy {
         }
         if (inv.status === 'paid' && !inv.paidAt) {
           errors.push('`invoice.paidAt` (ISO-8601) é obrigatório quando `status === "paid"`.');
+        }
+      }
+      return { valid: errors.length === 0, errors, warnings };
+    }
+
+    const client = eventType === 'client.upsert' ? data : data.client;
+    if (!client) {
+      errors.push('Objeto de cliente ausente no payload.');
+    } else {
+      if (!client.externalId) errors.push('`client.externalId` é obrigatório.');
+      if (!client.name) errors.push('`client.name` é obrigatório.');
+      if (!client.document && !client.email) {
+        warnings.push(
+          'Cliente sem CNPJ/CPF (`document`) e sem `email`: o Leadger criará um novo cadastro sem conseguir conciliar por documento/e-mail.'
+        );
+      }
+      if (client.document && ![11, 14].includes(String(client.document).length)) {
+        errors.push(`\`client.document\` deve conter 11 (CPF) ou 14 (CNPJ) dígitos (atual: "${client.document}").`);
+      }
+    }
+
+    if (eventType === 'base.upsert') {
+      const base = data.base;
+      if (!base) {
+        errors.push('Objeto `data.base` é obrigatório.');
+      } else {
+        if (!base.externalId) errors.push('`base.externalId` é obrigatório.');
+        if (typeof base.monthlyAmount !== 'number' || !Number.isInteger(base.monthlyAmount) || base.monthlyAmount <= 0) {
+          errors.push('`base.monthlyAmount` deve ser inteiro positivo em centavos (> 0). Defina o valor da mensalidade.');
+        }
+        if (typeof base.billingDay !== 'number' || base.billingDay < 1 || base.billingDay > 31) {
+          errors.push('`base.billingDay` deve estar entre 1 e 31.');
         }
       }
     }
@@ -360,7 +389,9 @@ export class LeadgerWebhookService implements OnModuleInit, OnModuleDestroy {
 
     const config = this.getLeadgerConfig();
     if (!config.configured) {
-      const msg = 'LEADGER_WEBHOOK_SECRET não configurado (mínimo 16 caracteres). Evento mantido na fila.';
+      const msg = config.secretTooShort
+        ? 'LEADGER_WEBHOOK_SECRET muito curto (o Teltech Leadger exige mínimo de 32 caracteres). Evento mantido na fila.'
+        : 'LEADGER_WEBHOOK_SECRET não configurado (mínimo 32 caracteres). Evento mantido na fila.';
       await this.heartPrisma.webhookOutbox.update({
         where: { id: outboxId },
         data: {
@@ -387,6 +418,8 @@ export class LeadgerWebhookService implements OnModuleInit, OnModuleDestroy {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json; charset=utf-8',
+          'X-Leadger-Timestamp': timestamp,
+          'X-Leadger-Signature': `sha256=${signature}`,
           'X-Webhook-Source': config.source,
           'X-Webhook-Timestamp': timestamp,
           'X-Webhook-Signature': `sha256=${signature}`,
@@ -472,7 +505,6 @@ export class LeadgerWebhookService implements OnModuleInit, OnModuleDestroy {
     bumpInvoiceVersion?: boolean;
     awaitDelivery?: boolean;
   }) {
-    const config = this.getLeadgerConfig();
     let tenant = await this.ensureTenantExternalIds(params.tenantId);
 
     if (params.bumpClientVersion || params.bumpBaseVersion) {
@@ -502,33 +534,22 @@ export class LeadgerWebhookService implements OnModuleInit, OnModuleDestroy {
         : await this.heartPrisma.tenantInvoice.findUnique({
             where: { id: params.invoiceId },
           });
-    } else if (params.eventType === 'base.upsert') {
+    } else if (params.eventType === 'base.upsert' || params.eventType === 'invoice.upsert') {
       invoice = await this.heartPrisma.tenantInvoice.findFirst({
         where: { tenantId: params.tenantId },
         orderBy: { dueDate: 'desc' },
       });
     }
 
-    const dataObj: Record<string, any> = {
-      client: this.buildClientObject(tenant),
-    };
-
-    if (params.eventType === 'base.upsert' || params.eventType === 'invoice.upsert') {
-      dataObj.base = this.buildBaseObject(tenant);
-    }
-
-    if (invoice && (params.eventType === 'invoice.upsert' || params.eventType === 'base.upsert')) {
-      dataObj.invoice = this.buildInvoiceObject(invoice);
-    }
+    const dataObj = this.buildTenantEventData(params.eventType, tenant, invoice);
 
     const validation = this.validateLeadgerEnvelope(params.eventType, dataObj);
     const eventId = `evt_${crypto.randomUUID()}`;
     const envelope = {
-      specVersion: '1.0',
+      schemaVersion: 1 as const,
       eventId,
       eventType: params.eventType,
       occurredAt: new Date().toISOString(),
-      source: config.source,
       data: dataObj,
     };
 
@@ -605,13 +626,28 @@ export class LeadgerWebhookService implements OnModuleInit, OnModuleDestroy {
   async rebuildAndDeliverOutboxItem(outboxId: string) {
     const item = await this.heartPrisma.webhookOutbox.findUnique({ where: { id: outboxId } });
     if (!item) return { delivered: false, error: 'Registro Outbox não encontrado.' };
+
+    const eventType = item.eventType as LeadgerEventType;
+
     if (!item.tenantId) {
+      if (eventType === 'lead.demo_accessed') {
+        const prevPayload = (item.payload || {}) as Record<string, any>;
+        const extId = String(prevPayload?.data?.externalId || '');
+        const leadId = extId.startsWith('lead-') ? extId.slice(5) : '';
+        if (leadId) {
+          const lead = await this.heartPrisma.lead.findUnique({ where: { id: leadId } });
+          if (lead) {
+            return await this.enqueueDemoLeadEvent(lead, {
+              isFirstAccess: (lead.accessCount || 1) <= 1,
+              awaitDelivery: true,
+            });
+          }
+        }
+      }
       return { delivered: false, error: 'Evento não possui tenantId vinculado para reconstrução.' };
     }
 
-    const config = this.getLeadgerConfig();
     const tenant = await this.ensureTenantExternalIds(item.tenantId);
-    const eventType = item.eventType as LeadgerEventType;
 
     let invoice: any = null;
     if (item.invoiceId) {
@@ -623,23 +659,14 @@ export class LeadgerWebhookService implements OnModuleInit, OnModuleDestroy {
       });
     }
 
-    const dataObj: Record<string, any> = {
-      client: this.buildClientObject(tenant),
-    };
-    if (eventType === 'base.upsert' || eventType === 'invoice.upsert') {
-      dataObj.base = this.buildBaseObject(tenant);
-    }
-    if (invoice && (eventType === 'invoice.upsert' || eventType === 'base.upsert')) {
-      dataObj.invoice = this.buildInvoiceObject(invoice);
-    }
+    const dataObj = this.buildTenantEventData(eventType, tenant, invoice);
 
     const validation = this.validateLeadgerEnvelope(eventType, dataObj);
     const rebuiltEnvelope = {
-      specVersion: '1.0',
+      schemaVersion: 1 as const,
       eventId: item.eventId,
       eventType,
       occurredAt: new Date().toISOString(),
-      source: config.source,
       data: dataObj,
     };
 
@@ -676,6 +703,232 @@ export class LeadgerWebhookService implements OnModuleInit, OnModuleDestroy {
       valid: true,
       warnings: validation.warnings,
       ...delivery,
+    };
+  }
+
+  async enqueueDemoLeadEvent(
+    lead: {
+      id: string;
+      name: string;
+      whatsapp: string;
+      accessCount?: number | null;
+      notes?: string | null;
+    },
+    opts?: {
+      isFirstAccess?: boolean;
+      previousAccessAt?: Date | string | null;
+      awaitDelivery?: boolean;
+    },
+  ) {
+    const prevCount = await this.heartPrisma.webhookOutbox.count({
+      where: {
+        eventType: 'lead.demo_accessed',
+        eventId: { startsWith: `evt_lead_${lead.id}_` },
+      },
+    });
+
+    const accessCount = Math.max(1, Number(lead.accessCount || 1));
+    const version = Math.max(accessCount, prevCount + 1);
+    const cleanDigits = String(lead.whatsapp || '').replace(/\D/g, '');
+    const phone =
+      this.normalizeE164Phone(lead.whatsapp) ||
+      (cleanDigits.startsWith('55') ? `+${cleanDigits}` : `+55${cleanDigits}`);
+
+    let previousAccessIso: string | null = null;
+    if (opts?.previousAccessAt) {
+      const parsed = new Date(opts.previousAccessAt);
+      if (!isNaN(parsed.getTime())) {
+        previousAccessIso = parsed.toISOString();
+      }
+    }
+
+    const dataObj = {
+      externalId: `lead-${lead.id}`,
+      version,
+      name: String(lead.name || 'Visitante Demo').trim().slice(0, 200),
+      phone,
+      email: null,
+      accessCount,
+      isFirstAccess: opts?.isFirstAccess ?? accessCount <= 1,
+      previousAccessAt: previousAccessIso,
+      sourceLabel: 'PDV Lojista',
+      notes: lead.notes ? String(lead.notes).trim().slice(0, 2000) : null,
+    };
+
+    const validation = this.validateLeadgerEnvelope('lead.demo_accessed', dataObj);
+    const shortRand = crypto.randomBytes(3).toString('hex');
+    const eventId = `evt_lead_${lead.id}_v${version}_${shortRand}`;
+    const envelope = {
+      schemaVersion: 1 as const,
+      eventId,
+      eventType: 'lead.demo_accessed' as const,
+      occurredAt: new Date().toISOString(),
+      data: dataObj,
+    };
+
+    const outbox = await this.heartPrisma.webhookOutbox.create({
+      data: {
+        eventId,
+        eventType: 'lead.demo_accessed',
+        tenantId: null,
+        invoiceId: null,
+        payload: envelope,
+        status: validation.valid ? 'pending' : 'blocked',
+        lastError: validation.valid
+          ? null
+          : `Bloqueado antes do envio: ${validation.errors.join(' | ')}`,
+      },
+    });
+
+    if (!validation.valid) {
+      return {
+        outboxId: outbox.id,
+        eventId,
+        valid: false,
+        errors: validation.errors,
+        delivered: false,
+      };
+    }
+
+    if (opts?.awaitDelivery !== false) {
+      const delivery = await this.deliverOutboxItem(outbox.id);
+      return {
+        outboxId: outbox.id,
+        eventId,
+        valid: true,
+        ...delivery,
+      };
+    }
+
+    this.deliverOutboxItem(outbox.id).catch((e) => {
+      this.logger.warn(`[LeadgerOutbox] Falha assíncrona ao enviar lead demo ${lead.id}: ${e?.message}`);
+    });
+
+    return {
+      outboxId: outbox.id,
+      eventId,
+      valid: true,
+      queued: true,
+    };
+  }
+
+  private canonicalBrDigits(raw?: string | null): string {
+    let digits = String(raw || '').replace(/\D/g, '');
+    if (digits.startsWith('55') && digits.length >= 12) {
+      digits = digits.slice(2);
+    }
+    if (digits.length === 11 && digits[2] === '9') {
+      return digits.slice(0, 2) + digits.slice(3);
+    }
+    return digits;
+  }
+
+  async getDemoLeadsLeadgerSummary(leads: Array<{ id: string; whatsapp: string }>) {
+    const config = this.getLeadgerConfig();
+    const outboxRows = await this.heartPrisma.webhookOutbox.findMany({
+      where: { eventType: 'lead.demo_accessed' },
+      orderBy: { createdAt: 'desc' },
+      take: 400,
+      select: {
+        id: true,
+        eventId: true,
+        status: true,
+        lastError: true,
+        deliveredAt: true,
+        createdAt: true,
+        payload: true,
+      },
+    });
+
+    const latestOutboxByExternalId = new Map<string, any>();
+    for (const row of outboxRows) {
+      const payload = (row.payload || {}) as Record<string, any>;
+      const extId = String(payload?.data?.externalId || '');
+      if (extId && !latestOutboxByExternalId.has(extId)) {
+        latestOutboxByExternalId.set(extId, row);
+      }
+    }
+
+    let remoteOnline = false;
+    let remoteStats: any = null;
+    const remoteByExtId = new Map<string, any>();
+    const remoteByCanonicalPhone = new Map<string, any>();
+
+    if (config.configured && leads.length > 0) {
+      try {
+        const summaryUrl = `${config.endpointUrl.replace(/\/+$/, '')}/leads-summary`;
+        const timestamp = Math.floor(Date.now() / 1000).toString();
+        const signature = this.signLeadgerPayload(config.secret, timestamp, config.source, '');
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 3500);
+
+        const res = await fetch(summaryUrl, {
+          method: 'GET',
+          headers: {
+            'X-Leadger-Timestamp': timestamp,
+            'X-Leadger-Signature': `sha256=${signature}`,
+          },
+          signal: controller.signal,
+        });
+        clearTimeout(timeout);
+
+        if (res.ok) {
+          const json: any = await res.json();
+          remoteOnline = true;
+          remoteStats = json?.stats || null;
+          const remoteLeads = Array.isArray(json?.leads) ? json.leads : [];
+          for (const rl of remoteLeads) {
+            if (rl?.externalId) {
+              remoteByExtId.set(String(rl.externalId), rl);
+            }
+            const canon = this.canonicalBrDigits(rl?.phoneNormalized || rl?.phone);
+            if (canon && !remoteByCanonicalPhone.has(canon)) {
+              remoteByCanonicalPhone.set(canon, rl);
+            }
+          }
+        }
+      } catch (err: any) {
+        this.logger.debug(
+          `[LeadgerSummary] Não foi possível consultar resumo remoto no Leadger: ${err?.message}`,
+        );
+      }
+    }
+
+    const byLeadId: Record<string, any> = {};
+    for (const lead of leads) {
+      const extId = `lead-${lead.id}`;
+      const localOutbox = latestOutboxByExternalId.get(extId) || null;
+      const remote =
+        remoteByExtId.get(extId) ||
+        remoteByCanonicalPhone.get(this.canonicalBrDigits(lead.whatsapp)) ||
+        null;
+
+      byLeadId[lead.id] = {
+        synced: Boolean(remote || localOutbox?.status === 'delivered'),
+        outboxStatus: localOutbox?.status || null,
+        outboxDeliveredAt: localOutbox?.deliveredAt
+          ? new Date(localOutbox.deliveredAt).toISOString()
+          : null,
+        outboxError: localOutbox?.lastError || null,
+        cadenceStatus: remote?.status || null,
+        pauseReason: remote?.pauseReason || null,
+        sentCount: Number(remote?.sentCount ?? 0),
+        totalSteps: Number(remote?.totalSteps ?? 7),
+        nextStepOrder: remote?.nextStepOrder ?? null,
+        nextStepAt: remote?.nextStepAt || null,
+        lastSentAt: remote?.lastSentAt || null,
+        repliedAt: remote?.repliedAt || null,
+      };
+    }
+
+    return {
+      configured: config.configured,
+      secretTooShort: config.secretTooShort,
+      source: config.source,
+      endpointUrl: config.endpointUrl,
+      remoteOnline,
+      remoteStats,
+      byLeadId,
     };
   }
 
@@ -821,6 +1074,7 @@ export class LeadgerWebhookService implements OnModuleInit, OnModuleDestroy {
         endpointUrl: config.endpointUrl,
         publicBaseUrl: config.publicBaseUrl,
         configured: config.configured,
+        secretTooShort: config.secretTooShort,
         secretPreview: config.secret
           ? `${config.secret.slice(0, 4)}••••••${config.secret.slice(-4)}`
           : null,

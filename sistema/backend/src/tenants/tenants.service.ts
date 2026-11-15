@@ -1846,27 +1846,44 @@ export class TenantsService {
       where: { whatsapp },
     });
 
-    if (existing) {
-      return this.heartPrisma.lead.update({
-        where: { id: existing.id },
-        data: {
-          name,
-          accessCount: { increment: 1 },
-          lastAccessAt: now,
-        },
-      });
+    const isFirstAccess = !existing;
+    const previousAccessAt = existing?.lastAccessAt ?? null;
+
+    const lead = existing
+      ? await this.heartPrisma.lead.update({
+          where: { id: existing.id },
+          data: {
+            name,
+            accessCount: { increment: 1 },
+            lastAccessAt: now,
+          },
+        })
+      : await this.heartPrisma.lead.create({
+          data: {
+            name,
+            whatsapp,
+            status: 'NOVO',
+            source: 'demo',
+            accessCount: 1,
+            lastAccessAt: now,
+          },
+        });
+
+    if (this.leadgerService) {
+      this.leadgerService
+        .enqueueDemoLeadEvent(lead, {
+          isFirstAccess,
+          previousAccessAt,
+          awaitDelivery: false,
+        })
+        .catch((err) => {
+          this.logger.warn(
+            `[DemoLead -> Leadger] Falha ao enfileirar lead ${lead.id}: ${err?.message}`,
+          );
+        });
     }
 
-    return this.heartPrisma.lead.create({
-      data: {
-        name,
-        whatsapp,
-        status: 'NOVO',
-        source: 'demo',
-        accessCount: 1,
-        lastAccessAt: now,
-      },
-    });
+    return lead;
   }
 
   async listLeads(statusFilter?: string, search?: string) {
@@ -1894,6 +1911,15 @@ export class TenantsService {
       }),
     ]);
 
+    const leadgerMeta = this.leadgerService
+      ? await this.leadgerService.getDemoLeadsLeadgerSummary(leads)
+      : null;
+
+    const enrichedLeads = leads.map((lead) => ({
+      ...lead,
+      leadger: leadgerMeta?.byLeadId?.[lead.id] || null,
+    }));
+
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
 
@@ -1912,7 +1938,69 @@ export class TenantsService {
       },
     };
 
-    return { leads, summary };
+    return {
+      leads: enrichedLeads,
+      summary,
+      leadgerConfig: leadgerMeta
+        ? {
+            configured: leadgerMeta.configured,
+            secretTooShort: leadgerMeta.secretTooShort,
+            source: leadgerMeta.source,
+            endpointUrl: leadgerMeta.endpointUrl,
+            remoteOnline: leadgerMeta.remoteOnline,
+            remoteStats: leadgerMeta.remoteStats,
+          }
+        : null,
+    };
+  }
+
+  async syncLeadToLeadger(id: string) {
+    const leadgerService = this.requireLeadger();
+    const lead = await this.heartPrisma.lead.findUnique({ where: { id } });
+    if (!lead) throw new NotFoundException('Lead não encontrado.');
+
+    const result = await leadgerService.enqueueDemoLeadEvent(lead, {
+      isFirstAccess: (lead.accessCount || 1) <= 1,
+      awaitDelivery: true,
+    });
+
+    const summary = await leadgerService.getDemoLeadsLeadgerSummary([lead]);
+    return {
+      ...result,
+      lead: {
+        ...lead,
+        leadger: summary.byLeadId?.[lead.id] || null,
+      },
+    };
+  }
+
+  async syncAllLeadsToLeadger() {
+    const leadgerService = this.requireLeadger();
+    const leads = await this.heartPrisma.lead.findMany({
+      where: { status: { not: 'DESCARTADO' } },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    let delivered = 0;
+    let queued = 0;
+    let failed = 0;
+
+    for (const lead of leads) {
+      const res: any = await leadgerService.enqueueDemoLeadEvent(lead, {
+        isFirstAccess: (lead.accessCount || 1) <= 1,
+        awaitDelivery: true,
+      });
+      if (res.delivered) delivered++;
+      else if (res.queued) queued++;
+      else failed++;
+    }
+
+    return {
+      total: leads.length,
+      delivered,
+      queued,
+      failed,
+    };
   }
 
   async updateLead(

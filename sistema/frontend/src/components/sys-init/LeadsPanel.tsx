@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  AlertCircle,
   Check,
   CheckCircle2,
   Clock,
@@ -7,10 +8,13 @@ import {
   FileText,
   Loader2,
   MessageCircle,
+  PauseCircle,
   Phone,
   RefreshCw,
   RotateCcw,
   Search,
+  Send,
+  ShieldCheck,
   Sparkles,
   Store,
   Trash2,
@@ -22,6 +26,21 @@ import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { formatWhatsappMask } from "@/retail/DemoLeadModal";
 
+export interface LeadLeadgerInfo {
+  synced: boolean;
+  outboxStatus: string | null;
+  outboxDeliveredAt: string | null;
+  outboxError: string | null;
+  cadenceStatus: string | null;
+  pauseReason: string | null;
+  sentCount: number;
+  totalSteps: number;
+  nextStepOrder: number | null;
+  nextStepAt: string | null;
+  lastSentAt: string | null;
+  repliedAt: string | null;
+}
+
 export interface LeadRecord {
   id: string;
   name: string;
@@ -32,6 +51,22 @@ export interface LeadRecord {
   lastAccessAt: string;
   createdAt: string;
   updatedAt: string;
+  leadger?: LeadLeadgerInfo | null;
+}
+
+interface LeadgerConfigMeta {
+  configured: boolean;
+  secretTooShort?: boolean;
+  source?: string;
+  endpointUrl?: string;
+  remoteOnline?: boolean;
+  remoteStats?: {
+    total?: number;
+    active?: number;
+    replied?: number;
+    converted?: number;
+    messagesSent?: number;
+  } | null;
 }
 
 interface LeadsPanelProps {
@@ -47,10 +82,134 @@ const LEAD_STATUS_OPTIONS = [
   { value: "DESCARTADO", label: "Descartado" },
 ] as const;
 
+function formatShortDateTime(iso?: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function describeLeadgerStatus(info?: LeadLeadgerInfo | null): {
+  label: string;
+  sublabel: string;
+  emphasized: boolean;
+  paused: boolean;
+} {
+  if (!info) {
+    return {
+      label: "Aguardando envio ao Leadger",
+      sublabel: "Clique em Sincronizar para iniciar a régua automática",
+      emphasized: false,
+      paused: false,
+    };
+  }
+
+  if (info.cadenceStatus === "converted") {
+    return {
+      label: "Convertido no Leadger",
+      sublabel: `${info.sentCount}/${info.totalSteps || 7} mensagens disparadas antes da conversão`,
+      emphasized: true,
+      paused: false,
+    };
+  }
+
+  if (info.cadenceStatus === "paused" || info.cadenceStatus === "opted_out") {
+    const reasonLabel =
+      info.pauseReason === "lead_replied"
+        ? "Lead respondeu no WhatsApp • Automação pausada"
+        : info.pauseReason === "operator_manual_chat"
+        ? "Atendimento humano iniciado • Automação pausada"
+        : info.pauseReason === "opt_out" || info.cadenceStatus === "opted_out"
+        ? "Lead solicitou parada (Opt-out)"
+        : "Cadência pausada manualmente no Leadger";
+
+    return {
+      label:
+        info.pauseReason === "lead_replied"
+          ? "Respondeu no WhatsApp"
+          : "Cadência Pausada",
+      sublabel: `${reasonLabel} (${info.sentCount}/${info.totalSteps || 7} enviadas)`,
+      emphasized: info.pauseReason === "lead_replied",
+      paused: true,
+    };
+  }
+
+  if (info.cadenceStatus === "completed") {
+    return {
+      label: `Régua Concluída (${info.sentCount}/${info.totalSteps || 7})`,
+      sublabel: info.lastSentAt
+        ? `Último envio em ${formatShortDateTime(info.lastSentAt)}`
+        : "Todas as etapas provocantes foram enviadas",
+      emphasized: true,
+      paused: false,
+    };
+  }
+
+  if (info.cadenceStatus === "active") {
+    const nextTxt = info.nextStepAt
+      ? `Próxima (#${info.nextStepOrder || info.sentCount + 1}) em ${formatShortDateTime(info.nextStepAt)}`
+      : info.lastSentAt
+      ? `Último disparo em ${formatShortDateTime(info.lastSentAt)}`
+      : "Agendando 1ª mensagem de boas-vindas";
+    return {
+      label: `Régua Ativa • ${info.sentCount}/${info.totalSteps || 7} enviadas`,
+      sublabel: nextTxt,
+      emphasized: true,
+      paused: false,
+    };
+  }
+
+  if (info.outboxStatus === "delivered") {
+    return {
+      label: "Sincronizado com Leadger",
+      sublabel: info.outboxDeliveredAt
+        ? `Entregue em ${formatShortDateTime(info.outboxDeliveredAt)}`
+        : "Evento recebido pelo Leadger",
+      emphasized: true,
+      paused: false,
+    };
+  }
+
+  if (info.outboxStatus === "retry_scheduled" || info.outboxStatus === "pending") {
+    return {
+      label: "Na fila de envio p/ Leadger",
+      sublabel: info.outboxError || "Aguardando conexão com o webhook do Leadger",
+      emphasized: false,
+      paused: false,
+    };
+  }
+
+  if (info.outboxStatus === "failed" || info.outboxStatus === "blocked") {
+    return {
+      label: "Falha no envio ao Leadger",
+      sublabel: info.outboxError || "Use Reenviar para tentar novamente",
+      emphasized: false,
+      paused: true,
+    };
+  }
+
+  return {
+    label: "Ainda não enviado ao Leadger",
+    sublabel: "Sincronize para disparar as mensagens no WhatsApp",
+    emphasized: false,
+    paused: false,
+  };
+}
+
 export function LeadsPanel({ pin, onCountChange }: LeadsPanelProps) {
   const [leads, setLeads] = useState<LeadRecord[]>([]);
+  const [leadgerConfig, setLeadgerConfig] = useState<LeadgerConfigMeta | null>(
+    null,
+  );
   const [loading, setLoading] = useState(false);
   const [resettingDemo, setResettingDemo] = useState(false);
+  const [syncingAll, setSyncingAll] = useState(false);
+  const [syncingLeadId, setSyncingLeadId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [editingNotesId, setEditingNotesId] = useState<string | null>(null);
@@ -65,12 +224,20 @@ export function LeadsPanel({ pin, onCountChange }: LeadsPanelProps) {
       const res = await api.get("/tenants/setup/leads", {
         headers: { "x-setup-pin": pin },
       });
-      const list = Array.isArray(res.data) ? res.data : [];
+      const list: LeadRecord[] = Array.isArray(res.data)
+        ? res.data
+        : Array.isArray(res.data?.leads)
+        ? res.data.leads
+        : [];
       setLeads(list);
+      if (res.data && !Array.isArray(res.data) && res.data.leadgerConfig) {
+        setLeadgerConfig(res.data.leadgerConfig);
+      }
       onCountChange?.(list.length);
     } catch (err: any) {
       toast.error(
-        err?.response?.data?.message || "Erro ao carregar leads da demonstração.",
+        err?.response?.data?.message ||
+          "Erro ao carregar leads da demonstração.",
       );
     } finally {
       setLoading(false);
@@ -90,7 +257,11 @@ export function LeadsPanel({ pin, onCountChange }: LeadsPanelProps) {
         { headers: { "x-setup-pin": pin } },
       );
       setLeads((prev) =>
-        prev.map((item) => (item.id === leadId ? res.data : item)),
+        prev.map((item) =>
+          item.id === leadId
+            ? { ...item, ...res.data, leadger: res.data?.leadger ?? item.leadger }
+            : item,
+        ),
       );
       toast.success("Status do lead atualizado.");
     } catch (err: any) {
@@ -109,7 +280,11 @@ export function LeadsPanel({ pin, onCountChange }: LeadsPanelProps) {
         { headers: { "x-setup-pin": pin } },
       );
       setLeads((prev) =>
-        prev.map((item) => (item.id === leadId ? res.data : item)),
+        prev.map((item) =>
+          item.id === leadId
+            ? { ...item, ...res.data, leadger: res.data?.leadger ?? item.leadger }
+            : item,
+        ),
       );
       setEditingNotesId(null);
       toast.success("Observação salva.");
@@ -117,6 +292,61 @@ export function LeadsPanel({ pin, onCountChange }: LeadsPanelProps) {
       toast.error(err?.response?.data?.message || "Erro ao salvar observação.");
     } finally {
       setSavingId(null);
+    }
+  };
+
+  const handleSyncSingleLead = async (lead: LeadRecord) => {
+    setSyncingLeadId(lead.id);
+    try {
+      const res = await api.post(
+        `/tenants/setup/leads/${lead.id}/sync-leadger`,
+        { pin },
+        { headers: { "x-setup-pin": pin } },
+      );
+      if (res.data?.lead) {
+        setLeads((prev) =>
+          prev.map((item) => (item.id === lead.id ? res.data.lead : item)),
+        );
+      }
+      if (res.data?.delivered) {
+        toast.success(`Lead "${lead.name}" sincronizado com o Teltech Leadger!`);
+      } else {
+        toast.info(
+          res.data?.error ||
+            "Evento colocado na fila Outbox para envio ao Leadger.",
+        );
+      }
+    } catch (err: any) {
+      toast.error(
+        err?.response?.data?.message ||
+          "Erro ao sincronizar lead com o Teltech Leadger.",
+      );
+    } finally {
+      setSyncingLeadId(null);
+    }
+  };
+
+  const handleSyncAllLeads = async () => {
+    setSyncingAll(true);
+    try {
+      const res = await api.post(
+        "/tenants/setup/leads/sync-leadger",
+        { pin },
+        { headers: { "x-setup-pin": pin } },
+      );
+      toast.success(
+        `Sincronização Leadger: ${res.data?.delivered || 0} entregue(s), ${
+          res.data?.queued || 0
+        } na fila (de ${res.data?.total || 0} leads).`,
+      );
+      await loadLeads();
+    } catch (err: any) {
+      toast.error(
+        err?.response?.data?.message ||
+          "Erro ao sincronizar leads com o Leadger.",
+      );
+    } finally {
+      setSyncingAll(false);
     }
   };
 
@@ -183,8 +413,23 @@ export function LeadsPanel({ pin, onCountChange }: LeadsPanelProps) {
       return d && new Date(d).toLocaleDateString("pt-BR") === todayStr;
     }).length;
     const recurring = leads.filter((l) => (l.accessCount || 1) > 1).length;
-    const converted = leads.filter((l) => l.status === "CONVERTIDO").length;
-    return { total, accessedToday, recurring, converted };
+    const converted = leads.filter(
+      (l) =>
+        l.status === "CONVERTIDO" || l.leadger?.cadenceStatus === "converted",
+    ).length;
+    const syncedCount = leads.filter((l) => l.leadger?.synced).length;
+    const totalMessagesSent = leads.reduce(
+      (acc, l) => acc + Number(l.leadger?.sentCount || 0),
+      0,
+    );
+    return {
+      total,
+      accessedToday,
+      recurring,
+      converted,
+      syncedCount,
+      totalMessagesSent,
+    };
   }, [leads]);
 
   const filteredLeads = useMemo(() => {
@@ -205,6 +450,65 @@ export function LeadsPanel({ pin, onCountChange }: LeadsPanelProps) {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Resumo de Conexão Automática com Teltech Leadger */}
+      <div className="bg-surface border border-line rounded-2xl p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className="p-2.5 rounded-xl bg-support border border-brand text-brand shrink-0 mt-0.5">
+            <ShieldCheck size={20} />
+          </div>
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-sm font-extrabold text-ink">
+                Automação WhatsApp via Teltech Leadger
+              </h3>
+              <span
+                className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                  leadgerConfig?.configured && leadgerConfig?.remoteOnline
+                    ? "bg-support text-brand border border-brand"
+                    : "bg-page text-muted border border-line"
+                }`}
+              >
+                {leadgerConfig?.configured
+                  ? leadgerConfig.remoteOnline
+                    ? "Conectado em Tempo Real"
+                    : "Webhook Configurado (Resumo Offline)"
+                  : leadgerConfig?.secretTooShort
+                  ? "Segredo < 32 caracteres"
+                  : "Aguardando LEADGER_WEBHOOK_SECRET"}
+              </span>
+            </div>
+            <p className="text-xs text-muted">
+              Todo visitante da Loja Demonstração dispara automaticamente o
+              evento <code className="font-mono text-brand">lead.demo_accessed</code>{" "}
+              para a régua provocante no Baileys do{" "}
+              <strong className="text-ink">Teltech Leadger (Funil Demo)</strong>
+              {" · "}
+              <strong className="text-ink">{stats.syncedCount}</strong>/
+              {stats.total} sincronizados{" · "}
+              <strong className="text-brand">{stats.totalMessagesSent}</strong>{" "}
+              mensagens enviadas.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={handleSyncAllLeads}
+            disabled={syncingAll || leads.length === 0}
+            className="h-9 px-3.5 rounded-xl bg-brand hover:bg-brand-hover text-on-brand text-xs font-bold flex items-center gap-2 transition disabled:opacity-50"
+            title="Envia ou atualiza todos os leads não descartados no Funil Demo do Teltech Leadger"
+          >
+            {syncingAll ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <Send size={14} />
+            )}
+            <span>Sincronizar Leads c/ Leadger</span>
+          </button>
+        </div>
+      </div>
+
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-page/50 border border-line rounded-2xl p-5 flex items-center gap-4">
@@ -348,7 +652,7 @@ export function LeadsPanel({ pin, onCountChange }: LeadsPanelProps) {
             Quando um visitante clicar em{" "}
             <strong className="text-ink">Loja Demonstração</strong> na tela de
             login e informar seu nome e WhatsApp, ele aparecerá automaticamente
-            aqui.
+            aqui e entrará na régua do Teltech Leadger.
           </p>
         </div>
       ) : (
@@ -360,6 +664,12 @@ export function LeadsPanel({ pin, onCountChange }: LeadsPanelProps) {
             )}`;
             const isEditingNote = editingNotesId === lead.id;
             const isSaving = savingId === lead.id;
+            const isSyncingThis = syncingLeadId === lead.id;
+            const lgInfo = lead.leadger;
+            const lgDesc = describeLeadgerStatus(lgInfo);
+            const totalSteps = Math.max(1, Number(lgInfo?.totalSteps || 7));
+            const sentCount = Math.max(0, Number(lgInfo?.sentCount || 0));
+            const pct = Math.min(100, Math.round((sentCount / totalSteps) * 100));
 
             return (
               <div
@@ -398,6 +708,54 @@ export function LeadsPanel({ pin, onCountChange }: LeadsPanelProps) {
                       {lead.accessCount || 1}{" "}
                       {(lead.accessCount || 1) === 1 ? "acesso" : "acessos"}
                     </span>
+                  </div>
+
+                  {/* Bloco Resumo de Disparos Automáticos (Teltech Leadger) */}
+                  <div
+                    className={`rounded-xl p-3 border space-y-2 ${
+                      lgDesc.emphasized
+                        ? "bg-support/60 border-brand"
+                        : "bg-surface/80 border-line"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="inline-flex items-center gap-1.5 text-xs font-bold text-ink truncate">
+                        {lgDesc.paused ? (
+                          <PauseCircle size={13} className="text-brand shrink-0" />
+                        ) : lgDesc.emphasized ? (
+                          <CheckCircle2 size={13} className="text-brand shrink-0" />
+                        ) : (
+                          <AlertCircle size={13} className="text-muted shrink-0" />
+                        )}
+                        <span className="truncate">{lgDesc.label}</span>
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={() => handleSyncSingleLead(lead)}
+                        disabled={isSyncingThis}
+                        className="shrink-0 px-2 py-1 rounded-lg bg-surface hover:bg-brand hover:text-on-brand text-brand border border-line text-[11px] font-bold flex items-center gap-1 transition disabled:opacity-50"
+                        title="Sincronizar / Reenviar lead para o Teltech Leadger"
+                      >
+                        {isSyncingThis ? (
+                          <Loader2 size={11} className="animate-spin" />
+                        ) : (
+                          <Send size={11} />
+                        )}
+                        <span>{lgInfo?.synced ? "Atualizar" : "Enviar"}</span>
+                      </button>
+                    </div>
+
+                    <div className="w-full h-1.5 rounded-full bg-surface border border-line overflow-hidden">
+                      <div
+                        className="h-full bg-brand transition-all duration-300"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+
+                    <p className="text-[11px] text-muted leading-snug">
+                      {lgDesc.sublabel}
+                    </p>
                   </div>
 
                   {/* Datas de Primeiro Cadastro e Último Acesso */}

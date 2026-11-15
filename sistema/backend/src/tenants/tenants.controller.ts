@@ -94,6 +94,22 @@ export class TenantsController {
     return this.tenantsService.listLeads(status, search);
   }
 
+  @Post('setup/leads/sync-leadger')
+  async syncAllLeadsLeadger(@Request() req: any, @Body() body?: { pin?: string }) {
+    await this.assertSetupPin(req, body?.pin);
+    return this.tenantsService.syncAllLeadsToLeadger();
+  }
+
+  @Post('setup/leads/:leadId/sync-leadger')
+  async syncSingleLeadLeadger(
+    @Request() req: any,
+    @Param('leadId') leadId: string,
+    @Body() body?: { pin?: string },
+  ) {
+    await this.assertSetupPin(req, body?.pin);
+    return this.tenantsService.syncLeadToLeadger(leadId);
+  }
+
   @Patch('setup/leads/:leadId')
   async updateLead(
     @Request() req: any,

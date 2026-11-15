@@ -355,6 +355,8 @@ export function LeadgerIntegrationPanel({ pin }: Props) {
               >
                 {cfg?.configured
                   ? "HMAC Configurado"
+                  : cfg?.secretTooShort
+                  ? "Segredo < 32 caracteres"
                   : "Aguardando LEADGER_WEBHOOK_SECRET"}
               </span>
             </div>
@@ -711,7 +713,9 @@ export function LeadgerIntegrationPanel({ pin }: Props) {
                       <span className="font-bold text-xs text-ink truncate">
                         {ev.tenant?.nomeFantasia ||
                           ev.tenant?.name ||
-                          "Empresa"}
+                          (ev.eventType === "lead.demo_accessed"
+                            ? `Lead Demo: ${ev.payload?.data?.name || "Visitante"}`
+                            : "Empresa")}
                       </span>
                       <span
                         className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
@@ -757,7 +761,8 @@ export function LeadgerIntegrationPanel({ pin }: Props) {
                     >
                       <Eye size={12} /> JSON
                     </button>
-                    {ev.status === "blocked" && ev.tenantId && (
+                    {ev.status === "blocked" &&
+                      (ev.tenantId || ev.eventType === "lead.demo_accessed") && (
                       <button
                         type="button"
                         disabled={actionLoading !== null}

@@ -183,6 +183,24 @@ export class TenantsController {
     return this.tenantsService.getTenantStats(id);
   }
 
+  /** Alimenta histórico operacional (ex: 12 meses) preservando catálogo, fotos, equipe e Loja Virtual */
+  @Post('setup/:id/populate-history')
+  async populateTenantHistory(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Body()
+    body?: {
+      pin?: string;
+      months?: number;
+      profile?: 'compact' | 'medium' | 'busy';
+      cleanExistingMovements?: boolean;
+      complementTeam?: boolean;
+    },
+  ) {
+    await this.assertSetupPin(req, body?.pin);
+    return this.tenantsService.populateTenantHistory(id, body);
+  }
+
   /** Faturas / Competências mensais + histórico de pagamentos */
   @Get('setup/:id/invoices')
   async getTenantInvoices(@Request() req: any, @Param('id') id: string) {

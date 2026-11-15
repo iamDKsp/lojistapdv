@@ -1,5 +1,14 @@
 # Histórico — PDV Lojista
 
+## 2026-11-15 — Simulador de 12 Meses de Histórico Operacional por Tenant no `/sys-init`
+
+- **Motor de Simulação Realista em Lotes (`backend/src/tenants/tenant-history-seed.ts`, `tenants.service.ts` e `tenants.controller.ts`)**:
+  - Adicionado endpoint protegido por PIN `POST /api/tenants/setup/:id/populate-history` para alimentar 6, 12 ou 18 meses de operação (`compact`, `medium` ou `busy`) usando 100% das mercadorias, grades, fotos, categorias, equipe e Loja Virtual já existentes no banco isolado do tenant (como `teltech`), com inserção otimizada via `createMany` em lotes e preservação automática de notas fiscais autorizadas (`NFC-e`) e logs `IMPORT_XML`.
+  - Gera curva sazonal anual completa, vendas identificadas e de balcão, pedidos concluídos e fila ativa da Loja Virtual, turnos de caixa conferidos com `dataVersion` (`SHA-256`) + caixa aberto no dia atual, reposições quinzenais (`PurchaseOrder`), lotes PEPS/FIFO (`StockLot` / `StockLotConsumption`), contas a pagar fixas/variáveis (`Payable`), crediário (`CustomerReceivable`) e trocas/vales-troca (`RetailReturn` / `StoreCredit`).
+  - Corrigida também a leitura de status (`open`/`cancelled`/`autorizada`) no diagnóstico `GET /api/tenants/setup/:id/stats` (Raio-X).
+- **Ação 1-Clique no Painel `/sys-init` (`frontend/src/components/sys-init/TenantPopulateHistoryModal.tsx`, `TenantXrayPanel.tsx` e `frontend/src/app/sys-init/page.tsx`)**:
+  - Adicionado botão **`12 Meses`** nos cartões de clientes e **`Alimentar 12 Meses`** no painel **Raio-X**, abrindo modal de configuração com trava de duplo clique, resumo executivo pós-execução e atalho direto para **Acessar Painel da Loja**, 100% dentro dos tokens visuais aprovados (`roxo-branco`).
+
 ## 2026-11-15 — Exibição Universal de Fotos de Operadores e Mercadorias em Estoque
 
 - **Hidratação Cruzada de Fotos no Backend (`backend/src/prisma/entity-photo-resolver.service.ts` e serviços de domínio)**:

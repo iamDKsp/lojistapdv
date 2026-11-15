@@ -23,6 +23,7 @@ import { LeadgerIntegrationPanel } from "@/components/sys-init/LeadgerIntegratio
 import { LeadsPanel } from "@/components/sys-init/LeadsPanel";
 import { WholesaleHubAdminPanel } from "@/components/sys-init/WholesaleHubAdminPanel";
 import { TenantXrayPanel } from "@/components/sys-init/TenantXrayPanel";
+import { TenantPopulateHistoryModal } from "@/components/sys-init/TenantPopulateHistoryModal";
 import { SysInitLogin, SYS_INIT_PROFILES, type SysInitProfile } from "@/components/sys-init/SysInitLogin";
 import {
   BASE_PLAN_PRICE,
@@ -173,6 +174,7 @@ export default function SysInitPage() {
   const [calendarMonth, setCalendarMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [impersonatingId, setImpersonatingId] = useState<string | null>(null);
   const [bulkStatusLoading, setBulkStatusLoading] = useState(false);
+  const [populateHistoryTenant, setPopulateHistoryTenant] = useState<any | null>(null);
 
   // ── GROUPS LIST ───────────────────────────────────────────────────────
   const [groups, setGroups] = useState<any[]>([]);
@@ -1518,24 +1520,31 @@ export default function SysInitPage() {
                         </div>
 
                         {/* Barra de Ações Secundárias */}
-                        <div className="mt-auto flex items-center justify-between gap-1.5 border-t border-line pt-3">
+                        <div className="mt-auto flex flex-wrap items-center justify-between gap-1.5 border-t border-line pt-3">
                           <button
                             onClick={() => openEdit(t, 'xray')}
-                            className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-line bg-surface py-1.5 px-2 text-[11px] font-bold text-ink hover:border-brand hover:text-brand transition"
+                            className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-line bg-surface py-1.5 px-2 text-[11px] font-bold text-ink hover:border-brand hover:text-brand transition whitespace-nowrap"
                             title="Raio-X Operacional do Banco"
                           >
                             <Server size={13} /> Raio-X
                           </button>
                           <button
+                            onClick={() => setPopulateHistoryTenant(t)}
+                            className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-brand bg-support py-1.5 px-2 text-[11px] font-bold text-brand hover:bg-brand hover:text-on-brand transition whitespace-nowrap"
+                            title="Alimentar 12 meses de histórico operacional (vendas, turnos, compras, crediário e Loja Virtual)"
+                          >
+                            <Sparkles size={13} /> 12 Meses
+                          </button>
+                          <button
                             onClick={() => openEdit(t, 'usuarios')}
-                            className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-line bg-surface py-1.5 px-2 text-[11px] font-bold text-ink hover:border-brand hover:text-brand transition"
+                            className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-line bg-surface py-1.5 px-2 text-[11px] font-bold text-ink hover:border-brand hover:text-brand transition whitespace-nowrap"
                             title="Usuários, Senhas e PINs"
                           >
                             <Users size={13} /> Senhas
                           </button>
                           <button
                             onClick={() => openEdit(t, 'financeiro')}
-                            className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-line bg-surface py-1.5 px-2 text-[11px] font-bold text-ink hover:border-brand hover:text-brand transition"
+                            className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-line bg-surface py-1.5 px-2 text-[11px] font-bold text-ink hover:border-brand hover:text-brand transition whitespace-nowrap"
                             title="Faturas Mensais e Histórico"
                           >
                             <CreditCard size={13} /> Faturas
@@ -3146,6 +3155,7 @@ export default function SysInitPage() {
                   <TenantXrayPanel
                     tenant={editingTenant}
                     pin={pinDigits.join('')}
+                    onImpersonate={(t) => handleImpersonate(t)}
                   />
                 )}
               </div>
@@ -3447,6 +3457,16 @@ export default function SysInitPage() {
               </div>
             </div>
           </div>
+        )}
+
+        {populateHistoryTenant && (
+          <TenantPopulateHistoryModal
+            pin={pinDigits.join('')}
+            tenant={populateHistoryTenant}
+            onClose={() => setPopulateHistoryTenant(null)}
+            onCompleted={() => loadTenants()}
+            onImpersonate={(t) => handleImpersonate(t)}
+          />
         )}
       </div>
 

@@ -12,13 +12,16 @@ import {
   FileText,
   Clock,
   Store,
+  Sparkles,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { TenantPopulateHistoryModal } from "./TenantPopulateHistoryModal";
 
 interface Props {
   pin: string;
   tenant: any;
+  onImpersonate?: (tenant: any) => void;
 }
 
 function formatBytes(bytes: number): string {
@@ -29,9 +32,10 @@ function formatBytes(bytes: number): string {
   return `${mb.toFixed(2)} MB`;
 }
 
-export function TenantXrayPanel({ pin, tenant }: Props) {
+export function TenantXrayPanel({ pin, tenant, onImpersonate }: Props) {
   const [stats, setStats] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+  const [populateOpen, setPopulateOpen] = useState(false);
 
   const fetchStats = useCallback(async () => {
     if (!tenant?.id) return;
@@ -70,19 +74,41 @@ export function TenantXrayPanel({ pin, tenant }: Props) {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={fetchStats}
-          disabled={loading}
-          className="px-3.5 py-2 rounded-xl bg-page hover:bg-support text-ink border border-line text-xs font-bold flex items-center gap-1.5 transition"
-        >
-          <RefreshCw
-            size={13}
-            className={`text-brand ${loading ? "animate-spin" : ""}`}
-          />
-          <span>Atualizar Raio-X</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setPopulateOpen(true)}
+            className="px-3.5 py-2 rounded-xl bg-support hover:bg-brand text-brand hover:text-on-brand border border-brand text-xs font-bold flex items-center gap-1.5 transition"
+            title="Alimentar 12 meses de histórico operacional preservando mercadorias e site"
+          >
+            <Sparkles size={13} />
+            <span>Alimentar 12 Meses</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={fetchStats}
+            disabled={loading}
+            className="px-3.5 py-2 rounded-xl bg-page hover:bg-support text-ink border border-line text-xs font-bold flex items-center gap-1.5 transition"
+          >
+            <RefreshCw
+              size={13}
+              className={`text-brand ${loading ? "animate-spin" : ""}`}
+            />
+            <span>Atualizar Raio-X</span>
+          </button>
+        </div>
       </div>
+
+      {populateOpen && (
+        <TenantPopulateHistoryModal
+          pin={pin}
+          tenant={tenant}
+          onClose={() => setPopulateOpen(false)}
+          onCompleted={() => fetchStats()}
+          onImpersonate={onImpersonate}
+        />
+      )}
 
       {loading ? (
         <div className="py-12 text-center text-muted">

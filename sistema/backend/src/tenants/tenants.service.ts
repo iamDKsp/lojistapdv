@@ -24,6 +24,10 @@ import {
   normalizeWhatsapp,
   resetDemoDatabaseState,
 } from './demo-store.seed';
+import {
+  populateTenantOperationalHistory,
+  type PopulateTenantHistoryOptions,
+} from './tenant-history-seed';
 
 const execAsync = promisify(exec);
 
@@ -609,13 +613,13 @@ export class TenantsService {
       prisma.customer.count().catch(() => 0),
       prisma.supplier.count().catch(() => 0),
       prisma.operator.count({ where: { active: true } }).catch(() => 0),
-      prisma.cashRegister.count({ where: { status: 'OPEN' } }).catch(() => 0),
-      prisma.sale.count({ where: { status: { not: 'CANCELED' } } }).catch(() => 0),
-      prisma.sale.count({ where: { status: { not: 'CANCELED' }, createdAt: { gte: startOfToday } } }).catch(() => 0),
-      prisma.sale.aggregate({ where: { status: { not: 'CANCELED' } }, _sum: { total: true } }).catch(() => ({ _sum: { total: 0 } })),
-      prisma.sale.aggregate({ where: { status: { not: 'CANCELED' }, createdAt: { gte: startOfToday } }, _sum: { total: true } }).catch(() => ({ _sum: { total: 0 } })),
-      prisma.sale.count({ where: { nfceStatus: 'AUTORIZADA' } }).catch(() => 0),
-      prisma.sale.findFirst({ orderBy: { createdAt: 'desc' }, select: { createdAt: true, total: true } }).catch(() => null),
+      prisma.cashRegister.count({ where: { status: { in: ['open', 'OPEN'] } } }).catch(() => 0),
+      prisma.sale.count({ where: { status: { notIn: ['cancelled', 'CANCELED', 'CANCELLED'] }, NOT: { source: 'ajuste_fiscal' } } }).catch(() => 0),
+      prisma.sale.count({ where: { status: { notIn: ['cancelled', 'CANCELED', 'CANCELLED'] }, NOT: { source: 'ajuste_fiscal' }, createdAt: { gte: startOfToday } } }).catch(() => 0),
+      prisma.sale.aggregate({ where: { status: { notIn: ['cancelled', 'CANCELED', 'CANCELLED'] }, NOT: { source: 'ajuste_fiscal' } }, _sum: { total: true } }).catch(() => ({ _sum: { total: 0 } })),
+      prisma.sale.aggregate({ where: { status: { notIn: ['cancelled', 'CANCELED', 'CANCELLED'] }, NOT: { source: 'ajuste_fiscal' }, createdAt: { gte: startOfToday } }, _sum: { total: true } }).catch(() => ({ _sum: { total: 0 } })),
+      prisma.sale.count({ where: { nfceStatus: { in: ['autorizada', 'AUTORIZADA'] } } }).catch(() => 0),
+      prisma.sale.findFirst({ where: { status: { notIn: ['cancelled', 'CANCELED', 'CANCELLED'] } }, orderBy: { createdAt: 'desc' }, select: { createdAt: true, total: true } }).catch(() => null),
     ]);
 
     return {
@@ -637,6 +641,81 @@ export class TenantsService {
       lastSaleAt: lastSale?.createdAt || null,
       lastSaleTotal: lastSale?.total ? Number(lastSale.total) : null,
       checkedAt: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * Simula e alimenta o histórico operacional do tenant (ex: 12 meses de vendas, turnos,
+   * compras, lotes, contas a pagar, crediário, trocas e pedidos online) preservando 100%
+   * das mercadorias, fotos, categorias, equipe existente e Loja Virtual.
+   */
+  async populateTenantHistory(
+    tenantId: string,
+    options: PopulateTenantHistoryOptions = {},
+  ) {
+    const tenant = await this.heartPrisma.tenant.findUnique({
+      where: { id: tenantId },
+    });
+    if (!tenant) {
+      throw new NotFoundException('Empresa não encontrada.');
+    }
+
+    const prisma = await this.tenantManager.getTenantClient(
+      tenantId,
+      tenant.databaseUrl,
+    );
+    if (typeof (this.tenantManager as any).ensureTenantRuntimeSchema === 'function') {
+      await (this.tenantManager as any)
+        .ensureTenantRuntimeSchema(prisma, tenantId)
+        .catch(() => {});
+    }
+
+    const result = await populateTenantOperationalHistory(prisma, {
+      ...options,
+      tenantName: tenant.nomeFantasia || tenant.name,
+    });
+
+    // Garantir retratos padrão apenas para operadores que ainda não possuem foto no Heart
+    if (
+      this.heartPrisma?.operatorProfile &&
+      result.team.allOperatorsWithAvatars.length > 0
+    ) {
+      try {
+        for (const op of result.team.allOperatorsWithAvatars) {
+          if (!op.id || !op.imageUrl) continue;
+          const existingProfile = await this.heartPrisma.operatorProfile
+            .findUnique({
+              where: {
+                tenantId_operatorId: { tenantId: tenant.id, operatorId: op.id },
+              },
+            })
+            .catch(() => null);
+          if (!existingProfile?.imageUrl) {
+            await this.heartPrisma.operatorProfile.upsert({
+              where: {
+                tenantId_operatorId: { tenantId: tenant.id, operatorId: op.id },
+              },
+              update: { imageUrl: op.imageUrl },
+              create: {
+                tenantId: tenant.id,
+                operatorId: op.id,
+                imageUrl: op.imageUrl,
+              },
+            });
+          }
+        }
+      } catch (err: any) {
+        this.logger.warn(
+          `Aviso ao vincular retratos da equipe em ${tenant.databaseName}: ${err?.message}`,
+        );
+      }
+    }
+
+    return {
+      tenantId: tenant.id,
+      tenantName: tenant.nomeFantasia || tenant.name,
+      databaseName: tenant.databaseName,
+      ...result,
     };
   }
 

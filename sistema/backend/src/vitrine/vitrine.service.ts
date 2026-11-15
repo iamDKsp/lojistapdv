@@ -61,6 +61,7 @@ export interface DraftDto {
   slideDuration?: number;
   gridSlideDuration?: number;
   draftSlides?: AnyVitrineSlide[];
+  slides?: AnyVitrineSlide[];
 }
 
 export interface PublishDto {
@@ -70,6 +71,7 @@ export interface PublishDto {
 
 export interface VitrineCatalogItem {
   id: string;
+  productId: string;
   kind: 'group' | 'product';
   retailGroupId: string | null;
   name: string;
@@ -80,6 +82,7 @@ export interface VitrineCatalogItem {
   imageUrl: string | null;
   priceSell: number;
   stock: number;
+  stockTotal: number;
   sizesAvailable: string[];
   colorsAvailable: string[];
 }
@@ -334,6 +337,8 @@ export class VitrineService {
       this.parseLogoPosition(config.logoPosition);
     return {
       ...config,
+      version: Number(config.version ?? 0),
+      publishedVersion: Number(config.version ?? 0),
       logoPosition: position,
       instagramHandle: instagram,
       gridSlideDuration,
@@ -408,6 +413,7 @@ export class VitrineService {
         return {
           active: false,
           version: 0,
+          publishedVersion: 0,
           publishedAt: null,
           publishedByUserId: null,
           publishedByName: null,
@@ -471,7 +477,7 @@ export class VitrineService {
           },
         },
         orderBy: { name: 'asc' },
-        take: 250,
+        take: 2000,
       }),
       prisma.product.findMany({
         where: {
@@ -489,7 +495,7 @@ export class VitrineService {
         },
         include: { category: true },
         orderBy: { name: 'asc' },
-        take: 250,
+        take: 2000,
       }),
       prisma.category.findMany({
         orderBy: { name: 'asc' },
@@ -538,6 +544,7 @@ export class VitrineService {
 
       items.push({
         id: `group:${group.id}`,
+        productId: `group:${group.id}`,
         kind: 'group',
         retailGroupId: group.id,
         name: group.name,
@@ -548,14 +555,17 @@ export class VitrineService {
         imageUrl: group.imageUrl || firstVariantWithImage?.imageUrl || null,
         priceSell: Number(group.priceSell),
         stock: totalStock,
+        stockTotal: totalStock,
         sizesAvailable: sortSizes(rawSizes),
         colorsAvailable: rawColors,
       });
     }
 
     for (const prod of ungroupedProducts) {
+      const prodStock = Number(prod.stock || 0);
       items.push({
         id: prod.id,
+        productId: prod.id,
         kind: 'product',
         retailGroupId: null,
         name: prod.name,
@@ -565,7 +575,8 @@ export class VitrineService {
         categoryName: prod.category?.name || 'Geral',
         imageUrl: prod.imageUrl || null,
         priceSell: Number(prod.priceSell),
-        stock: Number(prod.stock || 0),
+        stock: prodStock,
+        stockTotal: prodStock,
         sizesAvailable: prod.size ? [String(prod.size).trim()] : [],
         colorsAvailable: prod.color ? [String(prod.color).trim()] : [],
       });
@@ -657,8 +668,10 @@ export class VitrineService {
           Math.max(3, Math.round(Number(data.slideDuration) || 8)),
         );
       }
-      if (data.draftSlides !== undefined) {
-        payload.draftSlides = JSON.parse(JSON.stringify(data.draftSlides));
+      const incomingSlides =
+        data.draftSlides !== undefined ? data.draftSlides : data.slides;
+      if (incomingSlides !== undefined) {
+        payload.draftSlides = JSON.parse(JSON.stringify(incomingSlides));
       }
 
       const updated = await prisma.vitrineConfig.update({

@@ -338,7 +338,7 @@ export default function CategoriesPage() {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 max-w-6xl mx-auto">
+    <div className="w-full min-w-0 space-y-6 animate-in fade-in duration-500">
       {/* Cabeçalho Principal */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
@@ -381,7 +381,7 @@ export default function CategoriesPage() {
       </div>
 
       {/* Cards de Indicadores (KPIs) */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
         <div className="bg-page border border-line rounded-2xl p-4 flex items-center justify-between">
           <div>
             <span className="text-xs font-extrabold uppercase tracking-wider text-muted block">
@@ -462,7 +462,7 @@ export default function CategoriesPage() {
               Clique em um ícone abaixo para abrir o estúdio já preenchido:
             </span>
           </div>
-          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          <div className="flex flex-wrap items-center gap-2">
             {missingTemplates.map((tpl) => {
               const suggested = getSuggestedCategoryName(tpl.id);
               return (
@@ -515,8 +515,8 @@ export default function CategoriesPage() {
           })}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative min-w-[230px] flex-1 sm:flex-initial">
+        <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto lg:flex-1 lg:justify-end">
+          <div className="relative min-w-[220px] flex-1 sm:flex-initial sm:w-72 xl:w-80">
             <Search
               size={15}
               className="text-muted absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"

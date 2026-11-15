@@ -25,7 +25,7 @@ export class GroupsController {
     }
   }
 
-  // ── Group CRUD ────────────────────────────────────────────────────────────
+  // ── Group CRUD (sys-init) ─────────────────────────────────────────────────
 
   @Get('setup/list')
   async listGroups(@Headers('x-setup-pin') pin: string) {
@@ -42,6 +42,16 @@ export class GroupsController {
     return this.groupsService.createGroup(body.name);
   }
 
+  @Patch('setup/:id')
+  async renameGroup(
+    @Headers('x-setup-pin') pin: string,
+    @Param('id') id: string,
+    @Body() body: { name: string },
+  ) {
+    this.checkPin(pin);
+    return this.groupsService.renameGroup(id, body?.name);
+  }
+
   @Delete('setup/:id')
   async deleteGroup(
     @Headers('x-setup-pin') pin: string,
@@ -51,7 +61,7 @@ export class GroupsController {
     return this.groupsService.deleteGroup(id);
   }
 
-  // ── Members ───────────────────────────────────────────────────────────────
+  // ── Members (sys-init) ────────────────────────────────────────────────────
 
   @Post('setup/:id/members')
   async addMember(
@@ -73,7 +83,7 @@ export class GroupsController {
     return this.groupsService.removeMember(id, tenantId);
   }
 
-  // ── Dashboard ─────────────────────────────────────────────────────────────
+  // ── Dashboard (sys-init) ──────────────────────────────────────────────────
 
   @Get('setup/:id/dashboard')
   async dashboard(
@@ -86,7 +96,7 @@ export class GroupsController {
     return this.groupsService.getDashboard(id, startDate, endDate);
   }
 
-  // ── Stock ─────────────────────────────────────────────────────────────────
+  // ── Stock (sys-init) ──────────────────────────────────────────────────────
 
   @Get('setup/:id/stock')
   async consolidatedStock(
@@ -111,13 +121,20 @@ export class GroupsController {
   async stockTransfer(
     @Headers('x-setup-pin') pin: string,
     @Param('id') id: string,
-    @Body() body: { fromTenantId: string; toTenantId: string; productId: string; quantity: number },
+    @Body()
+    body: {
+      fromTenantId: string;
+      toTenantId: string;
+      productId: string;
+      quantity: number;
+      requestKey?: string;
+    },
   ) {
     this.checkPin(pin);
     return this.groupsService.stockTransfer(id, body);
   }
 
-  // ── Products ──────────────────────────────────────────────────────────────
+  // ── Products (sys-init) ───────────────────────────────────────────────────
 
   @Get('setup/:id/products')
   async getProducts(
@@ -132,7 +149,16 @@ export class GroupsController {
   async createProductAllTenants(
     @Headers('x-setup-pin') pin: string,
     @Param('id') id: string,
-    @Body() body: { name: string; priceSell: number; priceCost: number; unit: string; categoryName: string },
+    @Body()
+    body: {
+      name: string;
+      priceSell: number;
+      priceCost: number;
+      unit: string;
+      categoryName: string;
+      sizes?: string[];
+      colors?: string[];
+    },
   ) {
     this.checkPin(pin);
     return this.groupsService.createProductAllTenants(id, body);
@@ -197,6 +223,37 @@ export class GroupsController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Post('my/link-store')
+  async myLinkStore(
+    @Request() req: any,
+    @Body() body: { email: string; password: string; alias?: string },
+  ) {
+    return this.groupsService.linkStoreByCredentials(req.user, body);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('my/settings')
+  async myUpdateSettings(
+    @Request() req: any,
+    @Body()
+    body: {
+      name?: string;
+      memberAliases?: { tenantId: string; alias: string }[];
+    },
+  ) {
+    return this.groupsService.updateMyGroupSettings(req.user, body);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('my/members/:tenantId')
+  async myUnlinkStore(
+    @Request() req: any,
+    @Param('tenantId') tenantId: string,
+  ) {
+    return this.groupsService.unlinkStoreFromMyGroup(req.user, tenantId);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Get('my/dashboard')
   async myDashboard(
     @Request() req: any,
@@ -228,7 +285,14 @@ export class GroupsController {
   @Post('my/stock-transfer')
   async myStockTransfer(
     @Request() req: any,
-    @Body() body: { fromTenantId: string; toTenantId: string; productId: string; quantity: number },
+    @Body()
+    body: {
+      fromTenantId: string;
+      toTenantId: string;
+      productId: string;
+      quantity: number;
+      requestKey?: string;
+    },
   ) {
     const groupId = await this.groupsService.resolveUserGroupId(req.user);
     return this.groupsService.stockTransfer(groupId, body);
@@ -245,7 +309,16 @@ export class GroupsController {
   @Post('my/products')
   async myCreateProduct(
     @Request() req: any,
-    @Body() body: { name: string; priceSell: number; priceCost: number; unit: string; categoryName: string },
+    @Body()
+    body: {
+      name: string;
+      priceSell: number;
+      priceCost: number;
+      unit: string;
+      categoryName: string;
+      sizes?: string[];
+      colors?: string[];
+    },
   ) {
     const groupId = await this.groupsService.resolveUserGroupId(req.user);
     return this.groupsService.createProductAllTenants(groupId, body);
@@ -303,7 +376,11 @@ export class GroupsController {
   @Patch('my/products/price-per-tenant')
   async myUpdatePricePerTenant(
     @Request() req: any,
-    @Body() body: { productName: string; updates: { tenantId: string; priceSell: number; priceCost?: number }[] },
+    @Body()
+    body: {
+      productName: string;
+      updates: { tenantId: string; priceSell: number; priceCost?: number }[];
+    },
   ) {
     const groupId = await this.groupsService.resolveUserGroupId(req.user);
     return this.groupsService.updatePricePerTenant(groupId, body);

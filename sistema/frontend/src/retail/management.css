@@ -1,439 +1,389 @@
-/* Gestão: adaptação visual sobre os módulos existentes.
- * Menu, subnavegação, login, PDV e storefront público ficam fora deste escopo.
- * Manter cada seletor dentro de .retail-dashboard-frame ou do diálogo de gestão.
+/* Administração: estrutura compacta e superfícies de trabalho.
+ * A lateral, o login, o PDV e as páginas públicas mantêm seus estilos.
+ * Nenhum seletor altera a área de caixa; portais dependem do frame de gestão.
  */
 .retail-dashboard-frame {
-  --management-radius: 16px;
-  --management-shadow: 0 5px 20px color-mix(in srgb, var(--pdv-text) 3%, transparent);
+  --management-radius: 10px;
+  --management-space: clamp(18px, 2vw, 28px);
+  padding: 0;
+  background: var(--pdv-white);
 }
+
+.retail-dashboard-frame .management-workspace-header {
+  min-height: 56px;
+  padding: 9px var(--management-space);
+  gap: 16px;
+  flex-wrap: nowrap;
+  border-bottom: 1px solid var(--pdv-border);
+  background: var(--pdv-white);
+}
+.management-workspace-context {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.management-workspace-store {
+  color: var(--pdv-text);
+  font-weight: 650;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 22ch;
+}
+.management-context-divider { color: var(--pdv-border); }
+.management-workspace-area { color: var(--pdv-text-secondary); }
+.management-workspace-header .retail-profile-trigger {
+  padding: 0;
+  min-height: 36px;
+  border: 0;
+  background: transparent;
+}
+.management-workspace-header .retail-operator-avatar { width: 30px; height: 30px; }
+.management-workspace-header .retail-header-actions { flex-wrap: nowrap; margin-left: auto; }
+.management-skip-link {
+  position: absolute;
+  top: 8px;
+  left: 90px;
+  z-index: 200;
+  padding: 10px 14px;
+  background: var(--pdv-white);
+  color: var(--pdv-primary);
+  border: 2px solid var(--pdv-primary);
+  border-radius: 6px;
+  transform: translateY(-160%);
+}
+.management-skip-link:focus { transform: translateY(0); }
+
+.retail-dashboard-frame .management-section-tabs {
+  gap: 22px;
+  margin: 0;
+  padding: 0 var(--management-space);
+  min-height: 43px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--pdv-border);
+  scrollbar-width: thin;
+  scrollbar-color: var(--pdv-border) transparent;
+}
+.retail-dashboard-frame .management-section-tabs .retail-subnav-pill {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  min-height: 43px;
+  padding: 0 1px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--pdv-text-secondary);
+  font-size: 12px;
+  font-weight: 550;
+  box-shadow: none;
+  transform: none;
+  animation: none;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+.retail-dashboard-frame .management-section-tabs .retail-subnav-pill:hover {
+  color: var(--pdv-text);
+  transform: none;
+}
+.retail-dashboard-frame .management-section-tabs .retail-subnav-pill.is-active {
+  color: var(--pdv-primary-hover);
+  border-bottom-color: var(--pdv-primary);
+  font-weight: 650;
+  box-shadow: none;
+}
+.retail-dashboard-frame .management-section-tabs .retail-subnav-dot { display: none; }
 
 .retail-dashboard-frame .retail-content {
-  background: var(--pdv-background);
-  border: 1px solid var(--pdv-border);
-  border-radius: 18px;
-  padding: clamp(18px, 2.4vw, 32px);
+  background: var(--pdv-white);
+  border: 0;
+  border-radius: 0;
+  padding: var(--management-space);
   scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--pdv-border) transparent;
 }
-
-/* A navegação existente mantém os seus estilos e todos os seus destinos. */
-.retail-dashboard-frame .retail-content :where(.retail-page-header) {
-  gap: 18px;
-  align-items: center;
-  margin-bottom: 28px;
+.retail-dashboard-frame .retail-content > div:not(.fixed):not([role="dialog"]) {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
 }
-
-.retail-dashboard-frame .retail-content :where(.retail-page-header h1, .management-page-title) {
-  font-size: clamp(25px, 2.7vw, 34px);
-  font-weight: 600;
-  letter-spacing: -.045em;
-  line-height: 1.16;
-  text-wrap: balance;
+.retail-dashboard-frame .retail-content:focus { outline: none; }
+.retail-dashboard-frame :is(.retail-content, .management-section-tabs)::-webkit-scrollbar {
+  display: block;
+  width: 5px;
+  height: 3px;
 }
-
-.retail-dashboard-frame .retail-content :where(.retail-page-header p, .management-page-description) {
-  margin-top: 9px;
-  max-width: 68ch;
-  font-size: 13px;
-  line-height: 1.65;
-  color: var(--pdv-text-secondary);
+.retail-dashboard-frame :is(.retail-content, .management-section-tabs)::-webkit-scrollbar-thumb {
+  background: var(--pdv-border);
+  border-radius: 4px;
 }
-
-.retail-dashboard-frame .retail-content :where(.retail-panel) {
-  border-radius: var(--management-radius);
-  padding: 24px;
-  box-shadow: var(--management-shadow);
-}
-
-.retail-dashboard-frame .retail-content :where(.retail-panel h2, .retail-section-heading h2) {
-  font-size: 17px;
-  font-weight: 600;
-  letter-spacing: -.025em;
-}
-
-.retail-dashboard-frame .retail-content :where(.retail-toolbar) {
-  gap: 12px;
-  padding: 14px 16px;
+.retail-dashboard-frame .retail-content .retail-page-header {
+  gap: 16px;
+  align-items: flex-start;
   margin-bottom: 22px;
-  background: var(--pdv-white);
-  border: 1px solid var(--pdv-border);
-  border-radius: 12px;
 }
-
-.retail-dashboard-frame .retail-content :where(.retail-toolbar .retail-search) {
-  max-width: 520px;
+.retail-dashboard-frame .retail-content :is(.retail-page-header h1, .management-page-title),
+.retail-dashboard-frame .retail-content > :is(.space-y-6, .space-y-8) > div:first-child h1 {
+  font-size: clamp(22px, 2vw, 28px);
+  line-height: 1.25;
+  letter-spacing: -.025em;
+  font-weight: 650;
+  text-wrap: pretty;
 }
-
-.retail-dashboard-frame .retail-content :where(.retail-button) {
-  border-radius: 9px;
-  font-size: 13px;
-  font-weight: 600;
-  padding: 10px 15px;
-  min-height: 42px;
-  box-shadow: none;
-}
-
-.retail-dashboard-frame .retail-content :where(.retail-icon-button) {
-  border-radius: 10px;
-}
-
-.retail-dashboard-frame .retail-content :where(.retail-button-primary) {
-  box-shadow: 0 3px 9px color-mix(in srgb, var(--pdv-primary) 14%, transparent);
-}
-
-.retail-dashboard-frame .retail-content :where(.retail-badge) {
-  border-color: transparent;
-  border-radius: 6px;
-  padding: 5px 9px;
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.retail-dashboard-frame .retail-content :where(.retail-message) {
-  border-radius: 12px;
-  border-color: color-mix(in srgb, var(--pdv-primary) 16%, var(--pdv-border));
-  padding: 16px 18px;
-  line-height: 1.65;
-}
-
-/* O formulário continua usando os componentes, validações e eventos atuais. */
-.retail-dashboard-frame .retail-content :where(.retail-field) {
-  gap: 7px;
+.retail-dashboard-frame .retail-content :is(.retail-page-header p, .management-page-description) {
+  margin-top: 5px;
+  max-width: 72ch;
   font-size: 12px;
-}
-
-.retail-dashboard-frame .retail-content :where(.retail-field input, .retail-field select, .retail-field textarea, .retail-search input) {
-  border-radius: 9px;
-  font-size: 13px;
-  background: var(--pdv-white);
-}
-
-.retail-dashboard-frame .retail-content :where(.retail-field input, .retail-field select, .retail-field textarea, .retail-search input):focus-visible {
-  border-color: var(--pdv-primary);
-  outline: 2px solid color-mix(in srgb, var(--pdv-primary) 24%, transparent);
-  outline-offset: 2px;
-}
-
-.retail-dashboard-frame .retail-content :where(.retail-form-grid) {
-  gap: 20px;
-}
-
-/* Listagens: cabeçalho discreto, conteúdo legível e ações sempre visíveis. */
-.retail-dashboard-frame .retail-content :where(.retail-table-wrap) {
-  border-radius: 13px;
-  box-shadow: var(--management-shadow);
-}
-
-.retail-dashboard-frame .retail-content :where(.retail-table, table.w-full) {
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.retail-dashboard-frame .retail-content :where(.retail-table th, table.w-full th) {
-  background: var(--pdv-white);
+  line-height: 1.6;
   color: var(--pdv-text-secondary);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: .025em;
-  padding-top: 15px;
-  padding-bottom: 15px;
 }
-
-.retail-dashboard-frame .retail-content :where(.retail-table td, table.w-full td) {
-  padding-top: 17px;
-  padding-bottom: 17px;
+.retail-dashboard-frame .retail-content :is(.retail-panel, .retail-surface) {
+  border-radius: var(--management-radius);
+  border-color: var(--pdv-border);
+  box-shadow: none;
   background: var(--pdv-white);
-  vertical-align: middle;
 }
-
-.retail-dashboard-frame .retail-content :where(.retail-table tbody tr:hover td, table.w-full tbody tr:hover td) {
-  background: color-mix(in srgb, var(--pdv-support) 28%, var(--pdv-white));
-}
-
-.retail-dashboard-frame .retail-content :where(.retail-product-title) {
-  gap: 14px;
-}
-
-.retail-dashboard-frame .retail-content :where(.retail-product-title img, .retail-product-image-empty) {
-  width: 60px;
-  height: 66px;
-  border-radius: 10px;
-  background: var(--pdv-background);
-}
-
-.retail-dashboard-frame .retail-content :where(.retail-product-title strong) {
-  font-size: 14px;
-  font-weight: 600;
+.retail-dashboard-frame .retail-content .retail-panel { padding: 18px; }
+.retail-dashboard-frame .retail-content :is(.retail-panel h2, .retail-section-heading h2) {
+  font-size: 16px;
+  font-weight: 650;
   letter-spacing: -.015em;
 }
-
-.retail-dashboard-frame .retail-content :where(.retail-product-title small) {
-  margin-top: 5px;
-  font-size: 11px;
-}
-
-/* Indicadores dos módulos existentes, sem ocultar ou substituir informações. */
-.retail-dashboard-frame .retail-content :where(.retail-summary-grid, .retail-kpis) {
-  gap: 18px;
-}
-
-.retail-dashboard-frame .retail-content :where(.retail-summary-grid > .retail-panel, .retail-kpi) {
-  padding: 23px;
-  border-radius: 14px;
-  background: var(--pdv-white);
-}
-
-.retail-dashboard-frame .retail-content :where(.retail-summary-value, .retail-kpi > strong) {
-  font-size: clamp(26px, 2.7vw, 36px);
-  font-weight: 600;
-  letter-spacing: -.045em;
-  line-height: 1.2;
-  overflow-wrap: anywhere;
-}
-
-.retail-dashboard-frame .retail-overview-metrics {
-  grid-template-columns: 1.45fr 1fr 1fr;
-}
-
-.retail-dashboard-frame .retail-overview-metrics > .retail-panel:first-child {
-  border-color: color-mix(in srgb, var(--pdv-primary) 28%, var(--pdv-border));
-  box-shadow: inset 0 3px var(--pdv-primary), var(--management-shadow);
-}
-
-.retail-dashboard-frame .retail-overview-metrics > .retail-panel:first-child .retail-summary-value {
-  color: var(--pdv-primary-hover);
-  font-size: clamp(30px, 3.2vw, 42px);
-}
-
-.retail-dashboard-frame .retail-overview-context > .retail-panel {
-  background: transparent;
-  box-shadow: none;
-  border-color: transparent;
-  border-radius: 0;
-  border-inline-start: 1px solid var(--pdv-border);
-}
-
-.retail-dashboard-frame .retail-overview-ranking .retail-stack {
-  margin-top: 26px;
-  gap: 22px;
-}
-
-.retail-dashboard-frame .retail-overview-ranking .retail-ranking-track {
-  height: 6px;
-  margin-top: 11px;
-  background: var(--pdv-background);
-}
-
-/* Financeiro legado: os seletores, abas, contas e operações são os mesmos. */
-.retail-dashboard-frame .management-finance-filters {
-  flex-wrap: wrap;
-}
-
-.retail-dashboard-frame .management-finance-planning {
-  border-color: var(--pdv-border);
-  border-inline-start: 3px solid var(--pdv-primary);
-  border-radius: 12px;
-  background: var(--pdv-white);
-  padding: 17px 20px;
-}
-
-.retail-dashboard-frame .management-finance-metrics {
-  gap: 0;
-  border-block: 1px solid var(--pdv-border);
-  padding-block: 22px;
-}
-
-.retail-dashboard-frame .management-finance-metrics > div {
+.retail-dashboard-frame .retail-content .retail-toolbar {
+  gap: 10px;
+  padding: 12px 0 16px;
+  margin-bottom: 18px;
   border: 0;
-  border-inline-start: 1px solid var(--pdv-border);
+  border-bottom: 1px solid var(--pdv-border);
   border-radius: 0;
   background: transparent;
-  padding: 4px 22px;
 }
-
-.retail-dashboard-frame .management-finance-metrics > div:first-child {
-  border-inline-start: 0;
-  padding-inline-start: 0;
-}
-
-.retail-dashboard-frame .management-finance-metrics h3 {
-  margin-top: 9px;
-  font-size: clamp(23px, 2.4vw, 31px);
+.retail-dashboard-frame .retail-content .retail-toolbar .retail-search { max-width: 480px; }
+.retail-dashboard-frame .retail-content .retail-button {
+  min-height: 36px;
+  padding: 8px 12px;
+  border-radius: 7px;
+  font-size: 12px;
   font-weight: 600;
-  letter-spacing: -.04em;
+  line-height: 1.4;
+  box-shadow: none;
+  transform: none;
+}
+.retail-dashboard-frame .retail-content .retail-button:hover { transform: none; }
+.retail-dashboard-frame .retail-content .retail-icon-button { border-radius: 6px; box-shadow: none; }
+.retail-dashboard-frame .retail-content .retail-badge { border-radius: 5px; font-size: 10px; padding: 3px 6px; }
+.retail-dashboard-frame .retail-content .retail-message { border-radius: 8px; padding: 12px 14px; }
+.retail-dashboard-frame .retail-content .retail-field { font-size: 12px; gap: 5px; }
+.retail-dashboard-frame .retail-content .retail-form-grid { gap: 16px; }
+.retail-dashboard-frame .retail-content :is(.retail-field input, .retail-field select, .retail-field textarea, .retail-search input, .retail-input) {
+  border-radius: 7px;
+  font-size: 13px;
+  background: var(--pdv-white);
+}
+.retail-dashboard-frame :is(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid var(--pdv-primary);
+  outline-offset: 3px;
+}
+
+/* Listas compactas: números alinhados e comparação entre linhas. */
+.retail-dashboard-frame .retail-content .retail-table-wrap { border-radius: 8px; box-shadow: none; }
+.retail-dashboard-frame .retail-content :is(.retail-table, table.w-full) { font-size: 12px; line-height: 1.5; }
+.retail-dashboard-frame .retail-content :is(.retail-table th, table.w-full th) {
+  padding-top: 10px;
+  padding-bottom: 10px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .035em;
+  color: var(--pdv-text-secondary);
+  background: var(--pdv-background);
+}
+.retail-dashboard-frame .retail-content :is(.retail-table td, table.w-full td) {
+  padding-top: 11px;
+  padding-bottom: 11px;
+  vertical-align: middle;
+  background: var(--pdv-white);
+}
+.retail-dashboard-frame .retail-content :is(.retail-table tbody tr:hover td, table.w-full tbody tr:hover td) { background: var(--pdv-background); }
+.retail-dashboard-frame .retail-content .retail-product-title { gap: 10px; }
+.retail-dashboard-frame .retail-content :is(.retail-product-title img, .retail-product-image-empty) { width: 42px; height: 48px; border-radius: 6px; }
+.retail-dashboard-frame .retail-content .retail-product-title strong { font-size: 13px; font-weight: 600; }
+.retail-dashboard-frame .retail-content .retail-product-title small { font-size: 11px; }
+.retail-dashboard-frame .retail-content :is(.retail-number, .retail-summary-value, table strong) { font-variant-numeric: tabular-nums; }
+
+/* Resumo: uma faixa de indicadores, seguida de contexto e ranking. */
+.retail-dashboard-frame .retail-content :is(.retail-summary-grid, .retail-kpis) { gap: 12px; }
+.retail-dashboard-frame .retail-content :is(.retail-summary-grid > .retail-panel, .retail-kpi) {
+  padding: 18px;
+  border-radius: 8px;
+  background: var(--pdv-white);
+}
+.retail-dashboard-frame .retail-content :is(.retail-summary-value, .retail-kpi > strong) {
+  font-size: clamp(24px, 2.3vw, 32px);
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: -.035em;
   overflow-wrap: anywhere;
 }
-
-.retail-dashboard-frame .management-finance-metrics > div > p:first-child {
-  font-size: 12px;
+.retail-dashboard-frame .retail-overview-metrics {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  border: 1px solid var(--pdv-border);
+  border-radius: 10px;
 }
-
-.retail-dashboard-frame .management-finance-ledger {
-  background: var(--pdv-white);
-  border-radius: var(--management-radius);
-  box-shadow: var(--management-shadow);
-}
-
-.retail-dashboard-frame .management-finance-ledger > div {
-  background: var(--pdv-white);
-}
-
-.retail-dashboard-frame .management-finance-ledger > div:first-child button {
-  border-radius: 9px;
-  font-weight: 600;
+.retail-dashboard-frame .retail-overview-metrics > .retail-panel {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   box-shadow: none;
 }
-
-/* Camada comum das páginas anteriores ao módulo retail, sempre no conteúdo. */
-.retail-dashboard-frame .retail-content > :where(.space-y-6, .space-y-8) > div:first-child h1 {
-  font-size: clamp(25px, 2.7vw, 34px);
-  font-weight: 600;
-  letter-spacing: -.045em;
-  line-height: 1.2;
-}
-
-.retail-dashboard-frame .retail-content :where(.shadow-xl, .shadow-lg, .shadow-2xl):not(.fixed):not(.pdv-mobile-sheet) {
-  box-shadow: var(--management-shadow);
-}
-
-/* Sem transform persistente no estágio: drawers fixed continuam no viewport. */
-.retail-dashboard-frame .retail-content.retail-module-stage[data-module-kind] {
-  animation: management-stage-appear 160ms ease-out;
-}
-
-.retail-dashboard-frame .retail-module-stage :where(.retail-panel, .retail-summary-grid > *) {
-  animation: none;
-}
-
-@keyframes management-stage-appear {
-  from { opacity: .4; }
-  to { opacity: 1; }
-}
-
-/* Portais só recebem esta aparência quando a área de gestão está montada.
- * RetailDialog é compartilhado com o PDV: não alterar sua regra global.
- */
-body:has(.retail-dashboard-frame) .retail-modal-overlay {
-  background: color-mix(in srgb, var(--pdv-text) 34%, transparent);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-}
-
-body:has(.retail-dashboard-frame) .retail-modal-overlay .retail-dialog {
-  border-radius: 20px;
-  box-shadow: 0 24px 80px color-mix(in srgb, var(--pdv-text) 20%, transparent);
-}
-
-body:has(.retail-dashboard-frame) .retail-dialog > header {
-  padding: 24px 28px;
-  background: var(--pdv-white);
-}
-
-body:has(.retail-dashboard-frame) .retail-dialog > header h2 {
-  font-size: 24px;
-  font-weight: 600;
-  letter-spacing: -.04em;
-  line-height: 1.25;
-}
-
-body:has(.retail-dashboard-frame) .retail-dialog :where(.retail-dialog-body) {
-  padding: 26px 28px;
-}
-
-body:has(.retail-dashboard-frame) .retail-dialog :where(.retail-form-grid) {
-  gap: 20px;
-}
-
-body:has(.retail-dashboard-frame) .retail-dialog :where(.retail-field) {
-  font-size: 12px;
-  gap: 7px;
-}
-
-body:has(.retail-dashboard-frame) .retail-dialog :where(.retail-field input, .retail-field textarea, .retail-field select) {
-  font-size: 14px;
-  border-radius: 9px;
-  min-height: 44px;
-}
-
-body:has(.retail-dashboard-frame) .retail-dialog :where(.retail-upload) {
-  border-style: solid;
+.retail-dashboard-frame .retail-overview-metrics > .retail-panel + .retail-panel { border-left: 1px solid var(--pdv-border); }
+.retail-dashboard-frame .retail-overview-metrics > .retail-panel:last-child .retail-summary-value { color: var(--pdv-primary-hover); }
+.retail-dashboard-frame .retail-overview-context > .retail-panel {
+  border: 0;
   background: var(--pdv-background);
-  border-radius: 13px;
-  padding: 20px;
+  border-radius: 8px;
+  box-shadow: none;
 }
+.retail-dashboard-frame .retail-overview-context .retail-summary-value { font-size: 24px; }
+.retail-dashboard-frame .retail-overview-ranking .retail-stack { gap: 16px; margin-top: 20px; }
+.retail-dashboard-frame .retail-overview-ranking .retail-ranking-track { height: 4px; margin-top: 8px; }
 
-body:has(.retail-dashboard-frame) .retail-dialog :where(.retail-dialog-footer) {
-  background: var(--pdv-background);
-  padding: 18px 28px;
-}
+/* Financeiro e demais páginas legadas preservam seus componentes e operações. */
+.retail-dashboard-frame .management-finance-filters { flex-wrap: wrap; }
+.retail-dashboard-frame .management-finance-planning { background: var(--pdv-background); border: 0; border-radius: 8px; padding: 12px 16px; }
+.retail-dashboard-frame .management-finance-metrics { gap: 0; border-block: 1px solid var(--pdv-border); padding-block: 16px; }
+.retail-dashboard-frame .management-finance-metrics > div { border: 0; border-left: 1px solid var(--pdv-border); border-radius: 0; background: transparent; padding: 2px 18px; box-shadow: none; }
+.retail-dashboard-frame .management-finance-metrics > div:first-child { border-left: 0; padding-left: 0; }
+.retail-dashboard-frame .management-finance-metrics h3 { margin-top: 7px; font-size: clamp(22px, 2vw, 28px); font-weight: 600; letter-spacing: -.025em; }
+.retail-dashboard-frame .management-finance-ledger { background: var(--pdv-white); border-radius: 8px; box-shadow: none; }
+.retail-dashboard-frame .management-finance-ledger > div { background: var(--pdv-white); }
+.retail-dashboard-frame .retail-content :is(.shadow-xl, .shadow-lg, .shadow-2xl):not(.fixed):not(.pdv-mobile-sheet) { box-shadow: none; }
+.retail-dashboard-frame .management-storefront > .retail-page-header { padding-bottom: 16px; border-bottom: 1px solid var(--pdv-border); }
+.retail-dashboard-frame .management-pending-actions { display: flex; flex-wrap: wrap; gap: 8px 20px; padding-bottom: 12px; border-bottom: 1px solid var(--pdv-border); }
+.retail-dashboard-frame .management-pending-actions button { border: 0; padding: 4px 0; background: transparent; color: var(--pdv-primary-hover); font-size: 12px; text-align: left; cursor: pointer; }
+.retail-dashboard-frame .management-pending-actions button:hover { text-decoration: underline; }
 
-.retail-dashboard-frame .management-payable-drawer > div:first-child {
+/* Inteligência: leitura dos resultados antes da ornamentação do ranking. */
+.retail-dashboard-frame .retail-content .retail-intel-stage-card {
+  min-width: 0;
+  border: 1px solid var(--pdv-border);
+  border-radius: 10px;
   background: var(--pdv-white);
-  padding-block: 25px;
+  color: var(--pdv-text);
+  box-shadow: none;
 }
-
-.retail-dashboard-frame .management-payable-drawer > div:first-child h2 {
-  font-size: 24px;
-  font-weight: 600;
-  letter-spacing: -.04em;
+.retail-dashboard-frame .retail-content .retail-intel-stage-top {
+  padding: 18px;
+  background: var(--pdv-background);
+  border-bottom: 1px solid var(--pdv-border);
 }
-
-.retail-dashboard-frame .management-payable-drawer label {
-  font-size: 12px;
-  font-weight: 600;
+.retail-dashboard-frame .retail-content .retail-intel-stage-header h2 { color: var(--pdv-text); font-size: 18px; font-weight: 650; }
+.retail-dashboard-frame .retail-content .retail-intel-stage-header p { color: var(--pdv-text-secondary); font-size: 12px; }
+.retail-dashboard-frame .retail-content .retail-intel-stage-tag {
+  background: var(--pdv-support); color: var(--pdv-primary-hover); border: 0; border-radius: 5px; letter-spacing: .02em; font-weight: 600;
 }
-
-.retail-dashboard-frame .management-payable-drawer :where(input:not([type="checkbox"]), textarea) {
-  border-radius: 9px;
-  font-size: 14px;
+.retail-dashboard-frame .retail-content .retail-intel-challenge-btn {
+  background: var(--pdv-white); color: var(--pdv-text); border: 1px solid var(--pdv-border); border-radius: 7px; box-shadow: none; font-size: 12px;
 }
-
-@media (max-width: 1180px) and (min-width: 769px) {
-  .retail-dashboard-frame .retail-content { padding: 22px; }
-  .retail-dashboard-frame .retail-overview-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .retail-dashboard-frame .management-finance-filters { width: 100%; }
+.retail-dashboard-frame .retail-content .retail-intel-challenge-btn:hover { background: var(--pdv-support); transform: none; }
+.retail-dashboard-frame .retail-content .retail-intel-challenge-menu { border-radius: 8px; }
+.retail-dashboard-frame .retail-content .retail-intel-podium-slot.is-first { transform: none; }
+.retail-dashboard-frame .retail-content .retail-intel-podium-person {
+  color: var(--pdv-text); border-radius: 8px; background: transparent; transform: none; padding: 10px 8px; gap: 5px;
 }
+.retail-dashboard-frame .retail-content .retail-intel-podium-person.is-champion { border-color: var(--pdv-border); background: var(--pdv-white); }
+.retail-dashboard-frame .retail-content .retail-intel-podium-person:hover { background: var(--pdv-support); border-color: var(--pdv-primary); transform: none; }
+.retail-dashboard-frame .retail-content .retail-intel-laurel-svg { width: 44px; height: 26px; filter: none; }
+.retail-dashboard-frame .retail-content .retail-intel-rank-pill { box-shadow: none; border-radius: 5px; font-size: 11px; }
+.retail-dashboard-frame .retail-content .retail-intel-avatar { box-shadow: none; }
+.retail-dashboard-frame .retail-content .retail-intel-podium-person .retail-intel-avatar { max-width: 54px; max-height: 54px; border-width: 2px; }
+.retail-dashboard-frame .retail-content .retail-intel-podium-name { color: var(--pdv-text); font-size: 13px; font-weight: 650; }
+.retail-dashboard-frame .retail-content .retail-intel-podium-metric { color: var(--pdv-primary-hover); font-size: 13px; font-weight: 650; }
+.retail-dashboard-frame .retail-content .retail-intel-podium-metric.is-champion-metric { background: transparent; padding: 0; border-radius: 0; font-size: 16px; }
+.retail-dashboard-frame .retail-content .retail-intel-podium-sub { color: var(--pdv-text-secondary); font-size: 11px; }
+.retail-dashboard-frame .retail-content .retail-intel-leaderboard-wrap { background: var(--pdv-white); padding: 16px; overflow-x: auto; }
+.retail-dashboard-frame .retail-content .retail-intel-leaderboard-head { color: var(--pdv-text-secondary); border-color: var(--pdv-border); font-size: 10px; font-weight: 600; }
+.retail-dashboard-frame .retail-content .retail-intel-leaderboard-list { gap: 0; margin-top: 0; }
+.retail-dashboard-frame .retail-content .retail-intel-leaderboard-row {
+  border: 0; border-bottom: 1px solid var(--pdv-border); border-radius: 0; background: var(--pdv-white); padding: 12px 14px; transform: none;
+}
+.retail-dashboard-frame .retail-content .retail-intel-leaderboard-row:hover { background: var(--pdv-background); transform: none; }
+.retail-dashboard-frame .retail-content :is(.retail-intel-lb-ident strong, .retail-intel-lb-cell strong) { color: var(--pdv-text); font-size: 12px; font-weight: 600; }
+.retail-dashboard-frame .retail-content :is(.retail-intel-lb-ident small, .retail-intel-lb-cell small) { color: var(--pdv-text-secondary); font-size: 11px; }
+.retail-dashboard-frame .retail-content .retail-intel-lb-win strong { color: var(--pdv-primary-hover); }
+.retail-dashboard-frame .retail-content .retail-intel-lb-badge { box-shadow: none; border-radius: 5px; font-weight: 600; }
+.retail-dashboard-frame .retail-content :is(.retail-intel-insight-card, .retail-intel-bestday-row, .retail-intel-day-cell) { border-radius: 8px; }
+.retail-dashboard-frame .retail-content .retail-intel-day-cell { box-shadow: none; }
+.retail-dashboard-frame .retail-content .retail-intel-day-cell:hover:not(.is-pad) { transform: none; }
+.retail-dashboard-frame .retail-content .retail-intel-insight-badge { border-radius: 5px; font-weight: 600; }
 
+/* Movimento curto sem transladar o palco: formulários fixed ficam no viewport. */
+.retail-dashboard-frame .retail-content.retail-module-stage[data-module-kind] { animation: management-content-enter 120ms ease-out; }
+.retail-dashboard-frame .retail-module-stage :is(.retail-panel, .retail-summary-grid > *, .retail-ranking-track > div) { animation: none; }
+.retail-dashboard-frame .retail-heading-reveal { animation: none; }
+@keyframes management-content-enter { from { opacity: .6; } to { opacity: 1; } }
+
+/* Portais do editor: nenhum efeito é aplicado no PDV. */
+body:has(.retail-dashboard-frame) .retail-modal-overlay { background: color-mix(in srgb, var(--pdv-text) 36%, transparent); backdrop-filter: none; }
+body:has(.retail-dashboard-frame) .retail-modal-overlay .retail-dialog { border-radius: 12px; animation: management-content-enter 140ms ease-out; }
+body:has(.retail-dashboard-frame) .retail-dialog > header { padding: 18px 22px; background: var(--pdv-white); }
+body:has(.retail-dashboard-frame) .retail-dialog > header h2 { font-size: 20px; font-weight: 650; letter-spacing: -.02em; }
+body:has(.retail-dashboard-frame) .retail-dialog-body { padding: 20px 22px; }
+body:has(.retail-dashboard-frame) .retail-dialog .retail-form-grid { gap: 16px; }
+body:has(.retail-dashboard-frame) .retail-dialog .retail-field { font-size: 12px; gap: 5px; }
+body:has(.retail-dashboard-frame) .retail-dialog :is(input:not([type="checkbox"]), select, textarea) { border-radius: 7px; }
+body:has(.retail-dashboard-frame) .retail-dialog-footer { padding: 14px 22px; background: var(--pdv-background); }
+.retail-dashboard-frame .management-payable-drawer > div:first-child h2 { font-size: 20px; }
+.retail-dashboard-frame .management-payable-drawer :is(input:not([type="checkbox"]), textarea) { border-radius: 7px; }
+
+@media (min-width: 769px) {
+  .retail-dashboard-frame .retail-content :is(.retail-intel-leaderboard-head, .retail-intel-leaderboard-row) { min-width: 700px; }
+}
 @media (max-width: 768px) {
-  .retail-dashboard-frame .retail-content {
-    border: 0;
-    border-radius: 0;
-    padding: 20px 14px 28px;
-    scrollbar-gutter: auto;
-  }
-  .retail-dashboard-frame .retail-content :where(.retail-page-header) { gap: 16px; margin-bottom: 23px; }
-  .retail-dashboard-frame .retail-content :where(.retail-toolbar) { padding: 13px; gap: 12px; }
-  .retail-dashboard-frame .retail-content :where(.retail-search) { min-width: min(100%, 220px); }
-  .retail-dashboard-frame .retail-content :where(.retail-panel) { padding: 20px; }
-  .retail-dashboard-frame .retail-content :where(.retail-summary-grid, .retail-kpis) { gap: 12px; }
+  .retail-dashboard-frame { --management-space: 16px; }
+  .retail-dashboard-frame .management-workspace-header { min-height: 50px; padding-block: 7px; }
+  .management-workspace-context { gap: 8px; font-size: 11px; }
+  .management-workspace-store { max-width: 12ch; }
+  .management-workspace-area { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .retail-dashboard-frame .management-section-tabs { gap: 20px; }
+  .retail-dashboard-frame .retail-content { padding-bottom: 28px; scrollbar-gutter: auto; }
+  .retail-dashboard-frame .retail-content .retail-page-header { margin-bottom: 18px; }
+  .retail-dashboard-frame .retail-content .retail-search { min-width: min(100%, 200px); }
+  .retail-dashboard-frame .retail-content .retail-panel { padding: 16px; }
+  .retail-dashboard-frame .retail-content .retail-intel-podium-name { overflow-wrap: anywhere; }
+  .retail-dashboard-frame .retail-content .retail-intel-lb-cell[data-label]::before { content: attr(data-label); display: block; color: var(--pdv-text-secondary); font-size: 10px; margin-bottom: 3px; }
   .retail-dashboard-frame .retail-overview-metrics { grid-template-columns: 1fr; }
+  .retail-dashboard-frame .retail-overview-metrics > .retail-panel + .retail-panel { border-left: 0; border-top: 1px solid var(--pdv-border); }
+  .retail-dashboard-frame .retail-overview-metrics > .retail-panel { display: grid; grid-template-columns: 1fr auto; gap: 5px 12px; align-items: center; }
+  .retail-dashboard-frame .retail-overview-metrics .retail-summary-value { font-size: 26px; grid-row: span 2; grid-column: 2; margin: 0; }
+  .retail-dashboard-frame .retail-overview-metrics small { font-size: 10px; }
   .retail-dashboard-frame .retail-overview-context { grid-template-columns: 1fr; }
-  .retail-dashboard-frame .retail-overview-context > .retail-panel { padding: 16px 18px; }
-  .retail-dashboard-frame .retail-content :where(.retail-table-cards td) { padding-top: 9px; padding-bottom: 9px; }
-  .retail-dashboard-frame .retail-content :where(.retail-form-grid) { gap: 16px; }
-  .retail-dashboard-frame .management-finance-metrics { gap: 22px 0; }
-  .retail-dashboard-frame .management-finance-metrics > div { padding: 0 14px; }
-  .retail-dashboard-frame .management-finance-metrics > div:nth-child(odd) { border-inline-start: 0; padding-inline-start: 0; }
-  .retail-dashboard-frame .management-finance-metrics > div > p:first-child { min-height: 36px; }
-  body:has(.retail-dashboard-frame) .retail-modal-overlay .retail-dialog { border-radius: 22px 22px 0 0; }
-  body:has(.retail-dashboard-frame) .retail-dialog > header { padding: 18px 20px; }
-  body:has(.retail-dashboard-frame) .retail-dialog > header h2 { font-size: 22px; }
-  body:has(.retail-dashboard-frame) .retail-dialog :where(.retail-dialog-body) { padding: 22px 20px; }
-  body:has(.retail-dashboard-frame) .retail-dialog :where(.retail-dialog-footer) { padding: 16px 20px max(16px, env(safe-area-inset-bottom)); }
+  .retail-dashboard-frame .retail-overview-context > .retail-panel { padding: 12px 14px; }
+  .retail-dashboard-frame .retail-content .retail-table-cards td { padding-top: 6px; padding-bottom: 6px; }
+  .retail-dashboard-frame .management-finance-metrics { gap: 16px 0; }
+  .retail-dashboard-frame .management-finance-metrics > div { padding: 0 12px; }
+  .retail-dashboard-frame .management-finance-metrics > div:nth-child(odd) { border-left: 0; padding-left: 0; }
+  body:has(.retail-dashboard-frame) .retail-modal-overlay .retail-dialog { border-radius: 16px 16px 0 0; }
+  body:has(.retail-dashboard-frame) .retail-dialog-body { padding: 18px; }
+  body:has(.retail-dashboard-frame) .retail-dialog-footer { padding: 14px 18px max(14px, env(safe-area-inset-bottom)); }
 }
-
 @media (pointer: coarse) {
-  .retail-dashboard-frame .retail-content :where(.retail-button, .retail-icon-button) { min-height: 44px; }
-  .retail-dashboard-frame .retail-content :where(.retail-icon-button) { min-width: 44px; }
-  .retail-dashboard-frame .retail-content :where(.retail-field input, .retail-field select, .retail-field textarea, .retail-search input),
-  body:has(.retail-dashboard-frame) .retail-dialog :where(.retail-field input, .retail-field textarea, .retail-field select),
-  .retail-dashboard-frame .management-payable-drawer :where(input:not([type="checkbox"]), textarea) { font-size: 16px; }
+  .retail-dashboard-frame .retail-content :is(.retail-button, .retail-icon-button) { min-height: 44px; }
+  .retail-dashboard-frame .retail-content .retail-icon-button { min-width: 44px; }
+  .retail-dashboard-frame .retail-content :is(input, textarea, select),
+  body:has(.retail-dashboard-frame) .retail-dialog :is(input, textarea, select) { font-size: 16px; }
 }
-
 @media (prefers-reduced-motion: reduce) {
-  .retail-dashboard-frame .retail-content.retail-module-stage[data-module-kind] { animation: none; }
+  .retail-dashboard-frame .retail-content.retail-module-stage[data-module-kind],
+  body:has(.retail-dashboard-frame) .retail-modal-overlay .retail-dialog { animation: none; }
 }
-
 @media print {
-  .retail-dashboard-frame .retail-content { background: var(--pdv-white); border: 0; border-radius: 0; padding: 0; overflow: visible; }
-  .retail-dashboard-frame .retail-content :where(.retail-panel, .retail-table-wrap, .management-finance-ledger) { box-shadow: none; }
+  .retail-dashboard-frame { height: auto; overflow: visible; }
+  .retail-dashboard-frame :is(.management-workspace-header, .management-section-tabs, .management-skip-link) { display: none; }
+  .retail-dashboard-frame .retail-content { background: var(--pdv-white); padding: 0; overflow: visible; }
 }

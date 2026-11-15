@@ -750,12 +750,18 @@ export function SpWholesaleMapHub({ onSupplierImported }: SpWholesaleMapHubProps
                     const selectedQty = cartQuantities[item.id] || 0;
                     const retailPrice =
                       item.suggestedRetailPrice || Number((item.wholesalePrice * 2.2).toFixed(2));
-                    const marginPct =
+                    const markupPct =
                       item.wholesalePrice > 0
                         ? Math.round(
                             ((retailPrice - item.wholesalePrice) / item.wholesalePrice) * 100,
                           )
                         : 100;
+                    const grossMarginPct =
+                      retailPrice > 0
+                        ? Math.round(
+                            ((retailPrice - item.wholesalePrice) / retailPrice) * 100,
+                          )
+                        : 0;
 
                     return (
                       <div
@@ -777,7 +783,7 @@ export function SpWholesaleMapHub({ onSupplierImported }: SpWholesaleMapHubProps
                               {item.category}
                             </span>
                             <span className="absolute top-2.5 right-2.5 rounded-lg bg-brand px-2.5 py-1 text-[11px] font-extrabold text-on-brand shadow-sm">
-                              +{marginPct}% margem sugerida
+                              {grossMarginPct}% margem (+{markupPct}% markup)
                             </span>
                           </div>
 

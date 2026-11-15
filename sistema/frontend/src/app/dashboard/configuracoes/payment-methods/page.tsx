@@ -178,7 +178,7 @@ export default function PaymentMethodsPage() {
   ];
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6 pb-12">
+    <div className="w-full min-w-0 space-y-6 pb-12">
       <div>
         <h1 className="text-2xl font-black text-ink flex items-center gap-3">
           <CreditCard className="text-brand" /> Formas de Pagamento
@@ -188,6 +188,7 @@ export default function PaymentMethodsPage() {
         </p>
       </div>
 
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
       {/* Métodos Padrão (Fixos) */}
       <div className="bg-page border border-line rounded-2xl p-5 md:p-6 shadow-xl">
         <div className="flex items-center justify-between mb-4">
@@ -392,6 +393,7 @@ export default function PaymentMethodsPage() {
             <strong>Dica iFood & Plataformas:</strong> Ao fechar uma venda com forma "iFood", o caixa pode digitar o valor real recebido pelo iFood (que pode ter 12% de taxa). Isso garante que o fechamento do caixa bata no final do dia.
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

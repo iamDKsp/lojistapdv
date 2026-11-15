@@ -1999,7 +1999,14 @@ export function PublicStorefrontApp() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-line pb-4">
                 <div>
                   <span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-support text-brand">
-                    <CheckCircle2 size={13} /> Pedido Registrado
+                    {['CANCELLED', 'REJECTED', 'EXPIRED'].includes(
+                      orderDetail.commercialStatus,
+                    ) ? (
+                      <AlertCircle size={13} />
+                    ) : (
+                      <CheckCircle2 size={13} />
+                    )}{' '}
+                    {commInfo.label}
                   </span>
                   <h1 className="text-xl sm:text-2xl font-extrabold text-ink mt-1.5 font-mono">
                     {orderDetail.reference}
@@ -2019,73 +2026,123 @@ export function PublicStorefrontApp() {
                 </div>
               </div>
 
-              {/* Ação Principal: Abrir WhatsApp com a mensagem pronta */}
-              <div className="bg-support border border-brand rounded-2xl p-4 sm:p-5 space-y-3">
-                <div className="flex items-start gap-3">
-                  <MessageCircle
-                    size={20}
-                    className="text-brand shrink-0 mt-0.5"
-                  />
-                  <div className="space-y-1">
-                    <h3 className="font-bold text-xs sm:text-sm text-ink">
-                      Envie a confirmação pelo WhatsApp para combinar o
-                      atendimento
-                    </h3>
-                    <p className="text-xs text-muted leading-relaxed">
-                      Seu pedido já foi registrado e o estoque está reservado
-                      até{' '}
-                      <strong>
-                        {new Date(
-                          orderDetail.reservationExpiresAt,
-                        ).toLocaleTimeString('pt-BR', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </strong>
-                      . Clique no botão abaixo para enviar o resumo à loja.
-                    </p>
+              {/* Ação Principal conforme o estado atual do pedido */}
+              {['AWAITING_CONFIRMATION', 'CONFIRMED'].includes(
+                orderDetail.commercialStatus,
+              ) && orderDetail.reservationStatus === 'ACTIVE' ? (
+                <div className="bg-support border border-brand rounded-2xl p-4 sm:p-5 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <MessageCircle
+                      size={20}
+                      className="text-brand shrink-0 mt-0.5"
+                    />
+                    <div className="space-y-1">
+                      <h3 className="font-bold text-xs sm:text-sm text-ink">
+                        {orderDetail.whatsappUrl
+                          ? 'Envie a confirmação pelo WhatsApp para combinar o atendimento'
+                          : 'Pedido registrado com reserva de estoque ativa'}
+                      </h3>
+                      <p className="text-xs text-muted leading-relaxed">
+                        Seu pedido já foi registrado e o estoque está reservado
+                        até{' '}
+                        <strong>
+                          {new Date(
+                            orderDetail.reservationExpiresAt,
+                          ).toLocaleString('pt-BR', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </strong>
+                        .{' '}
+                        {orderDetail.whatsappUrl
+                          ? 'Clique no botão abaixo para enviar o resumo à loja.'
+                          : 'Copie o resumo abaixo para apresentar ou enviar ao atendimento da loja.'}
+                      </p>
+                    </div>
                   </div>
-                </div>
 
-                <div className="flex flex-wrap gap-2.5 pt-1">
-                  {orderDetail.whatsappUrl && (
-                    <a
-                      href={orderDetail.whatsappUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex-1 min-w-[200px] py-3 px-4 rounded-xl bg-brand hover:bg-brand-hover text-on-brand font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition shadow-xs"
-                    >
-                      <MessageCircle size={16} />
-                      Abrir WhatsApp da Loja
-                      <ExternalLink size={13} />
-                    </a>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      navigator.clipboard.writeText(
-                        orderDetail.whatsappMessage || '',
-                      );
-                      toast.success('Resumo do pedido copiado!');
-                    }}
-                    className="py-3 px-4 rounded-xl bg-surface hover:bg-page text-ink border border-line font-bold text-xs flex items-center gap-1.5 transition cursor-pointer"
-                  >
-                    <Copy size={14} /> Copiar Resumo
-                  </button>
-                  {orderDetail.compactWhatsappUrl &&
-                    orderDetail.compactWhatsappUrl !==
-                      orderDetail.whatsappUrl && (
+                  <div className="flex flex-wrap gap-2.5 pt-1">
+                    {orderDetail.whatsappUrl && (
                       <a
-                        href={orderDetail.compactWhatsappUrl}
+                        href={orderDetail.whatsappUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="py-3 px-3.5 rounded-xl bg-surface hover:bg-page text-brand border border-brand font-bold text-xs flex items-center gap-1.5 transition"
+                        className="flex-1 min-w-[200px] py-3 px-4 rounded-xl bg-brand hover:bg-brand-hover text-on-brand font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition shadow-xs"
                       >
-                        Mensagem Resumida
+                        <MessageCircle size={16} />
+                        Abrir WhatsApp da Loja
+                        <ExternalLink size={13} />
                       </a>
                     )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(
+                          orderDetail.whatsappMessage || '',
+                        );
+                        toast.success('Resumo do pedido copiado!');
+                      }}
+                      className="py-3 px-4 rounded-xl bg-surface hover:bg-page text-ink border border-line font-bold text-xs flex items-center gap-1.5 transition cursor-pointer"
+                    >
+                      <Copy size={14} /> Copiar Resumo
+                    </button>
+                    {orderDetail.compactWhatsappUrl &&
+                      orderDetail.compactWhatsappUrl !==
+                        orderDetail.whatsappUrl && (
+                        <a
+                          href={orderDetail.compactWhatsappUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="py-3 px-3.5 rounded-xl bg-surface hover:bg-page text-brand border border-brand font-bold text-xs flex items-center gap-1.5 transition"
+                        >
+                          Mensagem Resumida
+                        </a>
+                      )}
+                  </div>
                 </div>
-              </div>
+              ) : ['CANCELLED', 'REJECTED', 'EXPIRED'].includes(
+                  orderDetail.commercialStatus,
+                ) ? (
+                <div className="bg-page border border-line rounded-2xl p-4 sm:p-5 space-y-2">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle
+                      size={20}
+                      className="text-brand shrink-0 mt-0.5"
+                    />
+                    <div className="space-y-1">
+                      <h3 className="font-bold text-xs sm:text-sm text-ink">
+                        {commInfo.label} — Reserva de estoque encerrada
+                      </h3>
+                      <p className="text-xs text-muted leading-relaxed">
+                        {orderDetail.cancelReason
+                          ? `Motivo: ${orderDetail.cancelReason}. `
+                          : ''}
+                        As peças deste pedido não estão mais reservadas. Caso deseje adquirir os produtos, faça um novo pedido no catálogo da loja.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-support border border-brand rounded-2xl p-4 sm:p-5 space-y-2">
+                  <div className="flex items-start gap-3">
+                    <CheckCircle2
+                      size={20}
+                      className="text-brand shrink-0 mt-0.5"
+                    />
+                    <div className="space-y-1">
+                      <h3 className="font-bold text-xs sm:text-sm text-ink">
+                        Pedido concluído na loja
+                      </h3>
+                      <p className="text-xs text-muted leading-relaxed">
+                        Este pedido já foi convertido em venda e finalizado pelo atendimento da loja.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Quatro dimensões de status claras */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

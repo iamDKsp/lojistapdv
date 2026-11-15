@@ -9,6 +9,10 @@ export function RetailDialog({
   wide = false,
   busy = false,
   footer,
+  className = "",
+  topSlot,
+  headerIcon,
+  headerMeta,
 }: {
   title: string;
   children: ReactNode;
@@ -16,6 +20,10 @@ export function RetailDialog({
   wide?: boolean;
   busy?: boolean;
   footer?: ReactNode;
+  className?: string;
+  topSlot?: ReactNode;
+  headerIcon?: ReactNode;
+  headerMeta?: ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const closeRef = useRef(onClose);
@@ -74,21 +82,28 @@ export function RetailDialog({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={`retail-dialog ${wide ? "retail-dialog-wide" : ""}`}
+        className={`retail-dialog ${wide ? "retail-dialog-wide" : ""} ${className}`.trim()}
       >
+        {topSlot}
         <div className="retail-sheet-handle" aria-hidden="true" />
         <header>
-          <h2>{title}</h2>
-          <button
-            type="button"
-            className="retail-icon-button"
-            onClick={onClose}
-            disabled={busy}
-            aria-label="Fechar"
-            data-tooltip="Fechar (Esc)"
-          >
-            <X size={20} />
-          </button>
+          <div className="retail-dialog-title-wrap">
+            {headerIcon}
+            <h2>{title}</h2>
+          </div>
+          <div className="retail-dialog-header-actions">
+            {headerMeta}
+            <button
+              type="button"
+              className="retail-icon-button"
+              onClick={onClose}
+              disabled={busy}
+              aria-label="Fechar"
+              data-tooltip="Fechar (Esc)"
+            >
+              <X size={20} />
+            </button>
+          </div>
         </header>
         {children}
         {footer && <footer className="retail-dialog-footer">{footer}</footer>}

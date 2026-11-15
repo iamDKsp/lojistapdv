@@ -84,6 +84,7 @@ export class StorefrontOrdersService {
         color: i.color,
         quantity: Number(i.quantity),
         priceUnit: Number(i.priceUnit),
+        priceSaleSnapshot: Number(i.priceUnit),
         subtotal: Number(i.subtotal),
       })),
       orderStatusUrl,
@@ -987,6 +988,7 @@ export class StorefrontOrdersService {
         unit: i.unit,
         quantity: Number(i.quantity),
         priceUnit: Number(i.priceUnit),
+        priceSaleSnapshot: Number(i.priceUnit),
         subtotal: Number(i.subtotal),
       })),
       reservations: (order.reservations || []).map((r: any) => ({

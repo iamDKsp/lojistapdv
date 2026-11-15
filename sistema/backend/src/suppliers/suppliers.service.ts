@@ -493,7 +493,24 @@ export class SuppliersService {
     };
   }
 
+  private validateSupplierPhone(rawPhone: unknown) {
+    if (rawPhone === undefined || rawPhone === null || String(rawPhone).trim() === '') return;
+    const digits = String(rawPhone).replace(/\D/g, '');
+    if (digits.length < 10 || digits.length > 15 || /^(\d)\1+$/.test(digits)) {
+      throw new BadRequestException('Informe um WhatsApp/telefone válido com DDD para o fornecedor.');
+    }
+    const national = digits.startsWith('55') && digits.length >= 12 ? digits.slice(2) : digits;
+    if (national.length === 10 || national.length === 11) {
+      const ddd = Number(national.slice(0, 2));
+      const subscriber = national.slice(2);
+      if (ddd < 11 || /^0+$/.test(subscriber) || /^(\d)\1+$/.test(subscriber)) {
+        throw new BadRequestException('Informe um WhatsApp/telefone válido com DDD real para o fornecedor.');
+      }
+    }
+  }
+
   async createSupplier(data: any) {
+    this.validateSupplierPhone(data?.whatsapp);
     const prisma = await this.getPrisma();
     const { id, createdAt, updatedAt, products, purchaseOrders, ...createData } = data;
     return prisma.supplier.create({
@@ -533,6 +550,7 @@ export class SuppliersService {
   }
 
   async updateSupplier(supplierId: string, data: any) {
+    this.validateSupplierPhone(data?.whatsapp);
     const prisma = await this.getPrisma();
     const { id, createdAt, updatedAt, products, purchaseOrders, ...updateData } = data;
     return prisma.supplier.update({

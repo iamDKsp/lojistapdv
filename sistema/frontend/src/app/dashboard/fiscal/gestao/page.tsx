@@ -304,6 +304,12 @@ export default function FiscalManagementPage() {
           } else if (m.includes('deb')) {
             bg = 'bg-support text-brand border-brand';
             label = 'Débito';
+          } else if (m === 'crediario' || m === 'fiado' || m.includes('credi')) {
+            bg = 'bg-support text-brand border-brand';
+            label = 'Crediário';
+          } else if (m === 'credito_loja' || m === 'store_credit') {
+            bg = 'bg-support text-brand border-brand';
+            label = 'Vale-Troca';
           } else if (m.includes('cred')) {
             bg = 'bg-support text-brand border-brand';
             label = 'Crédito';
@@ -320,7 +326,7 @@ export default function FiscalManagementPage() {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 max-w-7xl mx-auto pb-12">
+    <div className="w-full min-w-0 space-y-6 animate-in fade-in duration-500 pb-12">
       {/* ── Topo: Título & Ações Principais ─────────────────────────────────── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-page border border-line p-6 rounded-2xl shadow-xl">
         <div>
@@ -402,7 +408,7 @@ export default function FiscalManagementPage() {
         </div>
 
         <div className="flex items-center gap-2 w-full md:w-auto flex-wrap">
-          <div className="w-40">
+          <div className="w-48 sm:w-52">
             <RetailDatePicker
               value={startDate}
               onValueChange={(iso) => { setStartDate(iso); setPeriodPreset('custom'); }}
@@ -412,7 +418,7 @@ export default function FiscalManagementPage() {
             />
           </div>
           <span className="text-muted text-xs">até</span>
-          <div className="w-40">
+          <div className="w-48 sm:w-52">
             <RetailDatePicker
               value={endDate}
               onValueChange={(iso) => { setEndDate(iso); setPeriodPreset('custom'); }}
@@ -440,7 +446,7 @@ export default function FiscalManagementPage() {
       ) : summary ? (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Box 1: Painel Executivo de Cobertura Fiscal */}
-          <div className="lg:col-span-2 bg-gradient-to-br from-brand via-brand to-brand border border-brand p-6 rounded-2xl shadow-xl relative overflow-hidden flex flex-col justify-between">
+          <div className="lg:col-span-2 bg-surface border-2 border-brand p-6 rounded-2xl shadow-xl relative overflow-hidden flex flex-col justify-between">
             <div className="flex items-center justify-between">
               <div>
                 <span className="text-[10px] font-extrabold uppercase tracking-widest text-brand bg-support border border-brand px-3 py-1 rounded-full">
@@ -463,7 +469,7 @@ export default function FiscalManagementPage() {
             <div className="my-4">
               <div className="w-full bg-page h-3.5 rounded-full overflow-hidden border border-line p-0.5">
                 <div
-                  className="bg-gradient-to-r from-brand to-brand h-full rounded-full transition-all duration-1000 shadow-lg"
+                  className="bg-brand h-full rounded-full transition-all duration-1000 shadow-lg"
                   style={{ width: `${Math.min(100, summary.totais.coberturaPercent)}%` }}
                 />
               </div>
@@ -471,24 +477,24 @@ export default function FiscalManagementPage() {
 
             {/* Breakdown de Balanço */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 border-t border-line pt-4 text-xs">
-              <div className="bg-page/60 p-2.5 rounded-xl border border-line">
+              <div className="bg-page p-2.5 rounded-xl border border-line">
                 <p className="text-muted text-[10px] uppercase font-bold">Vendas PDV Total</p>
                 <p className="text-ink font-bold text-sm mt-0.5">R$ {summary.totais.totalVendasPdv.toFixed(2)}</p>
               </div>
 
-              <div className="bg-page/60 p-2.5 rounded-xl border border-brand">
+              <div className="bg-support/50 p-2.5 rounded-xl border border-brand">
                 <p className="text-brand text-[10px] uppercase font-bold">Emitido PDV</p>
-                <p className="text-brand font-bold text-sm mt-0.5">R$ {summary.totais.totalAutorizadoPdv.toFixed(2)}</p>
+                <p className="text-ink font-bold text-sm mt-0.5">R$ {summary.totais.totalAutorizadoPdv.toFixed(2)}</p>
               </div>
 
-              <div className="bg-page/60 p-2.5 rounded-xl border border-brand">
+              <div className="bg-support/50 p-2.5 rounded-xl border border-brand">
                 <p className="text-brand text-[10px] uppercase font-bold">Ajustes Fiscais</p>
-                <p className="text-brand font-bold text-sm mt-0.5">R$ {summary.totais.totalAjusteFiscal.toFixed(2)}</p>
+                <p className="text-ink font-bold text-sm mt-0.5">R$ {summary.totais.totalAjusteFiscal.toFixed(2)}</p>
               </div>
 
-              <div className="bg-page/60 p-2.5 rounded-xl border border-brand">
+              <div className="bg-support/50 p-2.5 rounded-xl border border-brand">
                 <p className="text-brand text-[10px] uppercase font-bold">Não Declarado / SNF</p>
-                <p className="text-brand font-bold text-sm mt-0.5">R$ {summary.totais.totalNaoDeclarado.toFixed(2)}</p>
+                <p className="text-ink font-bold text-sm mt-0.5">R$ {summary.totais.totalNaoDeclarado.toFixed(2)}</p>
               </div>
             </div>
           </div>
@@ -572,6 +578,7 @@ export default function FiscalManagementPage() {
               {[
                 { id: 'all', label: 'Todos' },
                 { id: 'autorizada', label: 'Autorizadas' },
+                { id: 'nao_emitida', label: 'Não Emitidas / SNF' },
                 { id: 'cancelada', label: 'Canceladas' },
                 { id: 'rejeitada', label: 'Rejeitadas' },
               ].map(st => (

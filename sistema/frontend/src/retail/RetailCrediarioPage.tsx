@@ -53,6 +53,18 @@ function defaultDueIso(days = 30): string {
     .slice(0, 10);
 }
 
+function formatInstallmentDescription(r: any): string {
+  const desc = String(r?.description || "Parcela").trim();
+  const suffix = `(${r?.installmentNumber}/${r?.totalInstallments})`;
+  if (
+    desc.includes(suffix) ||
+    desc.includes(`${r?.installmentNumber}/${r?.totalInstallments}`)
+  ) {
+    return desc;
+  }
+  return `${desc} ${suffix}`;
+}
+
 export function RetailCrediarioPage() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -848,7 +860,7 @@ export function RetailCrediarioPage() {
                                       customerId: r.customerId,
                                       customerName: r.customer?.name || "Cliente",
                                       receivableId: r.id,
-                                      receivableLabel: `${r.description} (${r.installmentNumber}/${r.totalInstallments})`,
+                                      receivableLabel: formatInstallmentDescription(r),
                                       suggestedAmount: Number(r.remainingAmount),
                                     });
                                     setPaymentAmount(String(r.remainingAmount));
@@ -1777,6 +1789,28 @@ export function RetailCrediarioPage() {
               onCheckedChange={setManualSendWhatsapp}
               label="Enviar aviso de abertura da conta no WhatsApp do cliente agora"
             />
+            {manualSendWhatsapp && whatsappState?.status !== "CONNECTED" && (
+              <div className="retail-banner" style={{ marginTop: 4 }}>
+                <AlertCircle size={16} />
+                <span>
+                  O WhatsApp da loja está desconectado no momento. A conta será
+                  registrada normalmente e você poderá enviar a cobrança na aba{" "}
+                  <strong>WhatsApp & Pix</strong> após conectar o aparelho.
+                </span>
+              </div>
+            )}
+            {manualSendWhatsapp &&
+              whatsappState?.status === "CONNECTED" &&
+              !settingsForm?.pixKey && (
+                <div className="retail-banner" style={{ marginTop: 4 }}>
+                  <AlertCircle size={16} />
+                  <span>
+                    Nenhuma chave Pix está configurada em{" "}
+                    <strong>WhatsApp & Pix</strong>. A mensagem será enviada sem
+                    dados de Pix.
+                  </span>
+                </div>
+              )}
             <div className="retail-dialog-footer">
               <button
                 type="button"
@@ -1867,10 +1901,7 @@ export function RetailCrediarioPage() {
                     {selectedCustomerDetail.receivables.map((r: any) => (
                       <tr key={r.id}>
                         <td>{formatDateBr(r.dueDate)}</td>
-                        <td>
-                          {r.description} ({r.installmentNumber}/
-                          {r.totalInstallments})
-                        </td>
+                        <td>{formatInstallmentDescription(r)}</td>
                         <td className="retail-number">
                           {money(r.originalAmount)}
                         </td>

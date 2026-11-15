@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException, NotFoundException, Optional, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { HeartPrismaService } from '../prisma/heart-prisma.service';
 import { TenantConnectionManager } from '../prisma/tenant-prisma.service';
@@ -44,9 +44,98 @@ export class TenantsService {
     private heartPrisma: HeartPrismaService,
     private tenantManager: TenantConnectionManager,
     private tenantContext: TenantContextService,
-    private jwtService: JwtService,
-    private leadgerService: LeadgerWebhookService,
+    @Optional() private jwtService?: JwtService,
+    @Optional() private leadgerService?: LeadgerWebhookService,
   ) {}
+
+  private requireLeadger(): LeadgerWebhookService {
+    if (!this.leadgerService) {
+      throw new BadRequestException('Serviço Leadger indisponível.');
+    }
+    return this.leadgerService;
+  }
+
+  private async ensureMultiEmpresaGroupMembership(tenant: {
+    id: string;
+    name?: string | null;
+    nomeFantasia?: string | null;
+  }) {
+    if (
+      !this.heartPrisma?.tenantGroupMember?.findFirst ||
+      !this.heartPrisma?.tenantGroup?.create
+    ) {
+      return null;
+    }
+
+    const includeGroup = {
+      group: {
+        include: {
+          members: {
+            include: {
+              tenant: {
+                select: {
+                  id: true,
+                  name: true,
+                  nomeFantasia: true,
+                  razaoSocial: true,
+                  logoUrl: true,
+                  status: true,
+                },
+              },
+            },
+            orderBy: { id: 'asc' as const },
+          },
+        },
+      },
+    };
+
+    const existing = await this.heartPrisma.tenantGroupMember
+      .findFirst({
+        where: { tenantId: tenant.id },
+        orderBy: { id: 'desc' },
+        include: includeGroup,
+      })
+      .catch(() => null);
+    if (existing?.group) return existing;
+
+    if (typeof (this.heartPrisma as any).ensureHeartColumnsAndTables === 'function') {
+      await (this.heartPrisma as any).ensureHeartColumnsAndTables().catch(() => {});
+    }
+
+    const storeLabel = (tenant.nomeFantasia || tenant.name || 'Matriz').trim();
+    const groupName = storeLabel.toLowerCase().startsWith('rede ')
+      ? storeLabel
+      : `Rede ${storeLabel}`;
+
+    try {
+      const createdGroup = await this.heartPrisma.tenantGroup.create({
+        data: { name: groupName },
+      });
+      await this.heartPrisma.tenantGroupMember.upsert({
+        where: {
+          groupId_tenantId: { groupId: createdGroup.id, tenantId: tenant.id },
+        },
+        update: {},
+        create: {
+          groupId: createdGroup.id,
+          tenantId: tenant.id,
+          alias: storeLabel,
+        },
+      });
+    } catch (err: any) {
+      this.logger.warn(
+        `Aviso ao inicializar grupo Multi-Lojas para ${tenant.id}: ${err.message}`,
+      );
+    }
+
+    return this.heartPrisma.tenantGroupMember
+      .findFirst({
+        where: { tenantId: tenant.id },
+        orderBy: { id: 'desc' },
+        include: includeGroup,
+      })
+      .catch(() => null);
+  }
 
   async findAll() {
     const tenants = await this.heartPrisma.tenant.findMany({
@@ -119,6 +208,17 @@ export class TenantsService {
         },
         nfceAtivo: false,
         proximaNota: 1,
+        groupId: 'demo-group-001',
+        groupName: 'Rede Loja Modelo',
+        groupMembers: [
+          {
+            tenantId: 'demo-tenant-001',
+            alias: 'Loja Modelo (Matriz)',
+            name: 'Loja Modelo',
+            logoUrl: null,
+            status: 'active',
+          },
+        ],
       };
     }
 
@@ -138,9 +238,10 @@ export class TenantsService {
     safeTenant.modulos = { lojaVirtual: false, ...modules, comandas: false, kds: false, restaurante: false, carvoaria: false };
 
     if (this.heartPrisma?.tenantGroupMember?.findFirst) {
-      const membership = await this.heartPrisma.tenantGroupMember
+      let membership = await this.heartPrisma.tenantGroupMember
         .findFirst({
           where: { tenantId },
+          orderBy: { id: 'desc' },
           include: {
             group: {
               include: {
@@ -164,6 +265,10 @@ export class TenantsService {
           },
         })
         .catch(() => null);
+
+      if (!membership?.group && safeTenant.modulos?.multiEmpresa === true) {
+        membership = await this.ensureMultiEmpresaGroupMembership(tenant);
+      }
 
       if (membership?.group) {
         safeTenant.groupId = membership.group.id;
@@ -313,21 +418,26 @@ export class TenantsService {
         await this.tenantManager.disconnectTenant(tenantId);
       }
 
-      // Sincronizar estado de habilitação no StorefrontRegistry do Heart quando módulos ou status mudarem
-      if (this.heartPrisma?.storefrontRegistry?.updateMany && (safeData.modulos !== undefined || safeData.status !== undefined)) {
+      // Sincronizar estado de habilitação no StorefrontRegistry e grupo Multi-Empresa do Heart quando módulos mudarem
+      if (safeData.modulos !== undefined || safeData.status !== undefined) {
         const updatedModules = typeof updated.modulos === 'string' ? JSON.parse(updated.modulos) : (updated.modulos || {});
-        const shouldEnableRegistry = updated.status === 'active' && Boolean(updatedModules?.lojaVirtual);
-        await this.heartPrisma.storefrontRegistry
-          .updateMany({
-            where: { tenantId },
-            data: { enabled: shouldEnableRegistry },
-          })
-          .catch(() => {});
+        if (this.heartPrisma?.storefrontRegistry?.updateMany) {
+          const shouldEnableRegistry = updated.status === 'active' && Boolean(updatedModules?.lojaVirtual);
+          await this.heartPrisma.storefrontRegistry
+            .updateMany({
+              where: { tenantId },
+              data: { enabled: shouldEnableRegistry },
+            })
+            .catch(() => {});
+        }
+        if (updatedModules?.multiEmpresa === true) {
+          await this.ensureMultiEmpresaGroupMembership(updated);
+        }
       }
 
       // Sincronizar com Teltech Leadger se ativo
       let leadgerResult: any = null;
-      if (updated.leadgerSyncEnabled !== false && (clientFieldsChanged || baseFieldsChanged || data.forceLeadgerSync)) {
+      if (this.leadgerService && updated.leadgerSyncEnabled !== false && (clientFieldsChanged || baseFieldsChanged || data.forceLeadgerSync)) {
         try {
           const hasAmount = this.leadgerService.toBrlCents(updated.mensalidadeValor) > 0;
           if (hasAmount && updated.mensalidadeVencimento) {
@@ -384,22 +494,33 @@ export class TenantsService {
 
     let effectiveGroupId: string | null = targetUser.groupId ?? null;
     if (
-      !effectiveGroupId &&
       ['admin', 'superadmin', 'group_owner'].includes(targetUser.role) &&
       this.heartPrisma?.tenantGroupMember?.findFirst
     ) {
-      const membership = await this.heartPrisma.tenantGroupMember
+      let membership = await this.heartPrisma.tenantGroupMember
         .findFirst({
           where: { tenantId: tenant.id },
+          orderBy: { id: 'desc' },
           select: { groupId: true },
         })
         .catch(() => null);
+      const parsedMods = typeof tenant.modulos === 'string' ? JSON.parse(tenant.modulos) : (tenant.modulos as any || {});
+      if (!membership?.groupId && parsedMods?.multiEmpresa === true) {
+        const ensured = await this.ensureMultiEmpresaGroupMembership(tenant);
+        if (ensured?.group?.id) {
+          membership = { groupId: ensured.group.id };
+        }
+      }
       if (membership?.groupId) {
         effectiveGroupId = membership.groupId;
       }
     }
 
     const effectiveRole = targetUser.role === 'group_owner' ? 'admin' : targetUser.role;
+
+    if (!this.jwtService) {
+      throw new BadRequestException('Serviço de autenticação indisponível.');
+    }
 
     const payload = {
       sub: targetUser.id,
@@ -527,7 +648,7 @@ export class TenantsService {
 
     this.tenantContext.evictTenantCache(tenantId);
 
-    if (updated.leadgerSyncEnabled !== false) {
+    if (this.leadgerService && updated.leadgerSyncEnabled !== false) {
       this.leadgerService.enqueueAndDeliverLeadgerEvent({
         eventType: 'client.upsert',
         tenantId,
@@ -861,7 +982,9 @@ export class TenantsService {
     });
 
     // Garantir IDs externos permanentes
-    await this.leadgerService.ensureTenantExternalIds(tenant.id);
+    if (this.leadgerService) {
+      await this.leadgerService.ensureTenantExternalIds(tenant.id);
+    }
 
     try {
       await this.seedTenantProducts(tenantDbUrl, adminName, seedProducts !== false);
@@ -883,7 +1006,7 @@ export class TenantsService {
 
     // Criar fatura inicial e sincronizar com Leadger se aplicável
     let leadgerSync: any = null;
-    if (resolvedSyncLeadger) {
+    if (resolvedSyncLeadger && this.leadgerService) {
       try {
         const hasAmount = this.leadgerService.toBrlCents(tenant.mensalidadeValor) > 0;
         let invoice: any = null;
@@ -1088,10 +1211,11 @@ export class TenantsService {
    * Registra pagamento (+1 mês) ou estorno (refund) de mensalidade, com gestão de faturas e Leadger.
    */
   async registrarPagamento(tenantId: string, body?: any) {
+    const leadgerService = this.requireLeadger();
     const payload = typeof body === 'string' ? { observacao: body } : (body || {});
     const action = payload.action || 'pay';
 
-    const tenant = await this.leadgerService.ensureTenantExternalIds(tenantId);
+    const tenant = await leadgerService.ensureTenantExternalIds(tenantId);
     if (!tenant) throw new NotFoundException('Empresa não encontrada');
 
     // FLUXO A: ESTORNO DE PAGAMENTO (REFUND)
@@ -1149,14 +1273,14 @@ export class TenantsService {
 
       if (updatedTenant.leadgerSyncEnabled !== false) {
         if (revertedInvoice) {
-          this.leadgerService.enqueueAndDeliverLeadgerEvent({
+          leadgerService.enqueueAndDeliverLeadgerEvent({
             eventType: 'invoice.upsert',
             tenantId,
             invoiceId: revertedInvoice.id,
             awaitDelivery: false,
           }).catch(() => {});
         }
-        this.leadgerService.enqueueAndDeliverLeadgerEvent({
+        leadgerService.enqueueAndDeliverLeadgerEvent({
           eventType: 'base.upsert',
           tenantId,
           awaitDelivery: false,
@@ -1167,16 +1291,16 @@ export class TenantsService {
     }
 
     // FLUXO B: PAGAMENTO NORMAL (+1 MÊS)
-    const paymentMethod = this.leadgerService.mapPaymentMethodToLeadger(payload.paymentMethod || 'pix') || 'pix';
+    const paymentMethod = leadgerService.mapPaymentMethodToLeadger(payload.paymentMethod || 'pix') || 'pix';
     const valorNum = payload.valorPago !== undefined
       ? Number(payload.valorPago)
       : Number(tenant.mensalidadeValor || 0);
-    const amountCents = this.leadgerService.toBrlCents(valorNum);
+    const amountCents = leadgerService.toBrlCents(valorNum);
 
     const vencimentoAntes = tenant.mensalidadeVencimento ? new Date(tenant.mensalidadeVencimento) : new Date();
     const vencimentoApos = this.addOneMonthSafe(vencimentoAntes);
     const paidAt = payload.paidAt ? new Date(payload.paidAt) : new Date();
-    const targetRefMonth = payload.referenceMonth || this.leadgerService.toReferenceMonth(vencimentoAntes);
+    const targetRefMonth = payload.referenceMonth || leadgerService.toReferenceMonth(vencimentoAntes);
 
     let paidInvoice: any = null;
     if (payload.invoiceId) {
@@ -1192,7 +1316,7 @@ export class TenantsService {
         },
       });
     } else if (amountCents > 0) {
-      paidInvoice = await this.leadgerService.ensureCurrentInvoiceForTenant(tenantId, {
+      paidInvoice = await leadgerService.ensureCurrentInvoiceForTenant(tenantId, {
         referenceMonth: targetRefMonth,
         dueDate: vencimentoAntes,
         amountCents,
@@ -1214,7 +1338,7 @@ export class TenantsService {
     });
     this.tenantContext.evictTenantCache(tenantId);
 
-    const nextRefMonth = this.leadgerService.toReferenceMonth(vencimentoApos);
+    const nextRefMonth = leadgerService.toReferenceMonth(vencimentoApos);
     if (amountCents > 0 && nextRefMonth !== targetRefMonth) {
       const existingNext = await this.heartPrisma.tenantInvoice.findUnique({
         where: {
@@ -1225,10 +1349,10 @@ export class TenantsService {
         },
       });
       if (!existingNext) {
-        await this.leadgerService.ensureCurrentInvoiceForTenant(tenantId, {
+        await leadgerService.ensureCurrentInvoiceForTenant(tenantId, {
           referenceMonth: nextRefMonth,
           dueDate: vencimentoApos,
-          amountCents: this.leadgerService.toBrlCents(updatedTenant.mensalidadeValor) || amountCents,
+          amountCents: leadgerService.toBrlCents(updatedTenant.mensalidadeValor) || amountCents,
           status: 'pending',
           description: `Mensalidade ${nextRefMonth}`,
         });
@@ -1250,13 +1374,13 @@ export class TenantsService {
     });
 
     if (updatedTenant.leadgerSyncEnabled !== false && paidInvoice) {
-      this.leadgerService.enqueueAndDeliverLeadgerEvent({
+      leadgerService.enqueueAndDeliverLeadgerEvent({
         eventType: 'invoice.upsert',
         tenantId,
         invoiceId: paidInvoice.id,
         awaitDelivery: false,
       }).catch(() => {});
-      this.leadgerService.enqueueAndDeliverLeadgerEvent({
+      leadgerService.enqueueAndDeliverLeadgerEvent({
         eventType: 'base.upsert',
         tenantId,
         awaitDelivery: false,
@@ -1307,14 +1431,15 @@ export class TenantsService {
   }
 
   async createOrUpsertTenantInvoice(tenantId: string, body: any) {
-    const tenant = await this.leadgerService.ensureTenantExternalIds(tenantId);
+    const leadgerService = this.requireLeadger();
+    const tenant = await leadgerService.ensureTenantExternalIds(tenantId);
     const dueDate = body.dueDate
       ? new Date(`${String(body.dueDate).slice(0, 10)}T12:00:00.000Z`)
       : tenant.mensalidadeVencimento
       ? new Date(tenant.mensalidadeVencimento)
       : new Date();
 
-    const referenceMonth = body.referenceMonth || this.leadgerService.toReferenceMonth(dueDate);
+    const referenceMonth = body.referenceMonth || leadgerService.toReferenceMonth(dueDate);
     if (!/^\d{4}-\d{2}$/.test(referenceMonth)) {
       throw new BadRequestException('Competência deve estar no formato YYYY-MM.');
     }
@@ -1322,8 +1447,8 @@ export class TenantsService {
     const amountCents = body.amountCents !== undefined
       ? Number(body.amountCents)
       : body.amountReais !== undefined
-      ? this.leadgerService.toBrlCents(body.amountReais)
-      : this.leadgerService.toBrlCents(tenant.mensalidadeValor);
+      ? leadgerService.toBrlCents(body.amountReais)
+      : leadgerService.toBrlCents(tenant.mensalidadeValor);
 
     if (amountCents <= 0) {
       throw new BadRequestException('Valor da fatura deve ser maior que zero.');
@@ -1331,10 +1456,10 @@ export class TenantsService {
 
     const status = (body.status || 'pending') as 'pending' | 'paid' | 'cancelled';
     const paymentMethod = status === 'paid'
-      ? this.leadgerService.mapPaymentMethodToLeadger(body.paymentMethod || 'pix') || 'pix'
+      ? leadgerService.mapPaymentMethodToLeadger(body.paymentMethod || 'pix') || 'pix'
       : null;
 
-    const invoice = await this.leadgerService.ensureCurrentInvoiceForTenant(tenantId, {
+    const invoice = await leadgerService.ensureCurrentInvoiceForTenant(tenantId, {
       referenceMonth,
       dueDate,
       amountCents,
@@ -1347,7 +1472,7 @@ export class TenantsService {
 
     let leadgerResult: any = null;
     if (tenant.leadgerSyncEnabled !== false && body.syncLeadger !== false) {
-      leadgerResult = await this.leadgerService.enqueueAndDeliverLeadgerEvent({
+      leadgerResult = await leadgerService.enqueueAndDeliverLeadgerEvent({
         eventType: 'invoice.upsert',
         tenantId,
         invoiceId: invoice.id,
@@ -1359,6 +1484,7 @@ export class TenantsService {
   }
 
   async updateTenantInvoice(tenantId: string, body: any) {
+    const leadgerService = this.requireLeadger();
     const { invoiceId, action } = body;
     if (!invoiceId) throw new BadRequestException('invoiceId é obrigatório.');
 
@@ -1381,14 +1507,14 @@ export class TenantsService {
     } else if (action === 'mark_paid') {
       updateData.status = 'paid';
       updateData.paidAt = body.paidAt ? new Date(body.paidAt) : new Date();
-      updateData.paymentMethod = this.leadgerService.mapPaymentMethodToLeadger(body.paymentMethod || 'pix') || 'pix';
+      updateData.paymentMethod = leadgerService.mapPaymentMethodToLeadger(body.paymentMethod || 'pix') || 'pix';
       if (body.notes !== undefined) updateData.notes = body.notes;
     } else {
       if (body.dueDate) {
         updateData.dueDate = new Date(`${String(body.dueDate).slice(0, 10)}T12:00:00.000Z`);
       }
       if (body.amountReais !== undefined) {
-        const cents = this.leadgerService.toBrlCents(body.amountReais);
+        const cents = leadgerService.toBrlCents(body.amountReais);
         if (cents <= 0) throw new BadRequestException('O valor deve ser maior que zero.');
         updateData.amount = cents;
       }
@@ -1398,7 +1524,7 @@ export class TenantsService {
         updateData.status = body.status;
         if (body.status === 'paid' && !existing.paidAt) {
           updateData.paidAt = new Date();
-          updateData.paymentMethod = this.leadgerService.mapPaymentMethodToLeadger(body.paymentMethod || existing.paymentMethod || 'pix');
+          updateData.paymentMethod = leadgerService.mapPaymentMethodToLeadger(body.paymentMethod || existing.paymentMethod || 'pix');
         }
       }
     }
@@ -1427,7 +1553,7 @@ export class TenantsService {
     const tenant = await this.heartPrisma.tenant.findUnique({ where: { id: tenantId } });
     let leadgerResult: any = null;
     if (tenant?.leadgerSyncEnabled !== false && body.syncLeadger !== false) {
-      leadgerResult = await this.leadgerService.enqueueAndDeliverLeadgerEvent({
+      leadgerResult = await leadgerService.enqueueAndDeliverLeadgerEvent({
         eventType: 'invoice.upsert',
         tenantId,
         invoiceId: updated.id,
@@ -1950,6 +2076,9 @@ export class TenantsService {
 
       this.tenantContext.evictTenantCache(tenant.id);
 
+      const demoMembership = await this.ensureMultiEmpresaGroupMembership(tenant);
+      const demoGroupId = demoMembership?.group?.id ?? null;
+
       // 3. Garantir usuário administrador demo@lojista.local e equipe demonstrativa
       let adminUser = await this.heartPrisma.user.findUnique({
         where: { email: DEMO_USER_EMAIL },
@@ -1965,6 +2094,7 @@ export class TenantsService {
             role: 'admin',
             pin: DEMO_OPERATOR_PIN,
             active: true,
+            groupId: demoGroupId,
           },
         });
       } else {
@@ -1977,6 +2107,7 @@ export class TenantsService {
             role: 'admin',
             pin: DEMO_OPERATOR_PIN,
             active: true,
+            groupId: demoGroupId,
           },
         });
       }

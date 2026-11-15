@@ -134,7 +134,9 @@ export class StorefrontAdminService {
         defaultPhone = null;
       }
 
-      const initialPublished = tenant ? this.isModuleEnabledOnTenant(tenant) : true;
+      const initialPublished =
+        Boolean(defaultPhone) &&
+        (tenant ? this.isModuleEnabledOnTenant(tenant) : true);
       settings = await db.storefrontSettings.upsert({
         where: { id: 'singleton' },
         update: {},
@@ -167,6 +169,7 @@ export class StorefrontAdminService {
     } else if (
       Number(settings.publishedVersion ?? 0) === 0 &&
       !settings.isPublished &&
+      Boolean(settings.whatsappPhone) &&
       (tenant ? this.isModuleEnabledOnTenant(tenant) : true)
     ) {
       settings = await db.storefrontSettings.update({
@@ -658,6 +661,15 @@ export class StorefrontAdminService {
     if (!current.pickupEnabled && !current.deliveryEnabled) {
       throw new BadRequestException(
         'Habilite pelo menos uma modalidade (Retirada ou Entrega) antes de publicar.',
+      );
+    }
+
+    if (
+      !current.whatsappPhone ||
+      String(current.whatsappPhone).replace(/\D/g, '').length < 10
+    ) {
+      throw new BadRequestException(
+        'Configure o número de WhatsApp comercial na aba Configurações antes de publicar a Loja Virtual.',
       );
     }
 

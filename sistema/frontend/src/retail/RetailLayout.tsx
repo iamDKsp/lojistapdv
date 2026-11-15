@@ -72,6 +72,7 @@ interface RetailShellContextValue {
   groupMembers: GroupMemberStore[];
   switchingStoreId: string | null;
   switchStore: (targetTenantId: string, navigateTo?: string) => Promise<void>;
+  refreshTenantConfig: () => void;
 }
 
 const RetailShellContext = createContext<RetailShellContextValue>({
@@ -86,6 +87,7 @@ const RetailShellContext = createContext<RetailShellContextValue>({
   groupMembers: [],
   switchingStoreId: null,
   switchStore: async () => {},
+  refreshTenantConfig: () => {},
 });
 
 export function useRetailShell() {
@@ -273,6 +275,11 @@ export function RetailLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const [config, setConfig] = useState<any>(null);
+  const [configRefreshTick, setConfigRefreshTick] = useState(0);
+  const refreshTenantConfig = useMemo(
+    () => () => setConfigRefreshTick((n) => n + 1),
+    [],
+  );
   const [logoLoadError, setLogoLoadError] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
@@ -310,7 +317,7 @@ export function RetailLayout() {
       })
       .catch(() => {});
     return () => controller.abort();
-  }, [user?.tenant, setTenantLogo, setGroupId]);
+  }, [user?.tenant, setTenantLogo, setGroupId, configRefreshTick]);
 
   const tenantLogoUrl = useMemo(() => {
     const raw = config?.logoUrl || user?.logoUrl || null;
@@ -564,6 +571,8 @@ export function RetailLayout() {
       return Boolean(modules.lojaVirtual);
     if (path.includes("/inteligencia-comercial"))
       return Boolean(modules.inteligenciaComercial);
+    if (path.includes("/grupo-portal"))
+      return Boolean(isAdmin && (!config || hasMultiStoreGroup));
     return true;
   }
 
@@ -869,6 +878,7 @@ export function RetailLayout() {
   ]);
 
   const sectionHeading = useMemo(() => {
+    if (pathname === "/inicio") return "Resumo";
     if (pathname.startsWith("/grupo-portal"))
       return groupName
         ? `Rede Multi-Lojas · ${groupName}`
@@ -1123,6 +1133,7 @@ export function RetailLayout() {
       groupMembers,
       switchingStoreId,
       switchStore,
+      refreshTenantConfig,
     }),
     [
       config,
@@ -1135,6 +1146,7 @@ export function RetailLayout() {
       groupMembers,
       switchingStoreId,
       switchStore,
+      refreshTenantConfig,
     ],
   );
 
@@ -1303,235 +1315,14 @@ export function RetailLayout() {
             </div>
           ) : (
             <div className="retail-dashboard-frame">
-              <header className="retail-canvas-header">
-                <div
-                  key={sectionHeading}
-                  className="retail-canvas-title-wrap retail-heading-reveal"
-                >
-                  <h1>{sectionHeading}</h1>
-                  <div className="retail-pos-subline">
-                    <span>
-                      {config?.nomeFantasia ||
-                        config?.razaoSocial ||
-                        "PDV Lojista"}
-                    </span>
-                    <span aria-hidden="true">·</span>
-                    <span>
-                      {isStockist ? "Controle de Estoque" : "Administração"}
-                    </span>
-                  </div>
+              <a className="management-skip-link" href="#retail-management-content">Ir para o conteúdo</a>
+              <header className="retail-canvas-header management-workspace-header">
+                <div className="management-workspace-context" aria-label="Área atual">
+                  <span className="management-workspace-store">{config?.nomeFantasia || config?.razaoSocial || user?.tenantName || "PDV Lojista"}</span>
+                  <span className="management-context-divider" aria-hidden="true">/</span>
+                  <span className="management-workspace-area">{sectionHeading}</span>
                 </div>
-
-                {pathname.startsWith("/inteligencia-comercial") &&
-                  subNavTabs.length > 0 && (
-                    <nav
-                      className="retail-header-inline-tabs"
-                      aria-label="Seções de Inteligência Comercial"
-                    >
-                      {subNavTabs.map((tab, tabIdx) => {
-                        const isExactRoot =
-                          tab.path === "/inteligencia-comercial";
-                        const isTabActive = isExactRoot
-                          ? pathname === tab.path
-                          : pathname.startsWith(tab.path);
-                        return (
-                          <NavLink
-                            key={tab.path}
-                            to={tab.path}
-                            end={isExactRoot}
-                            onClick={() => {
-                              pendingNavIntentRef.current = "tab";
-                            }}
-                            style={
-                              { "--tab-idx": tabIdx } as React.CSSProperties
-                            }
-                            className={`retail-cat-pill retail-subnav-pill ${isTabActive ? "is-active" : ""}`}
-                          >
-                            <span
-                              className="retail-subnav-dot"
-                              aria-hidden="true"
-                            />
-                            <span>{tab.label}</span>
-                          </NavLink>
-                        );
-                      })}
-                    </nav>
-                  )}
-
                 <div className="retail-header-actions">
-                  {!isStockist && (
-                    <Link
-                      to="/inicio/operacoes"
-                      className="retail-circle-icon-btn"
-                      aria-label="Notificações e operações locais"
-                      data-tooltip="Operações locais"
-                    >
-                      <Bell size={18} />
-                      <span className="retail-bell-dot" aria-hidden="true" />
-                    </Link>
-                  )}
-
-                  {!isStockist && (
-                    <Link
-                      to="/configuracoes/empresa"
-                      className="retail-circle-icon-btn"
-                      aria-label="Configurações da empresa"
-                      data-tooltip="Configurações da empresa"
-                    >
-                      <Settings size={18} />
-                    </Link>
-                  )}
-
-                  {!isStockist && (
-                    <RetailTeamAvatars
-                      onClick={() => navigate("/equipe")}
-                      tooltip="Gerenciar equipe e acessos"
-                    />
-                  )}
-
-                  {hasMultiStoreGroup && (
-                    <div
-                      className="retail-store-switcher-wrap"
-                      style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: "0.375rem" }}
-                    >
-                      {pathname.startsWith("/grupo-portal") ? (
-                        <Link
-                          to="/inicio"
-                          className="retail-new-access-btn"
-                          data-tooltip="Voltar para o painel da loja atual"
-                          style={{
-                            background: "var(--pdv-support)",
-                            color: "var(--pdv-primary)",
-                            border: "1px solid var(--pdv-border)",
-                          }}
-                        >
-                          <Store size={15} />
-                          <span>Painel da Loja</span>
-                        </Link>
-                      ) : (
-                        <Link
-                          to="/grupo-portal/visao-geral"
-                          className="retail-new-access-btn"
-                          data-tooltip="Abrir Painel Consolidado Rede Multi-Lojas"
-                          style={{
-                            background: "var(--pdv-support)",
-                            color: "var(--pdv-primary)",
-                            border: "1px solid var(--pdv-border)",
-                          }}
-                        >
-                          <Building2 size={15} />
-                          <span>Multi-Lojas</span>
-                        </Link>
-                      )}
-
-                      {groupMembers.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => setStoreSwitcherOpen((v) => !v)}
-                          aria-label="Alternar entre lojas da rede"
-                          aria-expanded={storeSwitcherOpen}
-                          data-tooltip="Trocar de loja da rede (1 clique)"
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: "0.35rem",
-                            height: "36px",
-                            padding: "0 0.7rem",
-                            borderRadius: "999px",
-                            border: "1px solid var(--pdv-border)",
-                            background: "var(--pdv-white)",
-                            color: "var(--pdv-text)",
-                            fontSize: "0.75rem",
-                            fontWeight: 700,
-                            cursor: "pointer",
-                          }}
-                        >
-                          <ArrowLeftRight size={13} style={{ color: "var(--pdv-primary)" }} />
-                          <span>{groupMembers.length} lojas</span>
-                          <ChevronsUpDown size={13} style={{ color: "var(--pdv-text-secondary)" }} />
-                        </button>
-                      )}
-
-                      {storeSwitcherOpen && (
-                        <div
-                          className="retail-floating-menu"
-                          role="menu"
-                          style={{ minWidth: "250px", right: 0 }}
-                        >
-                          <div className="retail-floating-menu-head">
-                            <strong>{groupName || "Rede Multi-Lojas"}</strong>
-                            <small>Alternar loja sem sair da conta</small>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setStoreSwitcherOpen(false);
-                              navigate("/grupo-portal/visao-geral");
-                            }}
-                          >
-                            <Building2 size={15} />
-                            Visão Consolidada da Rede
-                          </button>
-                          {groupMembers.map((member) => {
-                            const isCurrent = member.tenantId === user?.tenant;
-                            const isSwitching = switchingStoreId === member.tenantId;
-                            return (
-                              <button
-                                key={member.tenantId}
-                                type="button"
-                                disabled={Boolean(switchingStoreId)}
-                                onClick={() => void switchStore(member.tenantId)}
-                                style={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "space-between",
-                                  gap: "0.5rem",
-                                  fontWeight: isCurrent ? 700 : 500,
-                                  color: isCurrent
-                                    ? "var(--pdv-primary)"
-                                    : "var(--pdv-text)",
-                                  background: isCurrent
-                                    ? "var(--pdv-support)"
-                                    : undefined,
-                                }}
-                              >
-                                <span
-                                  style={{
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    gap: "0.5rem",
-                                    overflow: "hidden",
-                                    textOverflow: "ellipsis",
-                                    whiteSpace: "nowrap",
-                                  }}
-                                >
-                                  <Store size={14} />
-                                  <span>{member.alias || member.name}</span>
-                                </span>
-                                {isSwitching ? (
-                                  <Loader2 size={14} className="animate-spin" />
-                                ) : isCurrent ? (
-                                  <Check size={14} />
-                                ) : null}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {!isStockist && (
-                    <Link
-                      to="/"
-                      className="retail-new-access-btn"
-                      data-tooltip="Abrir Ponto de Venda (Criar Transação)"
-                    >
-                      <Monitor size={15} />
-                      <span>Ponto de Venda</span>
-                    </Link>
-                  )}
-
                   <div className="retail-profile-dropdown-wrap">
                     <button
                       type="button"
@@ -1558,6 +1349,13 @@ export function RetailLayout() {
                                 : "Administrador"}
                           </small>
                         </div>
+                        {!isStockist && (
+                          <>
+                            <button type="button" onClick={() => { setProfileMenuOpen(false); navigate("/inicio/operacoes"); }}><Bell size={15} />Operações locais</button>
+                            <button type="button" onClick={() => { setProfileMenuOpen(false); navigate("/configuracoes/empresa"); }}><Settings size={15} />Configurações da empresa</button>
+                            <button type="button" onClick={() => { setProfileMenuOpen(false); navigate("/equipe"); }}><UserPlus size={15} />Equipe e acessos</button>
+                          </>
+                        )}
                         {hasMultiStoreGroup && (
                           <button
                             type="button"
@@ -1661,10 +1459,9 @@ export function RetailLayout() {
                 </div>
               </header>
 
-              {subNavTabs.length > 0 &&
-                !pathname.startsWith("/inteligencia-comercial") && (
+              {subNavTabs.length > 0 && (
                   <nav
-                    className="retail-subnav-bar"
+                    className="retail-subnav-bar management-section-tabs"
                     aria-label="Seções do módulo"
                   >
                     {subNavTabs.map((tab, tabIdx) => {
@@ -1705,6 +1502,8 @@ export function RetailLayout() {
 
               <div
                 key={pathname}
+                id="retail-management-content"
+                tabIndex={-1}
                 className="retail-content retail-module-stage"
                 data-module-kind={moduleKind}
                 data-nav-dir={navDirection}

@@ -140,13 +140,13 @@ const CANCEL_REASON_PRESETS = [
 ];
 
 const DEFAULT_STOREFRONT_SECTIONS = [
-  { id: 'header', type: 'header', enabled: true, title: 'Cabeçalho da Loja' },
-  { id: 'hero', type: 'hero', enabled: true, title: 'Banner Principal (Hero)' },
-  { id: 'categories', type: 'categories', enabled: true, title: 'Navegação por Categorias' },
-  { id: 'featured', type: 'featured', enabled: true, title: 'Destaques da Semana' },
-  { id: 'collection', type: 'collection', enabled: true, title: 'Catálogo Completo' },
-  { id: 'fulfillment_info', type: 'fulfillment_info', enabled: true, title: 'Retirada & Entrega' },
-  { id: 'footer', type: 'footer', enabled: true, title: 'Rodapé Institucional' },
+  { id: 'sec-header', type: 'header', enabled: true, title: 'Cabeçalho da Loja' },
+  { id: 'sec-hero', type: 'hero', enabled: true, title: 'Banner Principal (Hero)' },
+  { id: 'sec-categories', type: 'categories', enabled: true, title: 'Navegação por Categorias' },
+  { id: 'sec-featured', type: 'featured', enabled: true, title: 'Destaques da Semana' },
+  { id: 'sec-collection', type: 'collection', enabled: true, title: 'Catálogo Completo' },
+  { id: 'sec-fulfillment', type: 'fulfillment_info', enabled: true, title: 'Retirada & Entrega' },
+  { id: 'sec-footer', type: 'footer', enabled: true, title: 'Rodapé Institucional' },
 ];
 
 function normalizeDraftTheme(raw: any) {
@@ -154,22 +154,24 @@ function normalizeDraftTheme(raw: any) {
   const rawSections = Array.isArray(src.sections) && src.sections.length > 0
     ? src.sections
     : DEFAULT_STOREFRONT_SECTIONS;
-  const seen = new Set<string>();
+  const seenTypes = new Set<string>();
   const mergedSections: any[] = [];
   for (const s of rawSections) {
-    const id = String(s?.id || s?.type || '');
-    if (!id || seen.has(id)) continue;
-    seen.add(id);
-    const fallbackDef = DEFAULT_STOREFRONT_SECTIONS.find((d) => d.id === id);
+    const typeKey = String(s?.type || s?.id || '');
+    if (!typeKey || seenTypes.has(typeKey)) continue;
+    seenTypes.add(typeKey);
+    const fallbackDef = DEFAULT_STOREFRONT_SECTIONS.find(
+      (d) => d.type === typeKey || d.id === typeKey,
+    );
     mergedSections.push({
-      id,
-      type: s?.type || id,
+      id: String(s?.id || fallbackDef?.id || `sec-${typeKey}`),
+      type: fallbackDef?.type || typeKey,
       enabled: s?.enabled !== false,
-      title: s?.title || fallbackDef?.title || id,
+      title: s?.title || fallbackDef?.title || typeKey,
     });
   }
   for (const def of DEFAULT_STOREFRONT_SECTIONS) {
-    if (!seen.has(def.id)) {
+    if (!seenTypes.has(def.type)) {
       mergedSections.push({ ...def });
     }
   }
@@ -1214,7 +1216,7 @@ export function RetailStorefrontPage() {
   );
 
   return (
-    <div className="space-y-5">
+    <div className="management-storefront space-y-5">
       {/* Cabeçalho Nativo do Módulo de Gestão */}
       <div className="retail-page-header">
         <div>
@@ -1310,84 +1312,13 @@ export function RetailStorefrontPage() {
         </div>
       </div>
 
-      {/* Barra de Sub-navegação Interna */}
-      <div className="retail-panel" style={{ padding: '8px 10px' }}>
-        <div className="flex items-center gap-1.5 overflow-x-auto">
-          {[
-            {
-              key: 'overview' as const,
-              label: 'Visão Geral',
-              icon: Store,
-              badge:
-                pendingChecklistCount > 0 && !isPublished
-                  ? `${pendingChecklistCount} pend.`
-                  : null,
-            },
-            {
-              key: 'orders' as const,
-              label: 'Pedidos & Reservas',
-              icon: ShoppingBag,
-              badge:
-                metrics.awaitingConfirmationCount > 0
-                  ? String(metrics.awaitingConfirmationCount)
-                  : null,
-            },
-            {
-              key: 'products' as const,
-              label: 'Produtos na Vitrine',
-              icon: Package,
-              badge: `${metrics.publishedProductsCount || 0}/${metrics.totalProductsCount || 0}`,
-            },
-            {
-              key: 'categories' as const,
-              label: 'Categorias',
-              icon: FolderKanban,
-              badge: String(metrics.visibleCategoriesCount || 0),
-            },
-            {
-              key: 'appearance' as const,
-              label: 'Aparência & Preview',
-              icon: Palette,
-              badge: null,
-            },
-            {
-              key: 'settings' as const,
-              label: 'Configurações',
-              icon: Settings,
-              badge: null,
-            },
-          ].map((item) => {
-            const Icon = item.icon;
-            const active = activeTab === item.key;
-            return (
-              <button
-                key={item.key}
-                type="button"
-                onClick={() => setTab(item.key)}
-                className={`px-3.5 py-2 rounded-xl text-xs font-extrabold transition flex items-center gap-2 whitespace-nowrap ${
-                  active
-                    ? 'bg-brand text-on-brand shadow-xs'
-                    : 'text-muted hover:text-ink hover:bg-page'
-                }`}
-              >
-                <Icon size={15} />
-                <span>{item.label}</span>
-                {item.badge && (
-                  <span
-                    className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${
-                      active
-                        ? 'bg-surface text-brand'
-                        : 'bg-support text-brand'
-                    }`}
-                  >
-                    {item.badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+      {(pendingChecklistCount > 0 || metrics.awaitingConfirmationCount > 0 || String(settingsForm.whatsappPhone || '').replace(/\D/g, '').length < 10) && (
+        <div className="management-pending-actions" aria-label="Pendências da loja virtual">
+          {pendingChecklistCount > 0 && <button type="button" onClick={() => setTab('overview')}>{pendingChecklistCount} pendência(s) na loja</button>}
+          {metrics.awaitingConfirmationCount > 0 && <button type="button" onClick={() => setTab('orders')}>{metrics.awaitingConfirmationCount} pedido(s) aguardando confirmação</button>}
+          {String(settingsForm.whatsappPhone || '').replace(/\D/g, '').length < 10 && <button type="button" onClick={() => setTab('settings')}>Configurar WhatsApp da loja</button>}
         </div>
-      </div>
+      )}
 
       {/* ==================================================================== */}
       {/* ABA 1: VISÃO GERAL OPERACIONAL                                       */}
@@ -2172,7 +2103,7 @@ export function RetailStorefrontPage() {
                                   item.size && `Tam: ${item.size}`,
                                   item.color && `Cor: ${item.color}`,
                                   `Qtd: ${item.quantity}`,
-                                  `Unit: ${money(item.priceSaleSnapshot)}`,
+                                  `Unit: ${money(item.priceUnit ?? item.priceSaleSnapshot ?? 0)}`,
                                 ]
                                   .filter(Boolean)
                                   .join(' • ')}
@@ -2186,7 +2117,7 @@ export function RetailStorefrontPage() {
                       ))}
                     </div>
 
-                    <div className="flex justify-between items-center mt-3 pt-3 border-t border-line">
+                    <div className="flex justify-between items-center mt-3 pt-3 pb-6 border-t border-line">
                       <span className="text-xs font-bold text-muted">
                         Total do Pedido (c/ entrega de{' '}
                         {money(selectedOrder.deliveryFee || 0)})

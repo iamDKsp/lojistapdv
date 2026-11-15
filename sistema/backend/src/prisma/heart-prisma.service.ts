@@ -45,6 +45,25 @@ export class HeartPrismaService
       `ALTER TABLE "tenants" ADD COLUMN IF NOT EXISTS "base_version" INTEGER NOT NULL DEFAULT 1`,
       `ALTER TABLE "tenants" ADD COLUMN IF NOT EXISTS "leadger_sync_enabled" BOOLEAN NOT NULL DEFAULT true`,
       `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "imageUrl" TEXT`,
+      `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "groupId" TEXT`,
+      `CREATE TABLE IF NOT EXISTS "tenant_groups" (
+        "id" TEXT NOT NULL,
+        "name" TEXT NOT NULL,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "tenant_groups_pkey" PRIMARY KEY ("id")
+      )`,
+      `CREATE TABLE IF NOT EXISTS "tenant_group_members" (
+        "id" TEXT NOT NULL,
+        "groupId" TEXT NOT NULL,
+        "tenantId" TEXT NOT NULL,
+        "alias" TEXT,
+        CONSTRAINT "tenant_group_members_pkey" PRIMARY KEY ("id"),
+        CONSTRAINT "tenant_group_members_groupId_fkey" FOREIGN KEY ("groupId") REFERENCES "tenant_groups"("id") ON DELETE CASCADE ON UPDATE CASCADE,
+        CONSTRAINT "tenant_group_members_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE
+      )`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS "tenant_group_members_groupId_tenantId_key" ON "tenant_group_members"("groupId", "tenantId")`,
+      `CREATE INDEX IF NOT EXISTS "tenant_group_members_tenantId_idx" ON "tenant_group_members"("tenantId")`,
       `CREATE TABLE IF NOT EXISTS "operator_profiles" (
         "tenant_id" TEXT NOT NULL,
         "operator_id" TEXT NOT NULL,

@@ -98,11 +98,13 @@ const formatCurrency = (value: number) => {
 
 const getMethodColor = (method: string) => {
   switch(method) {
-    case 'dinheiro': return '#7C3AED'; // emerald-500
-    case 'pix': return '#6D28D9'; // teal-500
-    case 'credito': return '#665F70'; // indigo-500
-    case 'debito': return '#272321'; // sky-500
-    default: return '#E5E1ED'; // purple-500
+    case 'dinheiro': return '#7C3AED';
+    case 'pix': return '#6D28D9';
+    case 'credito': return '#665F70';
+    case 'debito': return '#272321';
+    case 'crediario': return '#7C3AED';
+    case 'credito_loja': return '#6D28D9';
+    default: return '#E5E1ED';
   }
 };
 
@@ -112,6 +114,10 @@ const getMethodName = (method: string) => {
     case 'pix': return 'Pix';
     case 'credito': return 'Crédito';
     case 'debito': return 'Débito';
+    case 'crediario': return 'Crediário (Fiado)';
+    case 'fiado': return 'Crediário (Fiado)';
+    case 'credito_loja': return 'Vale-troca / Crédito';
+    case 'store_credit': return 'Vale-troca / Crédito';
     default: return method;
   }
 };
@@ -192,6 +198,9 @@ export default function SalesDashboard() {
   const [sortBy, setSortBy] = useState<'recentes' | 'maior_valor'>('recentes');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 15;
+  const [cancelSaleTarget, setCancelSaleTarget] = useState<Sale | null>(null);
+  const [cancelReasonInput, setCancelReasonInput] = useState('');
+  const [cancellingSale, setCancellingSale] = useState(false);
 
   const { computedStartDate, computedEndDate } = useMemo(() => {
     let sDate = preset === 'custom' ? appliedStartDate : startDate;
@@ -278,28 +287,38 @@ export default function SalesDashboard() {
     }
   };
 
-  const handleCancelSale = async (sale: Sale) => {
-    const reason = window.prompt("Motivo do cancelamento (Mínimo de 15 caracteres):");
-    if (!reason) return;
+  const handleCancelSale = (sale: Sale) => {
+    setCancelSaleTarget(sale);
+    setCancelReasonInput('');
+  };
+
+  const confirmCancelSale = async () => {
+    if (!cancelSaleTarget) return;
+    const reason = cancelReasonInput.trim();
     if (reason.length < 15) {
-      toast.error("O motivo deve ter pelo menos 15 caracteres para a SEFAZ.");
+      toast.error("O motivo deve ter pelo menos 15 caracteres.");
       return;
     }
 
+    setCancellingSale(true);
     try {
       // 1. Se tem NFC-e autorizada, cancela na SEFAZ primeiro
-      if (sale.nfceStatus === 'autorizada') {
-        await api.post(`/v1/fiscal/nfce/${sale.id}/cancelar`, { motivo: reason });
+      if (cancelSaleTarget.nfceStatus === 'autorizada') {
+        await api.post(`/v1/fiscal/nfce/${cancelSaleTarget.id}/cancelar`, { motivo: reason });
       }
 
       // 2. Cancela a venda localmente e estorna estoque
-      await api.post(`/sales/${sale.id}/cancel`, { reason });
+      await api.post(`/sales/${cancelSaleTarget.id}/cancel`, { reason });
       
       toast.success("Venda cancelada com sucesso!");
+      setCancelSaleTarget(null);
+      setCancelReasonInput('');
       fetchDashboardData();
     } catch (err: unknown) {
       const msg = (err as any)?.response?.data?.message || 'Erro ao cancelar venda.';
       toast.error(msg);
+    } finally {
+      setCancellingSale(false);
     }
   };
 
@@ -527,7 +546,18 @@ export default function SalesDashboard() {
 
     // Filtro por método de pagamento
     if (filterPayment !== 'todos') {
-      result = result.filter(s => s.payments.some(p => p.method.toLowerCase() === filterPayment.toLowerCase()));
+      result = result.filter(s =>
+        s.payments.some(p => {
+          const m = (p.method || '').toLowerCase();
+          if (filterPayment === 'crediario') {
+            return m === 'crediario' || m === 'fiado' || (p.label || '').toLowerCase().includes('credi');
+          }
+          if (filterPayment === 'store_credit') {
+            return m === 'store_credit' || m === 'credito_loja';
+          }
+          return m === filterPayment.toLowerCase();
+        })
+      );
     }
 
     // Busca geral (produto, valor, pagamento)
@@ -562,8 +592,8 @@ export default function SalesDashboard() {
           'Data/Hora': new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(sale.createdAt)),
           'Itens': sale.items.map(i => `${i.quantity}x ${i.product?.name || 'Produto'}`).join(', '),
           'Pagamento': sale.payments.map(p => `${p.label || getMethodName(p.method)} (R$ ${Number(p.value).toFixed(2)})`).join(', '),
-          'Total (R$)': Number(sale.total).toFixed(2),
-          'Desconto (R$)': sale.discount ? Number(sale.discount).toFixed(2) : '0.00',
+          'Total (R$)': Number(Number(sale.total || 0).toFixed(2)),
+          'Desconto (R$)': Number(Number(sale.discount || 0).toFixed(2)),
           'Status NFC-e': sale.nfceStatus || 'Não emitida',
           'Status Venda': sale.status === 'cancelled' ? 'Cancelada' : 'Concluída'
         };
@@ -732,10 +762,10 @@ export default function SalesDashboard() {
         {/* Cards de Caixas Abertos — dinâmico */}
         {preset === 'today' && (summary?.openRegisters ?? []).length > 0 ? (
           (summary!.openRegisters).map((reg, idx) => (
-            <div key={reg.cashRegisterId} className="col-span-2 lg:col-span-1 relative overflow-hidden p-4 md:p-6 rounded-2xl border bg-gradient-to-br from-brand to-brand border-line shadow-xl flex flex-col justify-between">
+            <div key={reg.cashRegisterId} className="col-span-2 lg:col-span-1 relative overflow-hidden p-4 md:p-6 rounded-2xl border-2 border-brand bg-surface shadow-xl flex flex-col justify-between">
               {/* Badge ABERTO */}
               <div className="absolute top-0 right-0 p-4 flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-brand animate-pulse text-on-brand"></span>
+                <span className="w-2.5 h-2.5 rounded-full bg-brand animate-pulse"></span>
                 <span className="text-xs font-bold text-brand tracking-wider">ABERTO</span>
               </div>
               <div className="flex items-center gap-3 text-muted font-medium mb-3">
@@ -1012,6 +1042,7 @@ export default function SalesDashboard() {
                     { value: 'credito', label: 'Crédito' },
                     { value: 'debito', label: 'Débito' },
                     { value: 'pix', label: 'PIX' },
+                    { value: 'crediario', label: 'Crediário (Fiado)' },
                     { value: 'store_credit', label: 'Vale-troca' },
                   ]}
                 />
@@ -1335,6 +1366,72 @@ export default function SalesDashboard() {
           onConfirm={handleReemitConfirm}
         />
       </ErrorBoundary>
+
+      {cancelSaleTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md rounded-2xl border border-line bg-surface p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-line pb-3">
+              <h3 className="text-base font-black text-ink">Cancelar Venda</h3>
+              <button
+                type="button"
+                disabled={cancellingSale}
+                onClick={() => {
+                  setCancelSaleTarget(null);
+                  setCancelReasonInput('');
+                }}
+                className="text-muted hover:text-ink text-xs font-bold"
+              >
+                Fechar
+              </button>
+            </div>
+            <div className="space-y-2 text-xs text-muted">
+              <p>
+                Confirme o cancelamento da venda de{' '}
+                <strong className="text-ink">{formatCurrency(cancelSaleTarget.total)}</strong>.
+                O estoque das mercadorias será estornado automaticamente.
+              </p>
+              <label className="block font-bold text-ink pt-1">
+                Motivo do cancelamento (mínimo de 15 caracteres)
+              </label>
+              <textarea
+                rows={3}
+                value={cancelReasonInput}
+                onChange={(e) => setCancelReasonInput(e.target.value)}
+                placeholder="Descreva o motivo do cancelamento da venda..."
+                className="w-full rounded-xl border border-line bg-page p-3 text-sm text-ink focus:border-brand focus:outline-none"
+                autoFocus
+              />
+              <div className="flex justify-between text-[11px]">
+                <span>Exigência fiscal e de auditoria interna</span>
+                <span className={cancelReasonInput.trim().length >= 15 ? 'text-brand font-bold' : 'text-muted'}>
+                  {cancelReasonInput.trim().length}/15 caracteres
+                </span>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2 border-t border-line">
+              <button
+                type="button"
+                disabled={cancellingSale}
+                onClick={() => {
+                  setCancelSaleTarget(null);
+                  setCancelReasonInput('');
+                }}
+                className="rounded-xl border border-line bg-page px-4 py-2 text-xs font-bold text-ink hover:bg-support"
+              >
+                Voltar
+              </button>
+              <button
+                type="button"
+                disabled={cancellingSale || cancelReasonInput.trim().length < 15}
+                onClick={confirmCancelSale}
+                className="rounded-xl bg-brand px-4 py-2 text-xs font-bold text-on-brand hover:bg-brand-hover disabled:opacity-50"
+              >
+                {cancellingSale ? 'Cancelando...' : 'Confirmar Cancelamento'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -569,7 +569,7 @@ export default function XmlImportPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto animate-in fade-in duration-500 pb-16">
+    <div className="w-full min-w-0 space-y-6 animate-in fade-in duration-500 pb-16">
       
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -821,7 +821,7 @@ export default function XmlImportPage() {
                         <p className="text-muted text-xs mt-0.5">Série {nfe.serie} • NSU: {nfe.nsu || 'n/a'}</p>
                       </td>
                       <td className="px-6 py-4">
-                        <p className="text-ink font-bold text-sm truncate max-w-[220px]" data-tooltip={nfe.nomeFornecedor}>{nfe.nomeFornecedor}</p>
+                        <p className="text-ink font-bold text-sm truncate max-w-[220px] lg:max-w-[360px] 2xl:max-w-[520px]" data-tooltip={nfe.nomeFornecedor}>{nfe.nomeFornecedor}</p>
                         <p className="text-muted text-xs mt-0.5">{nfe.cnpjFornecedor.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5")}</p>
                       </td>
                       <td className="px-6 py-4 text-sm text-muted">
@@ -904,7 +904,7 @@ export default function XmlImportPage() {
                         <p className="text-muted text-xs mt-0.5">Série {nfe.serie} • NSU: {nfe.nsu || 'n/a'}</p>
                       </td>
                       <td className="px-6 py-4">
-                        <p className="text-ink font-bold text-sm truncate max-w-[220px]" data-tooltip={nfe.nomeFornecedor}>{nfe.nomeFornecedor}</p>
+                        <p className="text-ink font-bold text-sm truncate max-w-[220px] lg:max-w-[360px] 2xl:max-w-[520px]" data-tooltip={nfe.nomeFornecedor}>{nfe.nomeFornecedor}</p>
                         <p className="text-muted text-xs mt-0.5">{nfe.cnpjFornecedor.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5")}</p>
                       </td>
                       <td className="px-6 py-4 text-sm text-muted">

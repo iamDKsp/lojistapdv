@@ -17,6 +17,8 @@ const PAYMENT_LABELS: Record<string, string> = {
   credit: 'Cartão de crédito',
   debito: 'Cartão de débito',
   debit: 'Cartão de débito',
+  crediario: 'Crediário',
+  fiado: 'Crediário',
   credito_loja: 'Crédito na loja',
 };
 
@@ -43,10 +45,25 @@ function sanitizeText(
 
 function sanitizePhone(value: unknown): string {
   const digits = String(value ?? '').replace(/\D/g, '');
-  if (digits.length < 8 || digits.length > 20) {
+  if (digits.length < 10 || digits.length > 20) {
     throw new BadRequestException(
-      'Informe um telefone válido com pelo menos 8 dígitos.',
+      'Informe um telefone válido com DDD (pelo menos 10 dígitos).',
     );
+  }
+  if (/^(\d)\1+$/.test(digits)) {
+    throw new BadRequestException(
+      'Informe um telefone válido (dígitos repetidos não são permitidos).',
+    );
+  }
+  const national = digits.startsWith('55') && digits.length >= 12 ? digits.slice(2) : digits;
+  if (national.length === 10 || national.length === 11) {
+    const ddd = Number(national.slice(0, 2));
+    const subscriber = national.slice(2);
+    if (ddd < 11 || /^0+$/.test(subscriber) || /^(\d)\1+$/.test(subscriber)) {
+      throw new BadRequestException(
+        'Informe um telefone válido com DDD real.',
+      );
+    }
   }
   return digits;
 }

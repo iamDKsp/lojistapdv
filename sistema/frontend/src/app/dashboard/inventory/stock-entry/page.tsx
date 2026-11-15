@@ -222,7 +222,7 @@ export default function StockEntryPage() {
   // ─────────────────────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 max-w-5xl mx-auto">
+    <div className="w-full min-w-0 space-y-6 animate-in fade-in duration-500">
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">

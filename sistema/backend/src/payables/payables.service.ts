@@ -139,6 +139,30 @@ export class PayablesService {
     });
 
     const totalSales = Number(sales._sum.total || 0);
+    const crediarioPaymentsAgg = await prisma.payment.aggregate({
+      where: {
+        sale: {
+          createdAt: { gte: start, lte: end },
+          status: 'completed',
+          NOT: { source: 'ajuste_fiscal' },
+        },
+        OR: [
+          { method: { in: ['crediario', 'fiado'] } },
+          { label: { contains: 'credi', mode: 'insensitive' } },
+        ],
+      },
+      _sum: { value: true },
+    }).catch(() => ({ _sum: { value: 0 } }));
+    const crediarioReceivedAgg = await prisma.customerReceivablePayment.aggregate({
+      where: {
+        createdAt: { gte: start, lte: end },
+      },
+      _sum: { amount: true },
+    }).catch(() => ({ _sum: { amount: 0 } }));
+    const crediarioSales = Number(crediarioPaymentsAgg?._sum?.value || 0);
+    const crediarioReceived = Number(crediarioReceivedAgg?._sum?.amount || 0);
+    const cashSales = Math.max(0, totalSales - crediarioSales) + crediarioReceived;
+    const cashProfit = cashSales - totalToPay;
     const realProfit = totalSales - totalToPay;
     const breakEvenPoint = totalToPay; // To pay bills we need at least totalToPay in gross margin, wait, just conceptually "how much we need to sell". Let's say we need to sell totalToPay.
     const remainingToBreakEven = Math.max(0, totalToPay - totalSales);
@@ -151,6 +175,10 @@ export class PayablesService {
       totalToPay,
       totalPaid,
       totalSales,
+      cashSales,
+      crediarioSales,
+      crediarioReceived,
+      cashProfit,
       realProfit,
       breakEvenPoint,
       remainingToBreakEven

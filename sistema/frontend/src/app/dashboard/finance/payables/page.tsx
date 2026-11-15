@@ -165,17 +165,24 @@ export default function PayablesPage() {
           </div>
           <div className="bg-page border border-line p-4 rounded-2xl">
             <p className="text-muted text-sm font-medium mb-1">Vendas menos despesas</p>
-            <h3 className={`text-2xl font-black ${stats.realProfit >= 0 ? 'text-brand' : 'text-brand'}`}>
-              {formatCurrency(stats.realProfit)}
+            <h3 className="text-2xl font-black text-brand">
+              {formatCurrency(stats.cashProfit ?? stats.realProfit)}
             </h3>
-            <p className="text-xs text-muted mt-1">Não desconta custo das mercadorias.</p>
+            <p className="text-xs text-muted mt-1">
+              {Number(stats.crediarioSales || 0) > 0
+                ? `Caixa recebido (${formatCurrency(stats.cashSales ?? stats.totalSales)}) + ${formatCurrency(stats.crediarioSales)} em crediário a receber.`
+                : 'Saldo sobre vendas recebidas (não desconta CMV).'}
+            </p>
           </div>
           <div className="bg-page border border-line p-4 rounded-2xl">
             <p className="text-muted text-sm font-medium mb-1">Ponto de Equilíbrio (Vendas)</p>
             <div className="w-full bg-surface rounded-full h-1.5 mt-2 mb-1">
-              <div className="bg-brand h-1.5 rounded-full text-on-brand" style={{ width: `${stats.totalToPay > 0 ? Math.min(100, (stats.totalSales / stats.totalToPay) * 100) : 0}%`}}></div>
+              <div className="bg-brand h-1.5 rounded-full text-on-brand" style={{ width: `${stats.totalToPay > 0 ? Math.min(100, ((stats.cashSales ?? stats.totalSales) / stats.totalToPay) * 100) : 0}%`}}></div>
             </div>
-            <p className="text-xs text-muted mt-2">Vendido: {formatCurrency(stats.totalSales)} / Necessário: {formatCurrency(stats.breakEvenPoint)}</p>
+            <p className="text-xs text-muted mt-2">
+              Recebido: {formatCurrency(stats.cashSales ?? stats.totalSales)}
+              {Number(stats.crediarioSales || 0) > 0 ? ` (Bruto: ${formatCurrency(stats.totalSales)})` : ''} / Necessário: {formatCurrency(stats.breakEvenPoint)}
+            </p>
           </div>
         </div>
       )}

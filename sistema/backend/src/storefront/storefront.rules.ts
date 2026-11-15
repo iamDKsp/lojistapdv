@@ -290,6 +290,9 @@ export function validateAndSanitizeTheme(
     if (!(STOREFRONT_SECTION_TYPES as readonly string[]).includes(type)) {
       continue;
     }
+    if (seenTypes.has(type)) {
+      continue;
+    }
     const id = sanitizePlainText(s?.id || `sec-${type}-${i}`, 40);
     sections.push({
       id,
@@ -323,9 +326,24 @@ export function validateAndSanitizeTheme(
   };
 }
 
+function assertNonTrivialPhoneDigits(digits: string, label: string): void {
+  if (/^(\d)\1+$/.test(digits)) {
+    throw new BadRequestException(`Informe um ${label} válido (dígitos repetidos não são permitidos).`);
+  }
+  const national = digits.startsWith('55') && digits.length >= 12 ? digits.slice(2) : digits;
+  if (national.length === 10 || national.length === 11) {
+    const ddd = Number(national.slice(0, 2));
+    const subscriber = national.slice(2);
+    if (ddd < 11 || /^0+$/.test(subscriber) || /^(\d)\1+$/.test(subscriber)) {
+      throw new BadRequestException(`Informe um ${label} válido com DDD real.`);
+    }
+  }
+}
+
 export function normalizeWhatsappPhone(raw: unknown): string {
   const digits = String(raw ?? '').replace(/\D/g, '');
   if (!digits) return '';
+  assertNonTrivialPhoneDigits(digits, 'número de WhatsApp');
   if (digits.length === 10 || digits.length === 11) {
     return `55${digits}`;
   }
@@ -347,6 +365,7 @@ export function normalizeCustomerPhone(raw: unknown): string {
       'Informe um telefone/WhatsApp válido com DDD para contato.',
     );
   }
+  assertNonTrivialPhoneDigits(digits, 'telefone/WhatsApp');
   return digits;
 }
 
@@ -760,6 +779,7 @@ export function toPublicOrderDto(
       unit: item.unit || 'UN',
       quantity: Number(item.quantity),
       priceUnit: Number(item.priceUnit),
+      priceSaleSnapshot: Number(item.priceUnit),
       subtotal: Number(item.subtotal),
     })),
     whatsappUrl,

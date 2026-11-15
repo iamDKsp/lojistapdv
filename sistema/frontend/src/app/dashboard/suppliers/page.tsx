@@ -86,7 +86,7 @@ export default function SuppliersPage() {
   const filtered = suppliers.filter((s) => normalize(s.name).includes(normalize(search)));
 
   return (
-    <div className="max-w-7xl mx-auto space-y-5">
+    <div className="w-full min-w-0 space-y-5">
       {/* Page Header + View Switcher */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -146,9 +146,9 @@ export default function SuppliersPage() {
         <SpWholesaleMapHub onSupplierImported={fetchSuppliers} />
       ) : (
         /* View 2: Local Tenant Suppliers & Product Catalog */
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Lista de Fornecedores */}
-          <div className="md:col-span-1 bg-page border border-line rounded-2xl overflow-hidden flex flex-col max-h-[700px]">
+          <div className="lg:col-span-4 xl:col-span-3 bg-page border border-line rounded-2xl overflow-hidden flex flex-col max-h-[700px]">
             <div className="p-4 border-b border-line bg-page/50">
               <div className="relative">
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
@@ -220,7 +220,7 @@ export default function SuppliersPage() {
           </div>
 
           {/* Catálogo do Fornecedor */}
-          <div className="md:col-span-2 bg-page border border-line rounded-2xl p-6">
+          <div className="lg:col-span-8 xl:col-span-9 bg-page border border-line rounded-2xl p-6 min-w-0">
             {activeSupplier ? (
               <SupplierCatalog supplier={activeSupplier} onUpdate={fetchSuppliers} />
             ) : (

@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Put,
   Patch,
   Body,
   Param,
@@ -93,6 +94,14 @@ export class VitrineController {
   @Patch('draft')
   @HttpCode(HttpStatus.OK)
   saveDraft(@Request() req: any, @Body() body: any) {
+    requireAdminRole(req);
+    return this.vitrineService.saveDraft(body);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Put('draft')
+  @HttpCode(HttpStatus.OK)
+  saveDraftPut(@Request() req: any, @Body() body: any) {
     requireAdminRole(req);
     return this.vitrineService.saveDraft(body);
   }

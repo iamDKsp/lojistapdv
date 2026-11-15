@@ -1876,8 +1876,8 @@ export class SalesService {
     // NÃO DECLARADO / SNF = Soma das vendas não emitidas e das parcelas de produtos SNF do balcão PDV
     const totalNaoDeclarado = allPdvSales.reduce((acc, s) => {
       const saleTotal = Number(s.total) || 0;
-      const fiscalTotal = Number(s.fiscalTotal) || 0;
-      return acc + Math.max(0, saleTotal - fiscalTotal);
+      const authorizedFiscal = s.nfceStatus === 'autorizada' ? (Number(s.fiscalTotal) || 0) : 0;
+      return acc + Math.max(0, saleTotal - authorizedFiscal);
     }, 0);
 
     const coberturaPercent = totalVendasPdv > 0
@@ -1918,6 +1918,14 @@ export class SalesService {
             recebimentos.pix += val;
           } else if (method === 'debito' || method.includes('debit')) {
             recebimentos.debito += val;
+          } else if (
+            method === 'crediario' ||
+            method === 'fiado' ||
+            method === 'credito_loja' ||
+            method.includes('crediario') ||
+            method.includes('crediário')
+          ) {
+            recebimentos.outros += val;
           } else if (method === 'credito' || method.includes('credit')) {
             recebimentos.credito += val;
           } else {
@@ -1978,11 +1986,22 @@ export class SalesService {
     const where: any = {};
 
     if (query.status && query.status !== 'all') {
-      where.nfceStatus = query.status;
+      if (query.status === 'nao_emitida') {
+        where.status = { not: 'cancelled' };
+        where.NOT = { source: 'ajuste_fiscal' };
+        where.OR = [
+          { nfceStatus: null },
+          { nfceStatus: 'nao_emitida' },
+          { nfceStatus: 'pendente' },
+        ];
+      } else {
+        where.nfceStatus = query.status;
+      }
     } else {
       where.OR = [
         { emitirNfce: true },
         { nfceStatus: { not: null } },
+        { status: { not: 'cancelled' } },
       ];
     }
 

@@ -38,8 +38,11 @@ export interface Customer {
   createdAt?: string;
 }
 
-export const money = (value: number | string) =>
-  Number(value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+export const money = (value: number | string | null | undefined) => {
+  const num = Number(value ?? 0);
+  return (Number.isFinite(num) ? num : 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+};
+
 
 export const formatBRL = money;
 

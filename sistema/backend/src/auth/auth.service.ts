@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Optional, UnauthorizedException } from '@nestjs/common';
 import { HeartPrismaService } from '../prisma/heart-prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -16,12 +16,12 @@ export class AuthService {
     private tenantManager: TenantConnectionManager,
     private tenantContext: TenantContextService,
     private access: StationAccessService,
-    private tenantsService: TenantsService,
+    @Optional() private tenantsService?: TenantsService,
   ) {}
 
   async validateUser(email: string, pass: string): Promise<any> {
     const normalizedEmail = String(email || '').trim().toLowerCase();
-    if (normalizedEmail === DEMO_USER_EMAIL && pass === DEMO_USER_PASSWORD) {
+    if (normalizedEmail === DEMO_USER_EMAIL && pass === DEMO_USER_PASSWORD && this.tenantsService) {
       await this.tenantsService.ensureAndResetDemoStore();
     }
 
@@ -138,7 +138,6 @@ export class AuthService {
   async login(user: any) {
     let effectiveGroupId: string | null = user.groupId ?? null;
     if (
-      !effectiveGroupId &&
       user.tenant?.id &&
       ['admin', 'superadmin', 'group_owner'].includes(user.role) &&
       this.heartPrisma?.tenantGroupMember?.findFirst
@@ -146,11 +145,25 @@ export class AuthService {
       const membership = await this.heartPrisma.tenantGroupMember
         .findFirst({
           where: { tenantId: user.tenant.id },
+          orderBy: { id: 'desc' },
           select: { groupId: true },
         })
         .catch(() => null);
       if (membership?.groupId) {
         effectiveGroupId = membership.groupId;
+      } else if (!effectiveGroupId && this.tenantsService) {
+        const parsedMods =
+          typeof user.tenant.modulos === 'string'
+            ? JSON.parse(user.tenant.modulos)
+            : user.tenant.modulos || {};
+        if (parsedMods?.multiEmpresa === true && typeof (this.tenantsService as any).ensureMultiEmpresaGroupMembership === 'function') {
+          const ensured = await (this.tenantsService as any)
+            .ensureMultiEmpresaGroupMembership(user.tenant)
+            .catch(() => null);
+          if (ensured?.group?.id) {
+            effectiveGroupId = ensured.group.id;
+          }
+        }
       }
     }
 
@@ -184,6 +197,9 @@ export class AuthService {
   }
 
   async demoLogin(name: string, whatsapp: string) {
+    if (!this.tenantsService) {
+      throw new UnauthorizedException('Modo demonstração indisponível.');
+    }
     const lead = await this.tenantsService.captureDemoLead(name, whatsapp);
     const { tenant, adminUser: user, primaryOperator, openRegister } =
       await this.tenantsService.ensureAndResetDemoStore(lead.name);
@@ -240,6 +256,7 @@ export class AuthService {
   }
 
   async resetDemo() {
+    if (!this.tenantsService) return { success: false };
     return this.tenantsService.resetExistingDemoStore();
   }
 

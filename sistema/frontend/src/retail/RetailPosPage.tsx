@@ -22,9 +22,9 @@ import {
   ShoppingBag,
   Bell,
   Settings,
-  UserPlus,
   ChevronsUpDown,
   BadgePercent,
+  ChevronDown,
   ChevronRight,
   ChevronUp,
   Monitor,
@@ -399,6 +399,7 @@ export function RetailPosPage() {
   const [allowNegative, setAllowNegative] = useState(false);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
+  const [categoriesExpanded, setCategoriesExpanded] = useState(false);
   const [categoryDir, setCategoryDir] = useState<"forward" | "backward">(
     "forward",
   );
@@ -647,6 +648,19 @@ export function RetailPosPage() {
     );
   }, [allCategories, visibleProducts, inactiveCategoryIds]);
 
+  const activeCategoryObj = useMemo(
+    () =>
+      category ? categories.find((c) => c.id === category) || null : null,
+    [categories, category],
+  );
+
+  useEffect(() => {
+    if (!loading && category && !categories.some((c) => c.id === category)) {
+      categoryIdxRef.current = 0;
+      setCategory("");
+    }
+  }, [loading, category, categories]);
+
   function add(product: Product) {
     const existing = cart.items
       .filter((i) => i.id === product.id)
@@ -694,6 +708,11 @@ export function RetailPosPage() {
         shift.needsOperatorReauth
       )
         return;
+      if (event.key === "Escape" && categoriesExpanded && !openMenu) {
+        event.preventDefault();
+        setCategoriesExpanded(false);
+        return;
+      }
       if (event.key === "F2") {
         event.preventDefault();
         if (cart.items.length && shift.cashRegister) setCheckout(true);
@@ -737,6 +756,8 @@ export function RetailPosPage() {
     cart.items.length,
     categories,
     category,
+    categoriesExpanded,
+    openMenu,
   ]);
 
   const estimatedTax = useMemo(() => {
@@ -941,18 +962,6 @@ export function RetailPosPage() {
             tooltip="Alternar operador do caixa"
           />
 
-          {/* Botão Pílula "+ Novo Acesso" (New Access na referência) */}
-          <button
-            type="button"
-            className="retail-new-access-btn"
-            aria-label="Trocar operador"
-            data-tooltip="Trocar operador ou novo acesso por PIN"
-            onClick={() => setSwitchOperator(true)}
-          >
-            <UserPlus size={15} />
-            <span>Novo Acesso</span>
-          </button>
-
           {/* Seletor do Operador / Conta Atual */}
           <div className="retail-profile-dropdown-wrap">
             <button
@@ -1079,57 +1088,147 @@ export function RetailPosPage() {
           aria-busy={loading}
         >
           <div className="retail-catalog-controls">
-            <div className="retail-catalog-filterbar">
-              <div className="retail-category-row" aria-label="Categorias">
-                <button
-                  type="button"
-                  className={`retail-cat-pill ${!category ? "is-active" : ""}`}
-                  aria-pressed={!category}
-                  onClick={() => {
-                    setCategoryDir(
-                      0 >= categoryIdxRef.current ? "forward" : "backward",
-                    );
-                    categoryIdxRef.current = 0;
-                    setCategory("");
-                  }}
+            <div
+              className={`retail-catalog-filterbar ${categoriesExpanded && categories.length > 0 ? "is-categories-expanded" : "is-categories-minimized"}`}
+            >
+              {!categoriesExpanded || categories.length === 0 ? (
+                <div
+                  className="retail-category-row retail-pos-category-minimized"
+                  aria-label="Categoria selecionada"
                 >
-                  <span>Todos os Produtos</span>
-                  <span className="retail-cat-count retail-number">
-                    {categoryStats.total}
-                  </span>
-                </button>
-                {categories.map((c, idx) => {
-                  const pillIdx = idx + 1;
-                  return (
+                  <button
+                    type="button"
+                    className="retail-cat-pill is-active retail-pos-active-pill"
+                    aria-expanded={
+                      categories.length > 0 ? false : undefined
+                    }
+                    aria-controls={
+                      categories.length > 0
+                        ? "retail-pos-category-list"
+                        : undefined
+                    }
+                    onClick={() => {
+                      if (categories.length > 0) {
+                        setCategoriesExpanded(true);
+                      }
+                    }}
+                  >
+                    {activeCategoryObj ? (
+                      <>
+                        <CategoryIconBadge
+                          iconId={(activeCategoryObj as any).icon}
+                          categoryId={activeCategoryObj.id}
+                          categoryName={activeCategoryObj.name}
+                          size={18}
+                        />
+                        <span>{activeCategoryObj.name}</span>
+                        <span className="retail-cat-count retail-number">
+                          {categoryStats.byCat.get(activeCategoryObj.id) || 0}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Todos os Produtos</span>
+                        <span className="retail-cat-count retail-number">
+                          {categoryStats.total}
+                        </span>
+                      </>
+                    )}
+                  </button>
+
+                  {categories.length > 0 && (
                     <button
                       type="button"
-                      key={c.id}
-                      className={`retail-cat-pill ${category === c.id ? "is-active" : ""}`}
-                      aria-pressed={category === c.id}
-                      onClick={() => {
-                        setCategoryDir(
-                          pillIdx >= categoryIdxRef.current
-                            ? "forward"
-                            : "backward",
-                        );
-                        categoryIdxRef.current = pillIdx;
-                        setCategory(c.id);
-                      }}
+                      className="retail-pos-cat-toggle"
+                      aria-label="Expandir categorias"
+                      aria-expanded={false}
+                      aria-controls="retail-pos-category-list"
+                      data-tooltip="Expandir categorias"
+                      title="Expandir categorias"
+                      onClick={() => setCategoriesExpanded(true)}
                     >
-                      <CategoryIconBadge
-                        iconId={(c as any).icon}
-                        categoryId={c.id}
-                        categoryName={c.name}
-                        size={18}
+                      <ChevronDown
+                        size={15}
+                        strokeWidth={1.9}
+                        aria-hidden="true"
                       />
-                      <span>{c.name}</span>
-                      <span className="retail-cat-count retail-number">
-                        {categoryStats.byCat.get(c.id) || 0}
-                      </span>
                     </button>
-                  );
-                })}
-              </div>
+                  )}
+                </div>
+              ) : (
+                <div
+                  id="retail-pos-category-list"
+                  className="retail-category-row retail-pos-category-expanded"
+                  aria-label="Categorias"
+                >
+                  <button
+                    type="button"
+                    className={`retail-cat-pill ${!category ? "is-active" : ""}`}
+                    aria-pressed={!category}
+                    onClick={() => {
+                      setCategoryDir(
+                        0 >= categoryIdxRef.current ? "forward" : "backward",
+                      );
+                      categoryIdxRef.current = 0;
+                      setCategory("");
+                      setCategoriesExpanded(false);
+                    }}
+                  >
+                    <span>Todos os Produtos</span>
+                    <span className="retail-cat-count retail-number">
+                      {categoryStats.total}
+                    </span>
+                  </button>
+                  {categories.map((c, idx) => {
+                    const pillIdx = idx + 1;
+                    return (
+                      <button
+                        type="button"
+                        key={c.id}
+                        className={`retail-cat-pill ${category === c.id ? "is-active" : ""}`}
+                        aria-pressed={category === c.id}
+                        onClick={() => {
+                          setCategoryDir(
+                            pillIdx >= categoryIdxRef.current
+                              ? "forward"
+                              : "backward",
+                          );
+                          categoryIdxRef.current = pillIdx;
+                          setCategory(c.id);
+                          setCategoriesExpanded(false);
+                        }}
+                      >
+                        <CategoryIconBadge
+                          iconId={(c as any).icon}
+                          categoryId={c.id}
+                          categoryName={c.name}
+                          size={18}
+                        />
+                        <span>{c.name}</span>
+                        <span className="retail-cat-count retail-number">
+                          {categoryStats.byCat.get(c.id) || 0}
+                        </span>
+                      </button>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    className="retail-pos-cat-toggle is-expanded"
+                    aria-label="Minimizar categorias"
+                    aria-expanded={true}
+                    aria-controls="retail-pos-category-list"
+                    data-tooltip="Minimizar categorias"
+                    title="Minimizar categorias"
+                    onClick={() => setCategoriesExpanded(false)}
+                  >
+                    <ChevronDown
+                      size={15}
+                      strokeWidth={1.9}
+                      aria-hidden="true"
+                    />
+                  </button>
+                </div>
+              )}
 
               <div className="retail-catalog-search-group">
                 <label className="retail-pos-search">

@@ -181,6 +181,8 @@ export default function SysInitPage() {
   const [creatingGroup, setCreatingGroup] = useState(false);
 
   const [selectedGroup, setSelectedGroup] = useState<any>(null);
+  const [editingGroupName, setEditingGroupName] = useState("");
+  const [savingGroupName, setSavingGroupName] = useState(false);
   const [groupUsers, setGroupUsers] = useState<any[]>([]);
   const [loadingGroupUsers, setLoadingGroupUsers] = useState(false);
   const [newMemberTenantId, setNewMemberTenantId] = useState("");
@@ -485,9 +487,15 @@ export default function SysInitPage() {
     try {
       const pin = pinDigits.join('');
       const res = await api.get('/groups/setup/list', { headers: { 'x-setup-pin': pin } });
-      setGroups(res.data);
+      const list = Array.isArray(res.data) ? res.data : [];
+      setGroups(list);
+      setSelectedGroup((prev: any) =>
+        prev ? list.find((g: any) => g.id === prev.id) ?? null : null,
+      );
+      return list;
     } catch (err) {
       toast.error('Erro ao carregar grupos.');
+      return [];
     } finally {
       setLoadingGroups(false);
     }
@@ -527,7 +535,10 @@ export default function SysInitPage() {
   useEffect(() => {
     if (step === "list") {
       if (activeTab === "tenants" || activeTab === "leadger") loadTenants();
-      else if (activeTab === "groups") loadGroups();
+      else if (activeTab === "groups") {
+        loadGroups();
+        if (tenants.length === 0) loadTenants();
+      }
       const pin = pinDigits.join('');
       if (pin) {
         api.get('/tenants/setup/leads', { headers: { 'x-setup-pin': pin } })
@@ -576,13 +587,78 @@ export default function SysInitPage() {
       toast.success('Membro adicionado com sucesso!');
       setNewMemberTenantId("");
       setNewMemberAlias("");
-      loadGroups();
-      const updatedGroup = groups.find(g => g.id === selectedGroup.id);
-      if (updatedGroup) setSelectedGroup(updatedGroup);
+      await loadGroups();
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Erro ao adicionar membro.');
     } finally {
       setAddingMember(false);
+    }
+  };
+
+  const handleRenameGroup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedGroup || !editingGroupName.trim()) return;
+    setSavingGroupName(true);
+    try {
+      const pin = pinDigits.join('');
+      await api.patch(
+        `/groups/setup/${selectedGroup.id}`,
+        { name: editingGroupName.trim() },
+        { headers: { 'x-setup-pin': pin } },
+      );
+      toast.success('Nome do grupo atualizado!');
+      await loadGroups();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Erro ao renomear grupo.');
+    } finally {
+      setSavingGroupName(false);
+    }
+  };
+
+  const handleDeleteGroup = async (group: any) => {
+    if (!window.confirm(`Deseja excluir o grupo "${group.name}"? As lojas não serão apagadas, apenas desvinculadas.`)) {
+      return;
+    }
+    try {
+      const pin = pinDigits.join('');
+      await api.delete(`/groups/setup/${group.id}`, {
+        headers: { 'x-setup-pin': pin },
+      });
+      toast.success('Grupo excluído com sucesso!');
+      if (selectedGroup?.id === group.id) {
+        setSelectedGroup(null);
+      }
+      await loadGroups();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Erro ao excluir grupo.');
+    }
+  };
+
+  const handleRemoveGroupMember = async (tenantId: string) => {
+    if (!selectedGroup) return;
+    try {
+      const pin = pinDigits.join('');
+      await api.delete(`/groups/setup/${selectedGroup.id}/members/${tenantId}`, {
+        headers: { 'x-setup-pin': pin },
+      });
+      toast.success('Loja removida do grupo!');
+      await loadGroups();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Erro ao remover membro.');
+    }
+  };
+
+  const handleDeleteGroupUser = async (userId: string) => {
+    if (!selectedGroup) return;
+    try {
+      const pin = pinDigits.join('');
+      await api.delete(`/groups/setup/${selectedGroup.id}/users/${userId}`, {
+        headers: { 'x-setup-pin': pin },
+      });
+      toast.success('Usuário removido do grupo!');
+      loadGroupUsers(selectedGroup.id);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Erro ao remover usuário.');
     }
   };
 
@@ -2036,7 +2112,7 @@ export default function SysInitPage() {
 
         {/* — BACKUPS STEP — */}
         {step === "backups" && (
-          <div className="max-w-4xl mx-auto mt-10 animate-[fadeIn_0.3s_ease] w-full">
+          <div className="w-full min-w-0 mt-4 animate-[fadeIn_0.3s_ease]">
             <button onClick={() => setStep("list")} className="mb-4 text-muted hover:text-ink flex items-center gap-2 text-sm"><ArrowRight className="rotate-180" size={16} /> Voltar para lista</button>
             <div className="bg-page/70 backdrop-blur-xl border border-line rounded-3xl overflow-hidden shadow-2xl flex flex-col p-6">
               <div className="flex justify-between items-center mb-6">
@@ -2170,11 +2246,12 @@ export default function SysInitPage() {
 
         {/* — CREATE STEP — */}
         {step === "create" && (
-          <div className="max-w-lg mx-auto mt-10 animate-[fadeIn_0.4s_ease] w-full">
+          <div className="w-full min-w-0 mt-4 animate-[fadeIn_0.4s_ease]">
             <button onClick={() => setStep("list")} className="mb-4 text-muted hover:text-ink flex items-center gap-2 text-sm"><ArrowRight className="rotate-180" size={16} /> Voltar para lista</button>
-            <div className="p-8 rounded-3xl bg-page/70 backdrop-blur-xl border border-line shadow-2xl">
+            <div className="p-6 sm:p-8 rounded-3xl bg-page/70 backdrop-blur-xl border border-line shadow-2xl">
               <h1 className="text-2xl font-bold tracking-tight mb-6 text-ink">Provisionar Nova Loja</h1>
-              <form onSubmit={handleProvision} className="space-y-4">
+              <form onSubmit={handleProvision} className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                <div className="space-y-4">
                 <div>
                   <label className="text-xs text-muted uppercase font-bold block mb-1.5">Foto / Logo do Menu Lateral</label>
                   <div className="flex items-center gap-4 p-3 bg-page border border-line rounded-2xl">
@@ -2235,6 +2312,9 @@ export default function SysInitPage() {
                   <div><label className="text-xs text-muted uppercase font-bold">Senha Inicial</label><input type="text" autoComplete="off" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other" required value={adminPassword} onChange={e => setAdminPassword(e.target.value)} className="pdv-secret-input w-full p-2.5 bg-page border border-line rounded-xl mt-1 text-ink focus:border-brand outline-none" /></div>
                   <div><label className="text-xs text-muted uppercase font-bold">Confirmar Senha</label><input type="text" autoComplete="off" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other" required value={adminPasswordConfirm} onChange={e => setAdminPasswordConfirm(e.target.value)} className="pdv-secret-input w-full p-2.5 bg-page border border-line rounded-xl mt-1 text-ink focus:border-brand outline-none" /></div>
                 </div>
+                </div>
+
+                <div className="space-y-4">
                 {/* — PLANO E MÓDULOS NA CRIAÇÃO — */}
                 {(() => {
                   const createPricing = calculateTenantMonthlyPrice(createModulos);
@@ -2363,6 +2443,7 @@ export default function SysInitPage() {
                 <button type="submit" disabled={formLoading} className="w-full bg-brand hover:bg-brand-hover text-on-brand font-bold py-3.5 rounded-xl mt-4 hover:text-on-brand transition">
                   {formLoading ? <Loader2 className="animate-spin mx-auto" /> : "Provisionar Banco & Criar Loja"}
                 </button>
+                </div>
               </form>
             </div>
           </div>
@@ -2370,7 +2451,7 @@ export default function SysInitPage() {
 
         {/* — EDIT STEP — */}
         {step === "edit" && editingTenant && (
-          <div className="max-w-4xl mx-auto mt-6 animate-[fadeIn_0.3s_ease] w-full">
+          <div className="w-full min-w-0 mt-4 animate-[fadeIn_0.3s_ease]">
             <button onClick={() => setStep("list")} className="mb-4 text-muted hover:text-ink flex items-center gap-2 text-sm"><ArrowRight className="rotate-180" size={16} /> Voltar para lista</button>
             <div className="bg-page/70 backdrop-blur-xl border border-line rounded-3xl overflow-hidden shadow-2xl flex flex-col">
               {/* Header */}
@@ -3032,8 +3113,8 @@ export default function SysInitPage() {
 
         {/* — SUCCESS STEP — */}
         {step === "success" && successData && (
-          <div className="max-w-lg mx-auto mt-14 animate-[fadeIn_0.5s_ease]">
-            <div className="p-8 rounded-3xl bg-page/70 backdrop-blur-xl border border-line shadow-2xl space-y-5">
+          <div className="w-full min-w-0 mt-6 animate-[fadeIn_0.5s_ease]">
+            <div className="p-6 sm:p-8 rounded-3xl bg-page/70 backdrop-blur-xl border border-line shadow-2xl space-y-5">
               <div className="text-center">
                 {successData.tenant?.logoUrl ? (
                   <div className="w-16 h-16 rounded-full bg-support border-2 border-brand mx-auto mb-3 overflow-hidden flex items-center justify-center">

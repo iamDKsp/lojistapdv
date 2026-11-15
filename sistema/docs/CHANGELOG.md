@@ -1,5 +1,24 @@
 # Histórico — PDV Lojista
 
+## 2026-11-15 — Redesign Exclusivo "Balcão & Cupom" do Modal de Finalizar Venda
+
+- **Arquitetura Visual de Duas Colunas ("Balcão Dividido + Cupom Vivo") no Fechamento de Venda (`frontend/src/retail/RetailCheckoutModal.tsx`, `frontend/src/retail/RetailDialog.tsx` e `frontend/src/retail/retail.css`)**:
+  - Redesenhado o modal `Finalizar venda` com identidade própria inspirada no símbolo da marca (`L + fachada de loja`), incluindo faixa superior na cor primária, emblema de fachada com toldo no cabeçalho e pílulas de contexto da operação (`quantidade de peças` e `operador ativo`), mantendo responsividade integral em coluna única e *bottom sheet* no mobile.
+  - Adicionada à direita a coluna **Cupom de Balcão** (`.retail-checkout-ticket`) com topo ondulado remetendo ao toldo da loja, resumo compacto dos itens da sacola, subtotal/desconto, total em destaque tabular, **linha tracejada com picote semicircular nas laterais**, medidor progressivo de composição do pagamento (`0%–100%`), atalho de quitação imediata no método selecionado (`Quitar ... em ...`), listagem de lançamentos e painel dinâmico de `Falta pagar` / `Total coberto` / `Troco a devolver` comunicado por texto, ícones e tokens aprovados da paleta `roxo-branco`.
+  - Atualizada também a tela pós-venda (`Venda concluída` / conferência / registro pendente) com o mesmo layout de **Cupom Emitido** com picote lateral, selo de confirmação e ações em pílula.
+- **Cards Táteis de Pagamento com Atalhos Numéricos (`1`–`6`), Cédulas Rápidas e Gavetas em Pílula (`frontend/src/retail/RetailCheckoutModal.tsx` e `frontend/src/retail/CustomerPicker.tsx`)**:
+  - Substituídos os botões retangulares genéricos dos meios de pagamento por **tiles dedicados** (`.retail-pay-tile`) com cápsula de ícone, legenda operacional, selo de seleção e suporte a seleção rápida pelas teclas numéricas `1` a `6` fora de campos de digitação.
+  - Adicionado prefixo monetário `R$`, confirmação rápida por `Enter` e **chips inteligentes de valor** abaixo do campo de pagamento (sugestões automáticas de cédulas arredondadas e prévia de troco em `Dinheiro`, além de atalhos `Restante` e `50%` para pagamentos divididos).
+  - Substituídos os blocos nativos `<details>` (`▼ Cadastrar cliente` e `▼ Desconto autorizado`) por gatilhos compactos em pílula (`.retail-pill-toggle`) e barra de desconto gerencial inspirada em `.retail-promo-bar`, reduzindo a altura do modal quando recolhidos.
+
+## 2026-11-15 — Simplificação do Cabeçalho e Categorias Minimizadas por Padrão no Ponto de Venda
+
+- **Remoção do Botão Redundante `Novo Acesso` (`frontend/src/retail/RetailPosPage.tsx` e `frontend/src/retail/retail.css`)**:
+  - Removido o botão pílula `Novo Acesso` (`.retail-new-access-btn`) da barra superior de ações da tela `Criar Transação`, preservando os fluxos já disponíveis de troca de operador por PIN e saída da loja pelo seletor de perfil e pelos avatares da equipe.
+- **Barra de Categorias Minimizada por Padrão com Expansão sob Demanda (`frontend/src/retail/RetailPosPage.tsx` e `frontend/src/retail/retail.css`)**:
+  - As categorias do catálogo na frente de caixa iniciam minimizadas, exibindo apenas a categoria ativa (ex.: `Todos os Produtos`) acompanhada de um botão discreto de seta (`ChevronDown`) alinhado na mesma linha da busca (`F3`), ampliando a área vertical útil da grade de mercadorias.
+  - Ao clicar na seta discreta ou na categoria ativa minimizada, a listagem completa de categorias se expande com transição suave; ao selecionar uma categoria, clicar novamente na seta ou pressionar `Esc`, a barra retorna ao estado minimizado mantendo a busca ancorada à direita.
+
 ## 2026-11-08 — Carrossel em Loop de 5s no Painel Direito do Login Desktop com Todos os Módulos da Versão Mobile
 
 - **Loop Contínuo de 10 Slides na Coluna Direita do Login Desktop (`frontend/src/retail/RetailLoginPage.tsx`, `frontend/src/retail/RetailMobileLogin.tsx` e `frontend/src/retail/retail.css`)**:

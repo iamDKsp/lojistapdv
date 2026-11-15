@@ -237,7 +237,7 @@ export default function StockCountPage() {
     (scopeMode === 'manual' && selectedProducts.size > 0);
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 max-w-5xl mx-auto">
+    <div className="w-full min-w-0 space-y-6 animate-in fade-in duration-500">
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -299,7 +299,7 @@ export default function StockCountPage() {
               {loadingScope ? (
                 <div className="flex justify-center py-6"><PdvLojistaLoader mode="loader" size={40} label="Carregando categorias..." /></div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-64 overflow-y-auto custom-scrollbar pr-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 max-h-64 overflow-y-auto custom-scrollbar pr-1">
                   {categories.map(cat => {
                     const selected = selectedCategories.has(cat.id);
                     return (
@@ -338,7 +338,7 @@ export default function StockCountPage() {
               {loadingScope ? (
                 <div className="flex justify-center py-6"><PdvLojistaLoader mode="loader" size={40} label="Carregando produtos..." /></div>
               ) : (
-                <div className="space-y-1 max-h-72 overflow-y-auto custom-scrollbar pr-1">
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-2 max-h-72 overflow-y-auto custom-scrollbar pr-1">
                   {filteredProducts.slice(0, 100).map(p => {
                     const selected = selectedProducts.has(p.id);
                     return (
@@ -356,7 +356,7 @@ export default function StockCountPage() {
                     );
                   })}
                   {filteredProducts.length > 100 && (
-                    <p className="text-xs text-muted text-center py-2">Mostrando 100 de {filteredProducts.length}. Refine a busca.</p>
+                    <p className="lg:col-span-2 xl:col-span-3 text-xs text-muted text-center py-2">Mostrando 100 de {filteredProducts.length}. Refine a busca.</p>
                   )}
                 </div>
               )}

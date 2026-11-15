@@ -643,32 +643,7 @@ export function RetailVitrinePage() {
 
         {/* Seletor rápido de abas internas */}
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => navigate("/vitrine")}
-              className={`inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-bold transition ${
-                !isAppearanceTab
-                  ? "border-brand bg-support text-brand"
-                  : "border-line bg-surface text-muted hover:text-ink"
-              }`}
-            >
-              <Sliders size={14} />
-              <span>Programação e Slides ({slides.length})</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate("/vitrine/aparencia")}
-              className={`inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-bold transition ${
-                isAppearanceTab
-                  ? "border-brand bg-support text-brand"
-                  : "border-line bg-surface text-muted hover:text-ink"
-              }`}
-            >
-              <Palette size={14} />
-              <span>Aparência, Temas e Conexão da TV</span>
-            </button>
-          </div>
+          <span className="text-xs text-muted">{slides.length} slide(s) na programação</span>
 
           {isDirty && (
             <div className="flex items-center gap-2 text-xs font-semibold text-brand">

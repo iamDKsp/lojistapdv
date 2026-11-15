@@ -141,7 +141,7 @@ export class DashboardService {
 
     // Agrega pagamentos por método
     const byPaymentMethod: Record<string, number> = {
-      dinheiro: 0, pix: 0, credito: 0, debito: 0,
+      dinheiro: 0, pix: 0, credito: 0, debito: 0, crediario: 0,
     };
     periodSales.forEach(sale => {
       sale.payments.forEach(p => {
@@ -149,6 +149,8 @@ export class DashboardService {
         let normKey = 'credito';
         if (rawKey.includes('dinh')) normKey = 'dinheiro';
         else if (rawKey.includes('pix')) normKey = 'pix';
+        else if (rawKey === 'crediario' || rawKey === 'fiado' || rawKey.includes('crediário') || rawKey.includes('crediario')) normKey = 'crediario';
+        else if (rawKey === 'credito_loja' || rawKey.includes('credito_loja') || rawKey.includes('crédito da loja')) normKey = 'credito_loja';
         else if (rawKey.includes('cred')) normKey = 'credito';
         else if (rawKey.includes('deb')) normKey = 'debito';
         else if (rawKey.includes('consumo')) normKey = 'consumo_funcionario';

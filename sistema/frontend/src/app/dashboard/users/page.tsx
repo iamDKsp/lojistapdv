@@ -107,8 +107,8 @@ export default function UsersPage() {
   };
 
   return (
-    <div className="p-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+    <div className="w-full min-w-0 space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold">Gestão de Equipe</h1>
           <p className="text-muted text-sm mt-1">Gerencie os acessos do seu estabelecimento</p>

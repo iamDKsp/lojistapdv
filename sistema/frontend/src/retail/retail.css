@@ -328,29 +328,6 @@ textarea:focus-visible {
   border-radius: 999px;
   display: block;
 }
-.retail-new-access-btn {
-  height: 40px;
-  border-radius: 999px;
-  border: 1px solid var(--pdv-border);
-  background: var(--pdv-white);
-  color: var(--pdv-text);
-  padding: 0 16px;
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 13px;
-  font-weight: 600;
-  text-decoration: none;
-  transition:
-    background-color 150ms ease,
-    border-color 150ms ease,
-    color 150ms ease;
-}
-.retail-new-access-btn:hover {
-  background: var(--pdv-support);
-  border-color: var(--pdv-primary);
-  color: var(--pdv-primary);
-}
 .retail-profile-dropdown-wrap {
   position: relative;
 }
@@ -868,10 +845,12 @@ textarea:focus-visible {
 }
 .retail-catalog-filterbar {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  flex-wrap: wrap;
+}
+.retail-catalog-filterbar.is-categories-minimized {
+  align-items: center;
 }
 .retail-category-row {
   display: flex;
@@ -879,6 +858,74 @@ textarea:focus-visible {
   gap: 8px;
   flex-wrap: wrap;
   margin: 0;
+}
+.retail-pos-category-minimized {
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-wrap: nowrap;
+  gap: 4px;
+}
+.retail-pos-active-pill {
+  max-width: calc(100% - 34px);
+}
+.retail-pos-active-pill > span:not(.retail-cat-count) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@keyframes posCategoriesExpand {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.retail-pos-category-expanded {
+  flex: 1 1 auto;
+  min-width: 0;
+  animation: posCategoriesExpand 170ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.retail-pos-cat-toggle {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--pdv-text-secondary);
+  opacity: 0.68;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition:
+    opacity 160ms ease,
+    color 160ms ease,
+    background-color 160ms ease,
+    border-color 160ms ease,
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.retail-pos-cat-toggle svg {
+  transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.retail-pos-cat-toggle.is-expanded svg {
+  transform: rotate(180deg);
+}
+.retail-pos-category-minimized:hover .retail-pos-cat-toggle,
+.retail-pos-cat-toggle:hover,
+.retail-pos-cat-toggle:focus-visible {
+  opacity: 1;
+  color: var(--pdv-primary);
+}
+.retail-pos-cat-toggle:hover {
+  background: color-mix(in srgb, var(--pdv-support) 68%, var(--pdv-white));
+  border-color: color-mix(in srgb, var(--pdv-primary) 20%, var(--pdv-border));
+}
+.retail-pos-cat-toggle:active {
+  transform: scale(0.92);
 }
 .retail-cat-pill {
   height: 38px;
@@ -929,6 +976,7 @@ textarea:focus-visible {
   align-items: center;
   gap: 8px;
   margin-left: auto;
+  flex-shrink: 0;
 }
 .retail-pos-search {
   position: relative;
@@ -5134,16 +5182,6 @@ textarea:focus-visible {
     display: none;
   }
 
-  .retail-new-access-btn {
-    padding: 0 10px;
-    height: 36px;
-    font-size: 12px;
-  }
-
-  .retail-new-access-btn span {
-    display: none;
-  }
-
   .retail-circle-icon-btn {
     width: 36px;
     height: 36px;
@@ -5165,6 +5203,22 @@ textarea:focus-visible {
     padding-bottom: 4px;
     margin-bottom: 12px;
     max-width: 100%;
+  }
+
+  .retail-category-row.retail-pos-category-minimized {
+    flex-wrap: nowrap;
+    overflow: visible;
+    padding-bottom: 0;
+    margin-bottom: 0;
+    gap: 4px;
+  }
+
+  .retail-category-row.retail-pos-category-expanded {
+    flex-wrap: wrap;
+    overflow-x: visible;
+    padding-bottom: 0;
+    margin-bottom: 0;
+    gap: 8px;
   }
 
   .retail-subnav-pill,
@@ -7127,6 +7181,1237 @@ textarea:focus-visible {
   .retail-intel-day-meta,
   .retail-intel-day-champ {
     display: none;
+  }
+}
+
+/* ── Modal Exclusivo "Balcão & Cupom" — Finalizar Venda ─────────────────── */
+.retail-dialog-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+
+.retail-dialog-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.retail-checkout-dialog {
+  max-width: 860px;
+  border-radius: 24px;
+  border: 1.5px solid var(--pdv-border);
+  box-shadow:
+    0 28px 72px color-mix(in srgb, var(--pdv-text) 28%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--pdv-primary) 10%, transparent);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.retail-checkout-result-dialog {
+  max-width: 520px;
+  border-radius: 24px;
+  border: 1.5px solid var(--pdv-border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.retail-checkout-top-bar {
+  height: 5px;
+  width: 100%;
+  flex-shrink: 0;
+  background: linear-gradient(
+    90deg,
+    var(--pdv-primary) 0%,
+    var(--pdv-primary-hover) 50%,
+    var(--pdv-primary) 100%
+  );
+}
+
+.retail-checkout-brand-emblem {
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  background: var(--pdv-support);
+  color: var(--pdv-primary);
+  border: 1.5px solid color-mix(in srgb, var(--pdv-primary) 26%, var(--pdv-border));
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.retail-checkout-header-pills {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.retail-checkout-meta-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: var(--pdv-support);
+  color: var(--pdv-primary-hover);
+  border: 1px solid color-mix(in srgb, var(--pdv-primary) 24%, var(--pdv-border));
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.retail-checkout-meta-pill.is-subtle {
+  background: var(--pdv-background);
+  color: var(--pdv-text-secondary);
+  border-color: var(--pdv-border);
+  font-weight: 600;
+}
+
+.retail-customer-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.retail-field-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.retail-pill-toggle {
+  height: 27px;
+  padding: 0 11px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--pdv-primary) 28%, var(--pdv-border));
+  background: var(--pdv-support);
+  color: var(--pdv-primary-hover);
+  font-size: 11.5px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    transform 140ms ease;
+}
+
+.retail-pill-toggle:hover:not(:disabled) {
+  background: var(--pdv-primary);
+  border-color: var(--pdv-primary);
+  color: var(--pdv-white);
+}
+
+.retail-pill-toggle.is-open {
+  background: var(--pdv-white);
+  border-color: var(--pdv-border);
+  color: var(--pdv-text-secondary);
+}
+
+.retail-pill-toggle.is-open:hover:not(:disabled) {
+  background: var(--pdv-support);
+  border-color: var(--pdv-primary);
+  color: var(--pdv-primary);
+}
+
+@keyframes retailDrawerReveal {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.retail-inline-drawer {
+  padding: 13px 14px;
+  border-radius: 14px;
+  background: var(--pdv-background);
+  border: 1px solid var(--pdv-border);
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  animation: retailDrawerReveal 170ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.retail-inline-drawer-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.retail-drawer-submit {
+  min-height: 38px;
+  padding: 8px 15px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.retail-checkout-body {
+  padding: 20px 24px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.retail-checkout-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.18fr) minmax(300px, 0.88fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.retail-checkout-ops {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.retail-checkout-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.retail-checkout-section-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--pdv-text);
+}
+
+.retail-shortcut-caption {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--pdv-text-secondary);
+  background: var(--pdv-background);
+  border: 1px solid var(--pdv-border);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.retail-pay-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.retail-pay-tile {
+  position: relative;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 11px;
+  min-height: 56px;
+  border-radius: 14px;
+  border: 1.5px solid var(--pdv-border);
+  background: var(--pdv-white);
+  color: var(--pdv-text);
+  text-align: left;
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease,
+    transform 140ms ease,
+    box-shadow 160ms ease;
+}
+
+.retail-pay-tile:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--pdv-primary) 58%, var(--pdv-border));
+  background: color-mix(in srgb, var(--pdv-support) 42%, var(--pdv-white));
+  transform: translateY(-1px);
+}
+
+.retail-pay-tile.is-selected {
+  background: var(--pdv-support);
+  border-color: var(--pdv-primary);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--pdv-primary) 16%, transparent);
+}
+
+.retail-pay-tile-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--pdv-background);
+  border: 1px solid var(--pdv-border);
+  color: var(--pdv-text-secondary);
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease;
+}
+
+.retail-pay-tile:hover:not(:disabled) .retail-pay-tile-icon {
+  color: var(--pdv-primary);
+  border-color: color-mix(in srgb, var(--pdv-primary) 35%, var(--pdv-border));
+}
+
+.retail-pay-tile.is-selected .retail-pay-tile-icon {
+  background: var(--pdv-primary);
+  border-color: var(--pdv-primary);
+  color: var(--pdv-white);
+}
+
+.retail-pay-tile-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.retail-pay-tile-name {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--pdv-text);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.retail-pay-tile.is-selected .retail-pay-tile-name {
+  color: var(--pdv-primary-hover);
+}
+
+.retail-pay-tile-hint {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--pdv-text-secondary);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.retail-pay-tile-badge {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--pdv-background);
+  border: 1px solid var(--pdv-border);
+  color: var(--pdv-text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease;
+}
+
+.retail-pay-tile.is-selected .retail-pay-tile-badge {
+  background: var(--pdv-primary);
+  border-color: var(--pdv-primary);
+  color: var(--pdv-white);
+}
+
+.retail-checkout-subpanel {
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--pdv-border);
+  background: var(--pdv-background);
+  animation: retailDrawerReveal 160ms ease;
+}
+
+.retail-stack-compact {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.retail-crediario-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed var(--pdv-border);
+}
+
+.retail-crediario-alert {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--pdv-support);
+  color: var(--pdv-primary-hover);
+  font-weight: 700;
+}
+
+.retail-pay-entry-card {
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--pdv-background);
+  border: 1px solid var(--pdv-border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.retail-pay-entry-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.retail-currency-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.retail-currency-prefix {
+  position: absolute;
+  left: 10px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--pdv-support);
+  color: var(--pdv-primary-hover);
+  font-size: 11.5px;
+  font-weight: 800;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.retail-currency-input-wrap input {
+  padding-left: 44px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.retail-pay-add-btn {
+  min-height: 42px;
+  border-radius: 11px;
+  padding: 0 15px;
+  font-weight: 700;
+  border-color: color-mix(in srgb, var(--pdv-primary) 34%, var(--pdv-border));
+  flex-shrink: 0;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease;
+}
+
+.retail-pay-add-btn:hover:not(:disabled) {
+  background: var(--pdv-primary);
+  border-color: var(--pdv-primary);
+  color: var(--pdv-white);
+}
+
+.retail-quick-chips-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.retail-quick-chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.retail-quick-chip {
+  height: 27px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--pdv-border);
+  background: var(--pdv-white);
+  color: var(--pdv-text);
+  font-size: 11.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease;
+}
+
+.retail-quick-chip:hover:not(:disabled),
+.retail-quick-chip.is-active {
+  background: var(--pdv-support);
+  border-color: var(--pdv-primary);
+  color: var(--pdv-primary-hover);
+}
+
+.retail-simulated-troco {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--pdv-support);
+  color: var(--pdv-primary-hover);
+  border: 1px solid color-mix(in srgb, var(--pdv-primary) 28%, var(--pdv-border));
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.retail-discount-card {
+  border-radius: 15px;
+  border: 1px solid var(--pdv-border);
+  background: var(--pdv-white);
+  padding: 9px 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+
+.retail-discount-card.is-open {
+  background: var(--pdv-background);
+  border-color: color-mix(in srgb, var(--pdv-primary) 30%, var(--pdv-border));
+}
+
+.retail-discount-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.retail-discount-info {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.retail-discount-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--pdv-text);
+  color: var(--pdv-white);
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.retail-discount-icon.is-unlocked {
+  background: var(--pdv-primary);
+}
+
+.retail-discount-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.retail-discount-copy strong {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--pdv-text);
+  line-height: 1.25;
+}
+
+.retail-discount-copy small {
+  font-size: 11px;
+  color: var(--pdv-text-secondary);
+  line-height: 1.25;
+}
+
+.retail-discount-drawer {
+  padding-top: 10px;
+  border-top: 1px dashed var(--pdv-border);
+  animation: retailDrawerReveal 160ms ease;
+}
+
+/* ── Cupom Vivo de Balcão (Coluna Direita & Comprovante) ──────────────────── */
+.retail-checkout-ticket {
+  position: relative;
+  border: 1.5px solid var(--pdv-border);
+  border-radius: 20px;
+  background: var(--pdv-background);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 26px color-mix(in srgb, var(--pdv-text) 6%, transparent);
+}
+
+.retail-ticket-awning {
+  height: 12px;
+  width: 100%;
+  background-color: var(--pdv-support);
+  background-image:
+    linear-gradient(var(--pdv-primary), var(--pdv-primary)),
+    radial-gradient(circle at 10px 4px, var(--pdv-primary) 7px, transparent 7.6px);
+  background-size:
+    100% 4px,
+    20px 12px;
+  background-position:
+    0 0,
+    0 0;
+  background-repeat: no-repeat, repeat-x;
+  border-bottom: 1px solid color-mix(in srgb, var(--pdv-primary) 18%, var(--pdv-border));
+}
+
+.retail-ticket-top {
+  background: var(--pdv-white);
+  padding: 14px 16px 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+
+.retail-ticket-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.retail-ticket-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--pdv-primary-hover);
+}
+
+.retail-ticket-pill {
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--pdv-support);
+  color: var(--pdv-primary-hover);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.retail-ticket-mini-items {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 9px 10px;
+  border-radius: 11px;
+  background: var(--pdv-background);
+  border: 1px solid var(--pdv-border);
+}
+
+.retail-ticket-mini-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--pdv-text-secondary);
+}
+
+.retail-ticket-mini-name {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.retail-ticket-mini-name strong {
+  color: var(--pdv-text);
+  font-weight: 700;
+}
+
+.retail-ticket-more-items {
+  font-size: 11px;
+  color: var(--pdv-primary-hover);
+  font-weight: 600;
+  padding-top: 2px;
+}
+
+.retail-ticket-subtotals {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding-top: 4px;
+}
+
+.retail-ticket-subrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12.5px;
+  color: var(--pdv-text-secondary);
+}
+
+.retail-ticket-subrow.is-discount {
+  color: var(--pdv-primary-hover);
+  font-weight: 600;
+}
+
+.retail-ticket-hero-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--pdv-border);
+}
+
+.retail-ticket-hero-total span {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--pdv-text-secondary);
+}
+
+.retail-ticket-hero-total strong {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--pdv-text);
+  line-height: 1;
+}
+
+.retail-ticket-tear {
+  position: relative;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  background: linear-gradient(
+    to bottom,
+    var(--pdv-white) 50%,
+    var(--pdv-background) 50%
+  );
+}
+
+.retail-ticket-dashed {
+  width: 100%;
+  border-top: 1.5px dashed var(--pdv-border);
+  margin: 0 12px;
+}
+
+.retail-ticket-notch {
+  position: absolute;
+  top: 50%;
+  width: 20px;
+  height: 20px;
+  margin-top: -10px;
+  border-radius: 999px;
+  background: var(--pdv-white);
+  border: 1.5px solid var(--pdv-border);
+  box-shadow: inset 0 1px 3px color-mix(in srgb, var(--pdv-text) 8%, transparent);
+}
+
+.retail-ticket-notch.is-left {
+  left: -11px;
+}
+
+.retail-ticket-notch.is-right {
+  right: -11px;
+}
+
+.retail-ticket-bottom {
+  padding: 12px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  flex: 1;
+}
+
+.retail-settlement-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.retail-settlement-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11.5px;
+  color: var(--pdv-text-secondary);
+  font-weight: 600;
+}
+
+.retail-settlement-head strong {
+  color: var(--pdv-primary-hover);
+  font-weight: 800;
+}
+
+.retail-settlement-bar {
+  width: 100%;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--pdv-border);
+  overflow: hidden;
+}
+
+.retail-settlement-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--pdv-primary);
+  transition: width 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.retail-ticket-empty-ledger {
+  padding: 14px 12px;
+  border-radius: 13px;
+  border: 1.5px dashed var(--pdv-border);
+  background: color-mix(in srgb, var(--pdv-white) 70%, var(--pdv-background));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 9px;
+}
+
+.retail-ticket-empty-ledger p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--pdv-text-secondary);
+}
+
+.retail-instant-settle-btn {
+  width: 100%;
+  min-height: 35px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1.5px solid var(--pdv-primary);
+  background: var(--pdv-support);
+  color: var(--pdv-primary-hover);
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease,
+    transform 140ms ease;
+}
+
+.retail-instant-settle-btn:hover:not(:disabled) {
+  background: var(--pdv-primary);
+  color: var(--pdv-white);
+  transform: translateY(-1px);
+}
+
+.retail-ticket-payments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  max-height: 185px;
+  overflow-y: auto;
+}
+
+.retail-ticket-pay-row {
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: var(--pdv-white);
+  border: 1px solid var(--pdv-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.retail-ticket-pay-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.retail-ticket-pay-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--pdv-support);
+  color: var(--pdv-primary);
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.retail-ticket-pay-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.retail-ticket-pay-text strong {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--pdv-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.retail-ticket-pay-text small {
+  font-size: 11px;
+  color: var(--pdv-text-secondary);
+}
+
+.retail-ticket-pay-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+}
+
+.retail-ticket-pay-right strong {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--pdv-text);
+}
+
+.retail-ticket-remove-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid var(--pdv-border);
+  background: var(--pdv-background);
+  color: var(--pdv-text-secondary);
+  display: inline-grid;
+  place-items: center;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease;
+}
+
+.retail-ticket-remove-btn:hover:not(:disabled) {
+  background: var(--pdv-support);
+  border-color: var(--pdv-primary);
+  color: var(--pdv-primary);
+}
+
+.retail-ticket-balance-box {
+  padding: 11px 13px;
+  border-radius: 13px;
+  background: var(--pdv-white);
+  border: 1.5px solid var(--pdv-border);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: auto;
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease;
+}
+
+.retail-ticket-balance-box.is-settled {
+  background: var(--pdv-support);
+  border-color: var(--pdv-primary);
+}
+
+.retail-ticket-balance-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.retail-ticket-balance-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--pdv-text);
+}
+
+.retail-ticket-balance-box.is-settled .retail-ticket-balance-label {
+  color: var(--pdv-primary-hover);
+}
+
+.retail-ticket-balance-main strong {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--pdv-text);
+}
+
+.retail-ticket-balance-box.is-settled .retail-ticket-balance-main strong {
+  color: var(--pdv-primary-hover);
+}
+
+.retail-ticket-settled-note {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--pdv-primary-hover);
+}
+
+.retail-ticket-troco-box {
+  padding: 9px 12px;
+  border-radius: 12px;
+  background: var(--pdv-text);
+  color: var(--pdv-white);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.retail-ticket-troco-box span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.retail-ticket-troco-box strong {
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.retail-ticket-nfce-row {
+  padding-top: 8px;
+  border-top: 1px dashed var(--pdv-border);
+}
+
+.retail-checkout-notice {
+  margin: 0;
+  padding: 11px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--pdv-border);
+  background: var(--pdv-support);
+  color: var(--pdv-text);
+  font-size: 13px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.retail-checkout-notice svg {
+  color: var(--pdv-primary);
+  flex-shrink: 0;
+}
+
+.retail-checkout-notice.is-alert {
+  border-color: var(--pdv-primary);
+  font-weight: 600;
+}
+
+.retail-checkout-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 15px 24px;
+  background: var(--pdv-background);
+}
+
+.retail-checkout-footer-hint {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--pdv-text-secondary);
+}
+
+.retail-checkout-footer-btns {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.retail-checkout-back-btn {
+  border-radius: 999px;
+  padding: 0 20px;
+  min-height: 44px;
+  font-weight: 600;
+}
+
+.retail-checkout-submit-btn {
+  border-radius: 999px;
+  padding: 0 24px;
+  min-height: 44px;
+  font-weight: 700;
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--pdv-primary) 28%, transparent);
+}
+
+.retail-checkout-submit-btn:disabled {
+  box-shadow: none;
+}
+
+/* ── Pós-Venda: Cupom Emitido ──────────────────────────────────────────────── */
+.retail-checkout-result-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.retail-result-hero {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--pdv-support);
+  border: 1px solid color-mix(in srgb, var(--pdv-primary) 24%, var(--pdv-border));
+}
+
+.retail-result-check-halo {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: var(--pdv-primary);
+  color: var(--pdv-white);
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.retail-result-hero-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.retail-checkout-kicker {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--pdv-primary-hover);
+}
+
+.retail-result-hero-copy strong {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--pdv-text);
+}
+
+.retail-checkout-ticket.is-receipt-view .retail-ticket-head {
+  padding: 14px 16px 8px;
+  background: var(--pdv-white);
+}
+
+.retail-receipt-logo {
+  width: 142px;
+  height: auto;
+  display: block;
+}
+
+.retail-ticket-items-list {
+  padding: 4px 16px 14px;
+  background: var(--pdv-white);
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.retail-ticket-item-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13.5px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--pdv-border);
+}
+
+.retail-ticket-item-line:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.retail-ticket-total-block {
+  padding: 12px 16px 16px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.retail-ticket-total-block span {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--pdv-text-secondary);
+}
+
+.retail-ticket-total-block strong {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--pdv-text);
+}
+
+.retail-result-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.retail-result-actions .retail-button {
+  border-radius: 999px;
+  min-height: 44px;
+  padding: 0 20px;
+  font-weight: 700;
+}
+
+@media (max-width: 860px) {
+  .retail-checkout-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .retail-checkout-ticket {
+    order: -1;
+  }
+
+  .retail-checkout-top-bar {
+    display: none;
+  }
+
+  .retail-checkout-footer-hint {
+    display: none;
+  }
+
+  .retail-checkout-footer-btns {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 560px) {
+  .retail-pay-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .retail-shortcut-caption,
+  .retail-checkout-meta-pill.is-subtle {
+    display: none;
+  }
+
+  .retail-pay-entry-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .retail-pay-add-btn {
+    width: 100%;
+  }
+
+  .retail-checkout-footer-btns {
+    display: grid;
+    grid-template-columns: 1fr 1.4fr;
   }
 }
 

@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useState, type ComponentType } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentType,
+} from "react";
 import {
   AlertCircle,
   BadgePercent,
@@ -70,6 +77,55 @@ const tPag: Record<string, string> = {
 };
 
 const cents = (n: number) => Math.round(n * 100) / 100;
+
+export type DiscountMode = "amount" | "percent";
+
+export function computeCheckoutDiscount(
+  subtotal: number,
+  mode: DiscountMode,
+  rawInput: string,
+): {
+  discountAmount: number;
+  effectivePct: number;
+  wasClamped: boolean;
+} {
+  const safeSubtotal = Math.max(0, cents(subtotal));
+  const maxDiscount = Math.max(0, cents(safeSubtotal - 0.01));
+  const normalized = String(rawInput ?? "").trim().replace(",", ".");
+  const parsed = normalized === "" ? 0 : Number(normalized);
+  if (!Number.isFinite(parsed) || parsed <= 0 || maxDiscount <= 0) {
+    return { discountAmount: 0, effectivePct: 0, wasClamped: false };
+  }
+  if (mode === "percent") {
+    const clampedPct = Math.min(100, Math.max(0, parsed));
+    const rawAmount = cents((safeSubtotal * clampedPct) / 100);
+    const discountAmount = Math.min(rawAmount, maxDiscount);
+    const effectivePct =
+      safeSubtotal > 0
+        ? Math.round((discountAmount / safeSubtotal) * 1000) / 10
+        : 0;
+    return {
+      discountAmount,
+      effectivePct,
+      wasClamped: parsed > 100 || rawAmount > maxDiscount,
+    };
+  }
+  const rawAmount = cents(Math.max(0, parsed));
+  const discountAmount = Math.min(rawAmount, maxDiscount);
+  const effectivePct =
+    safeSubtotal > 0
+      ? Math.round((discountAmount / safeSubtotal) * 1000) / 10
+      : 0;
+  return {
+    discountAmount,
+    effectivePct,
+    wasClamped: rawAmount > maxDiscount,
+  };
+}
+
+function formatPctPtBr(pct: number): string {
+  return Number.isInteger(pct) ? String(pct) : pct.toFixed(1).replace(".", ",");
+}
 
 function defaultDueDateIso(days = 30): string {
   const dt = new Date(Date.now() + Math.max(1, days) * 86400000);
@@ -163,12 +219,14 @@ export function RetailCheckoutModal({
   isOnline,
   config,
   initialMethod = "dinheiro",
+  initialOpenDiscount = false,
 }: {
   onClose: () => void;
   onDone: () => void;
   isOnline: boolean;
   config: any;
   initialMethod?: string;
+  initialOpenDiscount?: boolean;
 }) {
   const cart = useCartStore();
   const user = useAuthStore((state) => state.user);
@@ -185,8 +243,11 @@ export function RetailCheckoutModal({
   const [customMethods, setCustomMethods] = useState<
     { id: string; name: string }[]
   >([]);
-  const [discount, setDiscount] = useState("0");
-  const [discountDrawerOpen, setDiscountDrawerOpen] = useState(false);
+  const [discount, setDiscount] = useState("");
+  const [discountMode, setDiscountMode] = useState<DiscountMode>("amount");
+  const [discountDrawerOpen, setDiscountDrawerOpen] = useState(
+    Boolean(initialOpenDiscount),
+  );
   const [pin, setPin] = useState("");
   const [pinApproved, setPinApproved] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -195,12 +256,41 @@ export function RetailCheckoutModal({
     kind: string;
     data?: any;
     message?: string;
+    subtotal: number;
+    discount: number;
+    discountPct: number;
     total: number;
     snapshot: any[];
   } | null>(null);
   const [emit, setEmit] = useState(false);
+  const pinInputRef = useRef<HTMLInputElement | null>(null);
+  const discountInputRef = useRef<HTMLInputElement | null>(null);
 
-  const discountNumber = Math.max(0, Number(discount || 0));
+  const maxDiscountAmount = Math.max(0, cents(cart.total - 0.01));
+  const {
+    discountAmount: discountNumber,
+    effectivePct: effectiveDiscountPct,
+    wasClamped: discountWasClamped,
+  } = useMemo(
+    () => computeCheckoutDiscount(cart.total, discountMode, discount),
+    [cart.total, discountMode, discount],
+  );
+  const discountQuickPresets = useMemo(() => {
+    if (maxDiscountAmount <= 0) return [];
+    if (discountMode === "percent") {
+      return [5, 10, 15, 20].map((pct) => ({
+        label: `${pct}%`,
+        rawValue: String(pct),
+      }));
+    }
+    return [5, 10, 15, 20, 50]
+      .filter((amt) => amt <= maxDiscountAmount)
+      .slice(0, 4)
+      .map((amt) => ({
+        label: `R$ ${amt}`,
+        rawValue: String(amt),
+      }));
+  }, [discountMode, maxDiscountAmount]);
   const total = cents(cart.total - discountNumber);
   const paid = cents(payments.reduce((sum, pay) => sum + pay.value, 0));
   const remaining = cents(total - paid);
@@ -455,6 +545,36 @@ export function RetailCheckoutModal({
     commitPayment();
   }
 
+  useEffect(() => {
+    if (!discountDrawerOpen) return;
+    const timer = window.setTimeout(() => {
+      if (!pinApproved) {
+        pinInputRef.current?.focus();
+      } else {
+        discountInputRef.current?.focus();
+      }
+    }, 40);
+    return () => window.clearTimeout(timer);
+  }, [discountDrawerOpen, pinApproved]);
+
+  function switchDiscountMode(nextMode: DiscountMode) {
+    if (nextMode === discountMode) return;
+    const currentParsed = Number(String(discount).trim().replace(",", "."));
+    if (
+      nextMode === "percent" &&
+      Number.isFinite(currentParsed) &&
+      currentParsed >= 100
+    ) {
+      setDiscount("");
+    }
+    if (discount.trim() !== "") {
+      setPayments([]);
+    }
+    setDiscountMode(nextMode);
+    setError("");
+    window.setTimeout(() => discountInputRef.current?.focus(), 20);
+  }
+
   async function verifyPin() {
     setBusy(true);
     setError("");
@@ -484,7 +604,7 @@ export function RetailCheckoutModal({
       setError("Confira o total e os pagamentos.");
       return;
     }
-    if (Number(discount) > 0 && !pinApproved) {
+    if (discountNumber > 0 && !pinApproved) {
       setError("Autorize o desconto com o PIN gerencial.");
       return;
     }
@@ -504,7 +624,8 @@ export function RetailCheckoutModal({
     cart.setOperationLocked(true);
     const tenantId = user.tenant,
       operatorId = operator.id,
-      operationId = cart.getOrCreateOperationId();
+      operationId = cart.getOrCreateOperationId(),
+      subtotalSnapshot = cart.total;
     const snapshot = cart.items.map((item) => ({ ...item }));
     const body = {
       idempotencyKey: operationId,
@@ -526,7 +647,7 @@ export function RetailCheckoutModal({
             }
           : {}),
       })),
-      discount: Number(discount || 0),
+      discount: discountNumber,
       customerId: customerId || undefined,
       operatorId,
       cashRegisterId: cashRegister.id,
@@ -539,9 +660,9 @@ export function RetailCheckoutModal({
       operatorId,
       tenantId,
       cashRegisterId: cashRegister.id,
-      subtotal: cart.total,
+      subtotal: subtotalSnapshot,
       total,
-      discount: Number(discount || 0),
+      discount: discountNumber,
       items: snapshot.map((i) => ({
         productId: i.id,
         productName: i.name,
@@ -583,7 +704,14 @@ export function RetailCheckoutModal({
       if (useAuthStore.getState().user?.tenant !== tenantId) return;
       cart.setOperationLocked(false);
       cart.clearCart();
-      setResult({ ...outcome, total, snapshot });
+      setResult({
+        ...outcome,
+        subtotal: subtotalSnapshot,
+        discount: discountNumber,
+        discountPct: effectiveDiscountPct,
+        total,
+        snapshot,
+      });
       onDone();
     } catch (err) {
       setError(apiError(err));
@@ -662,6 +790,23 @@ export function RetailCheckoutModal({
               <span className="retail-ticket-dashed" />
               <span className="retail-ticket-notch is-right" />
             </div>
+
+            {result.discount > 0 && (
+              <div className="retail-receipt-discount-breakdown">
+                <div className="retail-ticket-subrow">
+                  <span>Subtotal</span>
+                  <span className="retail-number">
+                    {money(result.subtotal)}
+                  </span>
+                </div>
+                <div className="retail-ticket-subrow is-discount">
+                  <span>Desconto ({formatPctPtBr(result.discountPct)}%)</span>
+                  <strong className="retail-number">
+                    -{money(result.discount)}
+                  </strong>
+                </div>
+              </div>
+            )}
 
             <div className="retail-ticket-total-block">
               <span>Total liquidado</span>
@@ -995,14 +1140,14 @@ export function RetailCheckoutModal({
                   <div className="retail-discount-copy">
                     <strong>
                       {discountNumber > 0
-                        ? `Desconto aplicado: -${money(discountNumber)}`
+                        ? `Desconto aplicado: -${money(discountNumber)} (${formatPctPtBr(effectiveDiscountPct)}%)`
                         : pinApproved
-                          ? "Desconto gerencial liberado"
-                          : "Desconto autorizado"}
+                          ? "Desconto liberado (% ou R$)"
+                          : "Desconto autorizado (% ou R$)"}
                     </strong>
                     <small>
                       {pinApproved
-                        ? "PIN validado para esta operação"
+                        ? "Escolha entre valor em R$ ou percentual (%)"
                         : "Requer autorização por PIN gerencial"}
                     </small>
                   </div>
@@ -1023,7 +1168,7 @@ export function RetailCheckoutModal({
                     {discountDrawerOpen
                       ? "Ocultar"
                       : pinApproved
-                        ? "Editar valor"
+                        ? "Editar desconto"
                         : "Liberar PIN"}
                   </span>
                 </button>
@@ -1036,6 +1181,7 @@ export function RetailCheckoutModal({
                       <label className="retail-field" style={{ flex: 1 }}>
                         PIN gerencial
                         <input
+                          ref={pinInputRef}
                           type="text"
                           inputMode="numeric"
                           autoComplete="off"
@@ -1078,30 +1224,141 @@ export function RetailCheckoutModal({
                       </button>
                     </div>
                   ) : (
-                    <label className="retail-field">
-                      Desconto (R$)
-                      <div className="retail-currency-input-wrap">
-                        <span
-                          className="retail-currency-prefix"
-                          aria-hidden="true"
+                    <>
+                      <div className="retail-discount-mode-head">
+                        <label htmlFor="retail-checkout-discount">
+                          {discountMode === "percent"
+                            ? "Desconto percentual (%)"
+                            : "Desconto em valor (R$)"}
+                        </label>
+                        <div
+                          className="retail-discount-mode-switch"
+                          role="group"
+                          aria-label="Modo de cálculo do desconto"
                         >
-                          R$
-                        </span>
-                        <input
-                          type="number"
-                          min="0"
-                          max={Math.max(0, cart.total - 0.01)}
-                          step=".01"
-                          className="retail-number"
-                          value={discount}
-                          disabled={busy}
-                          onChange={(e) => {
-                            setDiscount(e.target.value);
-                            setPayments([]);
-                          }}
-                        />
+                          <button
+                            type="button"
+                            disabled={busy}
+                            aria-pressed={discountMode === "amount"}
+                            className={`retail-discount-mode-btn ${discountMode === "amount" ? "is-active" : ""}`}
+                            onClick={() => switchDiscountMode("amount")}
+                          >
+                            <Banknote size={13} aria-hidden="true" />
+                            <span>Valor (R$)</span>
+                          </button>
+                          <button
+                            type="button"
+                            disabled={busy}
+                            aria-pressed={discountMode === "percent"}
+                            className={`retail-discount-mode-btn ${discountMode === "percent" ? "is-active" : ""}`}
+                            onClick={() => switchDiscountMode("percent")}
+                          >
+                            <BadgePercent size={13} aria-hidden="true" />
+                            <span>Percentual (%)</span>
+                          </button>
+                        </div>
                       </div>
-                    </label>
+
+                      <div className="retail-field">
+                        <div className="retail-currency-input-wrap">
+                          <span
+                            className="retail-currency-prefix"
+                            aria-hidden="true"
+                          >
+                            {discountMode === "percent" ? "%" : "R$"}
+                          </span>
+                          <input
+                            id="retail-checkout-discount"
+                            ref={discountInputRef}
+                            type="number"
+                            min="0"
+                            max={
+                              discountMode === "percent"
+                                ? 99.99
+                                : maxDiscountAmount
+                            }
+                            step=".01"
+                            placeholder={
+                              discountMode === "percent"
+                                ? "Ex.: 10"
+                                : "Ex.: 15,00"
+                            }
+                            className="retail-number"
+                            value={discount}
+                            disabled={busy || maxDiscountAmount <= 0}
+                            onChange={(e) => {
+                              setDiscount(e.target.value);
+                              setPayments([]);
+                              setError("");
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      {(discountQuickPresets.length > 0 ||
+                        discountNumber > 0) && (
+                        <div className="retail-quick-chips-row">
+                          <div className="retail-quick-chips">
+                            {discountQuickPresets.map((preset) => {
+                              const parsedInput = Number(
+                                String(discount).trim().replace(",", "."),
+                              );
+                              const isActivePreset =
+                                discount.trim() !== "" &&
+                                Number.isFinite(parsedInput) &&
+                                Math.abs(
+                                  parsedInput - Number(preset.rawValue),
+                                ) < 0.005;
+                              return (
+                                <button
+                                  type="button"
+                                  key={preset.label}
+                                  disabled={busy}
+                                  className={`retail-quick-chip ${isActivePreset ? "is-active" : ""}`}
+                                  onClick={() => {
+                                    setDiscount(preset.rawValue);
+                                    setPayments([]);
+                                    setError("");
+                                  }}
+                                >
+                                  {preset.label}
+                                </button>
+                              );
+                            })}
+                            {discountNumber > 0 && (
+                              <button
+                                type="button"
+                                disabled={busy}
+                                className="retail-quick-chip"
+                                onClick={() => {
+                                  setDiscount("");
+                                  setPayments([]);
+                                  setError("");
+                                }}
+                              >
+                                Limpar
+                              </button>
+                            )}
+                          </div>
+
+                          {discountNumber > 0 && (
+                            <span className="retail-discount-preview retail-number">
+                              <BadgePercent size={13} aria-hidden="true" />
+                              {discountMode === "percent"
+                                ? `Equivale a -${money(discountNumber)} · Final: ${money(total)}`
+                                : `Equivale a ${formatPctPtBr(effectiveDiscountPct)}% · Final: ${money(total)}`}
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {discountWasClamped && maxDiscountAmount > 0 && (
+                        <small className="retail-discount-clamp-note">
+                          Ajustado ao limite máximo ({money(maxDiscountAmount)})
+                          para manter total positivo na venda.
+                        </small>
+                      )}
+                    </>
                   )}
                 </div>
               )}
@@ -1156,7 +1413,9 @@ export function RetailCheckoutModal({
                 </div>
                 {discountNumber > 0 && (
                   <div className="retail-ticket-subrow is-discount">
-                    <span>Desconto autorizado</span>
+                    <span>
+                      Desconto ({formatPctPtBr(effectiveDiscountPct)}%)
+                    </span>
                     <strong className="retail-number">
                       -{money(discountNumber)}
                     </strong>

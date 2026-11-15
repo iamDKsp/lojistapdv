@@ -415,6 +415,7 @@ export function RetailPosPage() {
     variants: Product[];
   } | null>(null);
   const [checkout, setCheckout] = useState(false);
+  const [checkoutOpenDiscount, setCheckoutOpenDiscount] = useState(false);
   const [closeRegister, setCloseRegister] = useState(false);
   const [movement, setMovement] = useState(false);
   const [switchOperator, setSwitchOperator] = useState(false);
@@ -715,7 +716,10 @@ export function RetailPosPage() {
       }
       if (event.key === "F2") {
         event.preventDefault();
-        if (cart.items.length && shift.cashRegister) setCheckout(true);
+        if (cart.items.length && shift.cashRegister) {
+          setCheckoutOpenDiscount(false);
+          setCheckout(true);
+        }
         return;
       }
       if (event.key === "F3") {
@@ -1542,13 +1546,22 @@ export function RetailPosPage() {
                   <span className="retail-promo-icon" aria-hidden="true">
                     <BadgePercent size={14} />
                   </span>
-                  <span>Promoção / Desconto (0%)</span>
+                  <span>Desconto (% ou R$)</span>
                 </div>
                 <button
                   type="button"
                   className="retail-promo-btn"
-                  disabled={!cart.items.length || !shift.cashRegister}
-                  onClick={() => setCheckout(true)}
+                  disabled={
+                    !cart.items.length ||
+                    !shift.cashRegister ||
+                    shift.needsOperatorReauth ||
+                    cart.isOperationLocked
+                  }
+                  onClick={() => {
+                    setMobileBagOpen(false);
+                    setCheckoutOpenDiscount(true);
+                    setCheckout(true);
+                  }}
                 >
                   Alterar Desconto
                 </button>
@@ -1620,6 +1633,7 @@ export function RetailPosPage() {
               }
               onClick={() => {
                 setMobileBagOpen(false);
+                setCheckoutOpenDiscount(false);
                 setCheckout(true);
               }}
             >
@@ -1680,6 +1694,7 @@ export function RetailPosPage() {
           }
           onClick={() => {
             setMobileBagOpen(false);
+            setCheckoutOpenDiscount(false);
             setCheckout(true);
           }}
         >
@@ -1780,7 +1795,11 @@ export function RetailPosPage() {
           isOnline={sync.isOnline}
           config={config || shell.config}
           initialMethod={currentQuickMethod.id}
-          onClose={() => setCheckout(false)}
+          initialOpenDiscount={checkoutOpenDiscount}
+          onClose={() => {
+            setCheckout(false);
+            setCheckoutOpenDiscount(false);
+          }}
           onDone={() => {
             void load();
             void sync.syncNow();

@@ -1,5 +1,12 @@
 # Histórico — PDV Lojista
 
+## 2026-11-15 — Desconto no PDV por Valor Fixo (`R$`) ou Percentual (`%`)
+
+- **Seletor Duplo `Valor (R$)` | `Percentual (%)` no Fechamento de Venda (`frontend/src/retail/RetailCheckoutModal.tsx`, `frontend/src/retail/RetailPosPage.tsx` e `frontend/src/retail/retail.css`)**:
+  - Após validar o PIN gerencial (`/tenants/me/verify-discount-pin`), a gaveta de desconto agora permite escolher entre **`Valor (R$)`** (ex.: `R$ 15,00`) e **`Percentual (%)`** (ex.: `10%`), com atalhos rápidos (`5%`, `10%`, `15%`, `20%` ou valores em `R$` + `Limpar`) e pílula de equivalência em tempo real (`Equivale a -R$ ... · Final: R$ ...` ou `Equivale a ...% · Final: R$ ...`).
+  - O cálculo (`computeCheckoutDiscount`) converte e arredonda em centavos (`Decimal(10,2)`), respeitando o teto máximo para manter total positivo (`subtotal - 0,01`) e garantindo consistência exata no payload de venda, na fila offline (`IndexedDB`), na emissão fiscal de NFC-e, no rateio de trocas e nos indicadores de Inteligência Comercial, sem necessidade de alteração de schema Prisma.
+  - Clicar em **Alterar Desconto** na barra lateral do PDV (`RetailPosPage.tsx`) agora já abre o modal de checkout com a gaveta de desconto expandida e foco automático no campo de PIN/desconto; o **Cupom de Balcão** e o comprovante pós-venda exibem tanto o valor descontado em `R$` quanto o percentual equivalente (`%`), 100% dentro dos tokens aprovados da paleta `roxo-branco`.
+
 ## 2026-11-15 — Reformulação Completa de Responsividade, Movimento, Transições e Animações da Loja Virtual
 
 - **Shell Persistente sem Recarregamento e Catálogo Instantâneo em `0 ms` (`frontend/src/App.tsx`, `frontend/src/storefront/PublicStorefrontApp.tsx`, `backend/src/storefront/storefront-public.service.ts` e `backend/src/storefront/storefront.spec.ts`)**:

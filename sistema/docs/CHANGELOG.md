@@ -1,5 +1,37 @@
 # Histórico — PDV Lojista
 
+## 2026-11-15 — Correção Integral do Módulo Rede Multi-Lojas (`Multi-Empresa`) Fim a Fim
+
+- **Provisionamento Automático da Rede no `Heart` e Fim do Erro `HTTP 401` (`backend/src/prisma/heart-prisma.service.ts`, `backend/src/tenants/tenants.service.ts`, `backend/src/auth/auth.service.ts` e `backend/src/groups/groups.service.ts`)**:
+  - `HeartPrismaService.ensureHeartColumnsAndTables()` passa a garantir de forma idempotente no banco mestre `Heart` as tabelas `tenant_groups` e `tenant_group_members` (com índice único `(groupId, tenantId)`) e a coluna `users.groupId` (sem executar migrações automáticas em bancos de clientes).
+  - Adicionado `TenantsService.ensureMultiEmpresaGroupMembership()` integrado a `findById` (`GET /api/tenants/me`), `updateTenant`, `impersonateTenant`, `ensureAndResetDemoStore` e `AuthService.login()`, além de fallback automático em `GroupsService.resolveUserGroupId()`: toda loja com `modulos.multiEmpresa === true` (ou Loja Modelo Demonstração) recebe automaticamente seu `TenantGroup` inicial e vínculo ativo, eliminando o `HTTP 401` em `/api/groups/my/*` e usando `403 ForbiddenException` apenas para perfis sem permissão.
+- **Isolamento por Pool de Tenant, Integridade de `RetailGroup`/Grades e Estoque Concorrente (`backend/src/groups/groups.service.ts` e `backend/src/groups/groups.controller.ts`)**:
+  - Substituído o `new PrismaClient()` efêmero por requisição pelo pool `TenantConnectionManager.getTenantClient()`.
+  - Corrigidos os crashes de runtime do Prisma em `createProductAllTenants`, `createProductInTenants` e `syncProductsToTenants` (que tentavam `product.upsert({ where: { name } })` em coluna não única) para criar/atualizar `RetailGroup` com foto e preço compartilhados e variações por `@@unique([retailGroupId, variantKey])`, preservando combinações esparsas de tamanho/cor na sincronização entre filiais e unidades válidas do varejo (`UN`, `PAR`, `CX`, `PCT`, `KIT`).
+  - Corrigido o crash e a perda de saldo em `stockEntry`, `stockAdjust` e `stockTransfer` (que gravavam o campo inexistente `InventoryLog.notes` em vez de `InventoryLog.reason` após descontar a origem fora de transação): agora operam com `lockProducts`, lotes FIFO (`StockLot`), respeito às reservas ativas da Loja Virtual, idempotência via `requestKey`, criação automática do cadastro/variação na loja de destino quando ausente, invalidação de cache (`ProductsService.invalidateCache`) e compensação atômica na origem em caso de falha no destino.
+  - `updatePricePerTenant` agora sincroniza `RetailGroup.priceSell` (com incremento de `version`) e todas as variações irmãs da loja; `getPurchaseForecast` e `Top Produtos` consolidam vendas entre lojas pelo nome normalizado da mercadoria em vez do UUID local de cada banco.
+- **Autoatendimento de Filiais no Painel da Rede, Gestão Completa no `/sys-init` e Modo Demo Local (`frontend/src/pages/GroupPortalPage.tsx`, `frontend/src/retail/RetailLayout.tsx`, `frontend/src/app/sys-init/page.tsx` e `scripts/demo-local.cjs`)**:
+  - Novos endpoints `POST /api/groups/my/link-store`, `PATCH /api/groups/my/settings`, `DELETE /api/groups/my/members/:tenantId` e `PATCH /api/groups/setup/:id`.
+  - `GroupPortalPage.tsx` (100% na paleta aprovada `roxo-branco`, sem `window.alert`) agora oferece modais **Vincular Filial** (autenticando e-mail e senha de admin da filial com `.pdv-secret-input`) e **Configurar Rede** (renomear rede, editar apelidos das lojas e desvincular unidades), callout orientativo para redes recém-ativadas com 1 loja, cadastro multi-lojas com grade de tamanhos e cores, exibição de saldos reservados e atualização imediata do seletor global de lojas via `refreshTenantConfig()`.
+  - `MODAL GERENCIAR GRUPO` em `/sys-init` passa a permitir renomear grupo, excluir grupo, desvincular membros e remover usuários proprietários; `scripts/demo-local.cjs` passa a responder integralmente às rotas `/api/groups/my/*`.
+- **Testes Automatizados (`backend/src/groups/groups.service.spec.ts`)**:
+  - Cobertura unitária para auto-provisionamento sem `HTTP 401`, bloqueio `403`, vínculo de filial com limpeza de grupo órfão, sincronização de preço em `RetailGroup` + variações, replicação exata de grades esparsas, transferência FIFO idempotente e estorno compensatório na origem.
+
+## 2026-11-15 — Responsividade em Largura Total e Remoção de Containers Estreitos em Todas as Abas do Sistema
+
+- **Auditoria Completa de Rotas e Salvaguarda Global no Shell Administrativo (`frontend/src/retail/management.css` e `docs/AUDITORIA-RESPONSIVIDADE-LARGURA-TOTAL.md`)**:
+  - Mapeadas 100% das rotas, módulos, abas e sub-abas de `frontend/src/App.tsx` para eliminar wrappers estreitos centralizados (`max-w-* mx-auto` e `maxWidth` inline) que criavam "paredes invisíveis" em monitores desktop e ultrawide.
+  - Adicionada regra global em `.retail-dashboard-frame .retail-content > div:not(.fixed):not([role="dialog"])` garantindo `width: 100%; max-width: none; min-width: 0`, preservando modais, gavetas, login e vitrine pública (`/loja/:slug`).
+- **Expansão Fluida do Módulo de Estoque (`frontend/src/app/dashboard/inventory/stock-count/page.tsx`, `categories/page.tsx`, `stock-entry/page.tsx` e `purchases/imports/page.tsx`)**:
+  - Removidos `max-w-5xl`, `max-w-6xl` e `max-w-7xl` com `mx-auto` nas abas `Contagem de estoque`, `Categorias`, `Entrada manual` e `Entrada por XML`, substituindo por `w-full min-w-0`.
+  - Ampliadas as grades de seleção de categorias (`xl:grid-cols-5`) e produtos (`xl:grid-cols-3`) na Contagem de Estoque; convertida a faixa de sugestões de categorias de rolagem cortada para `flex-wrap` completo; expandida a barra de filtros/busca e as colunas de fornecedor na importação XML.
+- **Expansão Fluida em Configurações, Financeiro, Equipe, Rede Multi-Lojas e Sys-Init (`payment-methods/page.tsx`, `fiscal/gestao/page.tsx`, `purchase-orders/page.tsx`, `suppliers/page.tsx`, `users/page.tsx`, `GroupPortalPage.tsx` e `sys-init/page.tsx`)**:
+  - `Meios de pagamento`: removido `max-w-3xl mx-auto` (`768px`) e distribuídos `Métodos Padrão` e `Métodos Customizados` em `grid-cols-1 xl:grid-cols-2`.
+  - `Notas NFC-e`, `Pedidos de compra` e `Fornecedores`: removidos `max-w-6xl`/`max-w-7xl mx-auto` e calibrada a visão dividida de fornecedores locais para `lg:grid-cols-12` (`3/12` + `9/12`).
+  - `Equipe`: removido padding interno duplicado (`p-6`) para alinhar com o espaçamento padrão de `.retail-content`.
+  - `Rede Multi-Lojas > Transferências`: removido `maxWidth: '640px'`/`'620px'` e adicionado painel comparativo `Saldo por Filial na Rede` ao lado do formulário, preservando idempotência (`requestKey`), reservas e paleta `roxo-branco`.
+  - `Sys-Init`: removidos `max-w-lg` e `max-w-4xl mx-auto` nas telas de Backups, Nova Empresa, Edição de Empresa (6 abas) e Sucesso.
+
 ## 2026-11-15 — Redesign Exclusivo "Balcão & Cupom" do Modal de Finalizar Venda
 
 - **Arquitetura Visual de Duas Colunas ("Balcão Dividido + Cupom Vivo") no Fechamento de Venda (`frontend/src/retail/RetailCheckoutModal.tsx`, `frontend/src/retail/RetailDialog.tsx` e `frontend/src/retail/retail.css`)**:

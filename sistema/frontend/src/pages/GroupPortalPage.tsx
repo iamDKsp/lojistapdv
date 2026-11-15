@@ -1420,7 +1420,7 @@ function TabDashboard({
             gap: '1rem',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem', maxWidth: '720px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem', flex: '1 1 320px', minWidth: 0 }}>
             <div
               style={{
                 width: '40px',
@@ -3200,15 +3200,19 @@ function TabTransferencias() {
 
   if (tids.length < 2) {
     return (
-      <div style={{ background: '#FFFFFF', border: '1px solid #E5E1ED', borderRadius: '1rem', padding: '2.5rem', maxWidth: '620px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.875rem' }}>
-        <div style={{ width: '42px', height: '42px', borderRadius: '0.75rem', background: '#F3E8FF', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7C3AED' }}>
-          <ArrowLeftRight size={20} />
-        </div>
-        <div style={{ fontWeight: 800, fontSize: '1rem', color: '#272321' }}>
-          Vincule pelo menos 2 unidades para transferir estoque
-        </div>
-        <div style={{ fontSize: '0.84rem', color: '#665F70', lineHeight: 1.5 }}>
-          As transferências movimentam mercadorias entre duas filiais da rede com baixa FIFO na origem, criação automática da variação no destino (se necessário) e registro completo de auditoria.
+      <div style={{ background: '#FFFFFF', border: '1px solid #E5E1ED', borderRadius: '1rem', padding: '2rem', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1.25rem' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem', flex: '1 1 320px', minWidth: 0 }}>
+          <div style={{ width: '44px', height: '44px', borderRadius: '0.75rem', background: '#F3E8FF', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7C3AED', flexShrink: 0 }}>
+            <ArrowLeftRight size={20} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', minWidth: 0 }}>
+            <div style={{ fontWeight: 800, fontSize: '1rem', color: '#272321' }}>
+              Vincule pelo menos 2 unidades para transferir estoque
+            </div>
+            <div style={{ fontSize: '0.84rem', color: '#665F70', lineHeight: 1.5 }}>
+              As transferências movimentam mercadorias entre duas filiais da rede com baixa FIFO na origem, criação automática da variação no destino (se necessário) e registro completo de auditoria.
+            </div>
+          </div>
         </div>
         <Btn onClick={() => navigate('/grupo-portal/visao-geral')} size="sm">
           <Link2 size={14} /> Ir para Visão Geral e Vincular Filial
@@ -3217,9 +3221,14 @@ function TabTransferencias() {
     );
   }
 
+  const selectedProductRow =
+    form.fromTenantId && form.productId && stockData && Array.isArray(stockData.rows)
+      ? stockData.rows.find(r => r.tenants?.[form.fromTenantId]?.productId === form.productId) || null
+      : null;
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', maxWidth: '640px' }}>
-      <div style={{ background: '#FFFFFF', border: '1px solid #E5E1ED', borderRadius: '1rem', padding: '1.5rem' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem', alignItems: 'start', width: '100%' }}>
+      <div style={{ background: '#FFFFFF', border: '1px solid #E5E1ED', borderRadius: '1rem', padding: '1.5rem', minWidth: 0 }}>
         <h2 style={{ margin: '0 0 0.35rem', fontSize: '1.05rem', fontWeight: 800, color: '#272321', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <ArrowLeftRight size={18} color="#7C3AED" /> Transferência de Estoque entre Filiais
         </h2>
@@ -3227,69 +3236,73 @@ function TabTransferencias() {
           Transfira variações entre lojas da rede com baixa FIFO automática, proteção de reservas e criação automática do cadastro no destino caso ainda não exista.
         </p>
 
-        <FF label="Loja de Origem">
-          <select
-            value={form.fromTenantId}
-            onChange={e => updateFormField({ fromTenantId: e.target.value, productId: '' })}
-            style={SS}
-          >
-            <option value="">Selecione a loja de origem...</option>
-            {tids.map(tid => (
-              <option key={tid} value={tid}>
-                {stockData!.tenantLabels[tid]}
-              </option>
-            ))}
-          </select>
-        </FF>
-
-        <FF label="Loja de Destino">
-          <select
-            value={form.toTenantId}
-            onChange={e => updateFormField({ toTenantId: e.target.value })}
-            style={SS}
-          >
-            <option value="">Selecione a loja de destino...</option>
-            {tids
-              .filter(t => t !== form.fromTenantId)
-              .map(tid => (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '0.875rem' }}>
+          <FF label="Loja de Origem">
+            <select
+              value={form.fromTenantId}
+              onChange={e => updateFormField({ fromTenantId: e.target.value, productId: '' })}
+              style={SS}
+            >
+              <option value="">Selecione a loja de origem...</option>
+              {tids.map(tid => (
                 <option key={tid} value={tid}>
                   {stockData!.tenantLabels[tid]}
                 </option>
               ))}
-          </select>
-        </FF>
+            </select>
+          </FF>
 
-        <FF label="Mercadoria / Variação">
-          <select
-            value={form.productId}
-            onChange={e => updateFormField({ productId: e.target.value })}
-            style={SS}
-            disabled={!form.fromTenantId}
-          >
-            <option value="">Selecione a mercadoria...</option>
-            {availableProducts.map(r => {
-              const cell = r.tenants[form.fromTenantId];
-              const avail = cell.availableQty ?? cell.qty;
-              return (
-                <option key={cell.productId} value={cell.productId}>
-                  {r.name} (disponível: {fmtNum(avail)} {cell.unit})
-                </option>
-              );
-            })}
-          </select>
-        </FF>
+          <FF label="Loja de Destino">
+            <select
+              value={form.toTenantId}
+              onChange={e => updateFormField({ toTenantId: e.target.value })}
+              style={SS}
+            >
+              <option value="">Selecione a loja de destino...</option>
+              {tids
+                .filter(t => t !== form.fromTenantId)
+                .map(tid => (
+                  <option key={tid} value={tid}>
+                    {stockData!.tenantLabels[tid]}
+                  </option>
+                ))}
+            </select>
+          </FF>
+        </div>
 
-        <FF label="Quantidade a Transferir">
-          <input
-            type="number"
-            step="0.001"
-            min="0.001"
-            value={form.quantity}
-            onChange={e => updateFormField({ quantity: e.target.value })}
-            style={IS}
-            placeholder="Ex: 10"
-          />
-        </FF>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '0.875rem' }}>
+          <FF label="Mercadoria / Variação">
+            <select
+              value={form.productId}
+              onChange={e => updateFormField({ productId: e.target.value })}
+              style={SS}
+              disabled={!form.fromTenantId}
+            >
+              <option value="">Selecione a mercadoria...</option>
+              {availableProducts.map(r => {
+                const cell = r.tenants[form.fromTenantId];
+                const avail = cell.availableQty ?? cell.qty;
+                return (
+                  <option key={cell.productId} value={cell.productId}>
+                    {r.name} (disponível: {fmtNum(avail)} {cell.unit})
+                  </option>
+                );
+              })}
+            </select>
+          </FF>
+
+          <FF label="Quantidade a Transferir">
+            <input
+              type="number"
+              step="0.001"
+              min="0.001"
+              value={form.quantity}
+              onChange={e => updateFormField({ quantity: e.target.value })}
+              style={IS}
+              placeholder="Ex: 10"
+            />
+          </FF>
+        </div>
 
         {msg && (
           <div style={{ padding: '0.75rem 1rem', marginBottom: '1rem', background: '#F3E8FF', border: '1px solid #E5E1ED', borderRadius: '0.625rem', fontSize: '0.82rem', color: '#7C3AED', fontWeight: 700 }}>
@@ -3301,6 +3314,65 @@ function TabTransferencias() {
           {sending ? <Loader2 size={14} className="animate-spin" /> : <ArrowLeftRight size={14} />}
           {sending ? 'Transferindo...' : 'Confirmar Transferência'}
         </Btn>
+      </div>
+
+      <div style={{ background: '#FFFFFF', border: '1px solid #E5E1ED', borderRadius: '1rem', padding: '1.5rem', minWidth: 0 }}>
+        <h3 style={{ margin: '0 0 0.35rem', fontSize: '0.98rem', fontWeight: 800, color: '#272321', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <Store size={16} color="#7C3AED" /> Saldo por Filial na Rede
+        </h3>
+        <p style={{ margin: '0 0 1.25rem', fontSize: '0.8rem', color: '#665F70' }}>
+          {selectedProductRow
+            ? `Distribuição atual de "${selectedProductRow.name}" nas unidades vinculadas.`
+            : 'Selecione a loja de origem e a mercadoria para visualizar o saldo disponível em todas as filiais antes de confirmar.'}
+        </p>
+
+        {selectedProductRow ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem' }}>
+            {tids.map(tid => {
+              const cell = selectedProductRow.tenants?.[tid];
+              const isOrigin = tid === form.fromTenantId;
+              const isTarget = tid === form.toTenantId;
+              const avail = cell ? (cell.availableQty ?? cell.qty) : 0;
+              return (
+                <div
+                  key={tid}
+                  style={{
+                    background: isOrigin || isTarget ? '#F3E8FF' : '#F8F7FC',
+                    border: `1px solid ${isOrigin || isTarget ? '#7C3AED' : '#E5E1ED'}`,
+                    borderRadius: '0.75rem',
+                    padding: '0.875rem 1rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.3rem',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#272321' }}>
+                      {stockData!.tenantLabels[tid]}
+                    </span>
+                    {(isOrigin || isTarget) && (
+                      <span style={{ fontSize: '0.65rem', fontWeight: 800, color: '#7C3AED', textTransform: 'uppercase' }}>
+                        {isOrigin ? 'Origem' : 'Destino'}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#272321' }}>
+                    {cell ? `${fmtNum(avail)} ${cell.unit}` : 'Sem cadastro'}
+                  </div>
+                  {cell && (cell.reservedQty ?? 0) > 0 && (
+                    <div style={{ fontSize: '0.68rem', color: '#665F70' }}>
+                      Reservado: {fmtNum(cell.reservedQty!)} {cell.unit}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div style={{ background: '#F8F7FC', border: '1px dashed #E5E1ED', borderRadius: '0.75rem', padding: '2rem 1.25rem', textAlign: 'center', color: '#665F70', fontSize: '0.82rem' }}>
+            Escolha a origem e o item ao lado para comparar estoques entre as unidades da rede.
+          </div>
+        )}
       </div>
     </div>
   );

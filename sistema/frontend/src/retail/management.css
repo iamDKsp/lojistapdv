@@ -268,59 +268,11 @@
 .retail-dashboard-frame .management-pending-actions button { border: 0; padding: 4px 0; background: transparent; color: var(--pdv-primary-hover); font-size: 12px; text-align: left; cursor: pointer; }
 .retail-dashboard-frame .management-pending-actions button:hover { text-decoration: underline; }
 
-/* Inteligência: leitura dos resultados antes da ornamentação do ranking. */
-.retail-dashboard-frame .retail-content .retail-intel-stage-card {
-  min-width: 0;
-  border: 1px solid var(--pdv-border);
-  border-radius: 10px;
-  background: var(--pdv-white);
-  color: var(--pdv-text);
-  box-shadow: none;
-}
-.retail-dashboard-frame .retail-content .retail-intel-stage-top {
-  padding: 18px;
-  background: var(--pdv-background);
-  border-bottom: 1px solid var(--pdv-border);
-}
-.retail-dashboard-frame .retail-content .retail-intel-stage-header h2 { color: var(--pdv-text); font-size: 18px; font-weight: 650; }
-.retail-dashboard-frame .retail-content .retail-intel-stage-header p { color: var(--pdv-text-secondary); font-size: 12px; }
-.retail-dashboard-frame .retail-content .retail-intel-stage-tag {
-  background: var(--pdv-support); color: var(--pdv-primary-hover); border: 0; border-radius: 5px; letter-spacing: .02em; font-weight: 600;
-}
-.retail-dashboard-frame .retail-content .retail-intel-challenge-btn {
-  background: var(--pdv-white); color: var(--pdv-text); border: 1px solid var(--pdv-border); border-radius: 7px; box-shadow: none; font-size: 12px;
-}
-.retail-dashboard-frame .retail-content .retail-intel-challenge-btn:hover { background: var(--pdv-support); transform: none; }
-.retail-dashboard-frame .retail-content .retail-intel-challenge-menu { border-radius: 8px; }
-.retail-dashboard-frame .retail-content .retail-intel-podium-slot.is-first { transform: none; }
-.retail-dashboard-frame .retail-content .retail-intel-podium-person {
-  color: var(--pdv-text); border-radius: 8px; background: transparent; transform: none; padding: 10px 8px; gap: 5px;
-}
-.retail-dashboard-frame .retail-content .retail-intel-podium-person.is-champion { border-color: var(--pdv-border); background: var(--pdv-white); }
-.retail-dashboard-frame .retail-content .retail-intel-podium-person:hover { background: var(--pdv-support); border-color: var(--pdv-primary); transform: none; }
-.retail-dashboard-frame .retail-content .retail-intel-laurel-svg { width: 44px; height: 26px; filter: none; }
-.retail-dashboard-frame .retail-content .retail-intel-rank-pill { box-shadow: none; border-radius: 5px; font-size: 11px; }
+/* Inteligência: células do calendário e emblemas preservam leitura limpa sem saltos no hover. */
 .retail-dashboard-frame .retail-content .retail-intel-avatar { box-shadow: none; }
-.retail-dashboard-frame .retail-content .retail-intel-podium-person .retail-intel-avatar { max-width: 54px; max-height: 54px; border-width: 2px; }
-.retail-dashboard-frame .retail-content .retail-intel-podium-name { color: var(--pdv-text); font-size: 13px; font-weight: 650; }
-.retail-dashboard-frame .retail-content .retail-intel-podium-metric { color: var(--pdv-primary-hover); font-size: 13px; font-weight: 650; }
-.retail-dashboard-frame .retail-content .retail-intel-podium-metric.is-champion-metric { background: transparent; padding: 0; border-radius: 0; font-size: 16px; }
-.retail-dashboard-frame .retail-content .retail-intel-podium-sub { color: var(--pdv-text-secondary); font-size: 11px; }
-.retail-dashboard-frame .retail-content .retail-intel-leaderboard-wrap { background: var(--pdv-white); padding: 16px; overflow-x: auto; }
-.retail-dashboard-frame .retail-content .retail-intel-leaderboard-head { color: var(--pdv-text-secondary); border-color: var(--pdv-border); font-size: 10px; font-weight: 600; }
-.retail-dashboard-frame .retail-content .retail-intel-leaderboard-list { gap: 0; margin-top: 0; }
-.retail-dashboard-frame .retail-content .retail-intel-leaderboard-row {
-  border: 0; border-bottom: 1px solid var(--pdv-border); border-radius: 0; background: var(--pdv-white); padding: 12px 14px; transform: none;
-}
-.retail-dashboard-frame .retail-content .retail-intel-leaderboard-row:hover { background: var(--pdv-background); transform: none; }
-.retail-dashboard-frame .retail-content :is(.retail-intel-lb-ident strong, .retail-intel-lb-cell strong) { color: var(--pdv-text); font-size: 12px; font-weight: 600; }
-.retail-dashboard-frame .retail-content :is(.retail-intel-lb-ident small, .retail-intel-lb-cell small) { color: var(--pdv-text-secondary); font-size: 11px; }
-.retail-dashboard-frame .retail-content .retail-intel-lb-win strong { color: var(--pdv-primary-hover); }
-.retail-dashboard-frame .retail-content .retail-intel-lb-badge { box-shadow: none; border-radius: 5px; font-weight: 600; }
-.retail-dashboard-frame .retail-content :is(.retail-intel-insight-card, .retail-intel-bestday-row, .retail-intel-day-cell) { border-radius: 8px; }
-.retail-dashboard-frame .retail-content .retail-intel-day-cell { box-shadow: none; }
+.retail-dashboard-frame .retail-content .retail-intel-lb-badge { box-shadow: none; }
+.retail-dashboard-frame .retail-content .retail-intel-day-cell { border-radius: 8px; box-shadow: none; }
 .retail-dashboard-frame .retail-content .retail-intel-day-cell:hover:not(.is-pad) { transform: none; }
-.retail-dashboard-frame .retail-content .retail-intel-insight-badge { border-radius: 5px; font-weight: 600; }
 
 /* Movimento curto sem transladar o palco: formulários fixed ficam no viewport. */
 .retail-dashboard-frame .retail-content.retail-module-stage[data-module-kind] { animation: management-content-enter 120ms ease-out; }
@@ -341,9 +293,6 @@ body:has(.retail-dashboard-frame) .retail-dialog-footer { padding: 14px 22px; ba
 .retail-dashboard-frame .management-payable-drawer > div:first-child h2 { font-size: 20px; }
 .retail-dashboard-frame .management-payable-drawer :is(input:not([type="checkbox"]), textarea) { border-radius: 7px; }
 
-@media (min-width: 769px) {
-  .retail-dashboard-frame .retail-content :is(.retail-intel-leaderboard-head, .retail-intel-leaderboard-row) { min-width: 700px; }
-}
 @media (max-width: 768px) {
   .retail-dashboard-frame { --management-space: 16px; }
   .retail-dashboard-frame .management-workspace-header { min-height: 50px; padding-block: 7px; }
@@ -355,8 +304,6 @@ body:has(.retail-dashboard-frame) .retail-dialog-footer { padding: 14px 22px; ba
   .retail-dashboard-frame .retail-content .retail-page-header { margin-bottom: 18px; }
   .retail-dashboard-frame .retail-content .retail-search { min-width: min(100%, 200px); }
   .retail-dashboard-frame .retail-content .retail-panel { padding: 16px; }
-  .retail-dashboard-frame .retail-content .retail-intel-podium-name { overflow-wrap: anywhere; }
-  .retail-dashboard-frame .retail-content .retail-intel-lb-cell[data-label]::before { content: attr(data-label); display: block; color: var(--pdv-text-secondary); font-size: 10px; margin-bottom: 3px; }
   .retail-dashboard-frame .retail-overview-metrics { grid-template-columns: 1fr; }
   .retail-dashboard-frame .retail-overview-metrics > .retail-panel + .retail-panel { border-left: 0; border-top: 1px solid var(--pdv-border); }
   .retail-dashboard-frame .retail-overview-metrics > .retail-panel { display: grid; grid-template-columns: 1fr auto; gap: 5px 12px; align-items: center; }

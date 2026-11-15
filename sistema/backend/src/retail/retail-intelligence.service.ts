@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { HeartPrismaService } from '../prisma/heart-prisma.service';
 import { TenantContextService } from '../prisma/tenant-context.service';
 import { TenantConnectionManager } from '../prisma/tenant-prisma.service';
+import { EntityPhotoResolverService } from '../prisma/entity-photo-resolver.service';
 import { businessDayStart } from './retail-overview.service';
 
 export interface CommercialGoalsConfig {
@@ -58,6 +59,20 @@ function round2(val: number): number {
 
 function round1(val: number): number {
   return Math.round((Number(val) || 0) * 10) / 10;
+}
+
+function formatBrlPt(val: number): string {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  }).format(Number(val) || 0);
+}
+
+function formatDecPt(val: number, digits = 1): string {
+  return (Number(val) || 0).toLocaleString('pt-BR', {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
 }
 
 export function formatSaoPauloDateTimeParts(date: Date): {
@@ -182,9 +197,11 @@ export class RetailIntelligenceService {
 
   private async getOperatorImagesMap(tenantId: string): Promise<{
     byOperatorId: Map<string, string | null>;
+    byUserId: Map<string, { name: string; imageUrl: string | null }>;
     byName: Map<string, string | null>;
   }> {
     const byOperatorId = new Map<string, string | null>();
+    const byUserId = new Map<string, { name: string; imageUrl: string | null }>();
     const byName = new Map<string, string | null>();
     try {
       const [profileRows, tenantUsers] = await Promise.all([
@@ -197,7 +214,7 @@ export class RetailIntelligenceService {
         this.heartPrisma?.user
           ?.findMany({
             where: { tenantId },
-            select: { name: true, imageUrl: true },
+            select: { id: true, name: true, imageUrl: true },
           })
           .catch(() => []),
       ]);
@@ -208,14 +225,27 @@ export class RetailIntelligenceService {
         }
       }
       for (const u of tenantUsers || []) {
+        if ((u as any).id) {
+          byUserId.set((u as any).id, {
+            name: u.name || 'Administrador',
+            imageUrl: u.imageUrl || null,
+          });
+        }
         if (u.name && u.imageUrl) {
-          byName.set(u.name.trim().toLowerCase(), u.imageUrl);
+          const exact = EntityPhotoResolverService.normalizeName(u.name);
+          if (exact && !byName.has(exact)) {
+            byName.set(exact, u.imageUrl);
+          }
+          const stripped = EntityPhotoResolverService.normalizeBaseName(u.name);
+          if (stripped && !byName.has(stripped)) {
+            byName.set(stripped, u.imageUrl);
+          }
         }
       }
     } catch {
       // Ignora caso heartPrisma não esteja disponível em testes unitários isolados
     }
-    return { byOperatorId, byName };
+    return { byOperatorId, byUserId, byName };
   }
 
   async updateGoals(input: Partial<CommercialGoalsConfig>) {
@@ -314,10 +344,13 @@ export class RetailIntelligenceService {
                 select: {
                   id: true,
                   name: true,
+                  imageUrl: true,
                   size: true,
                   color: true,
                   category: { select: { id: true, name: true } },
-                  retailGroup: { select: { id: true, name: true } },
+                  retailGroup: {
+                    select: { id: true, name: true, imageUrl: true },
+                  },
                 },
               },
             },
@@ -343,9 +376,17 @@ export class RetailIntelligenceService {
               saleItem: {
                 select: {
                   id: true,
+                  productId: true,
                   productName: true,
                   quantity: true,
                   priceUnit: true,
+                  product: {
+                    select: {
+                      id: true,
+                      imageUrl: true,
+                      retailGroup: { select: { imageUrl: true } },
+                    },
+                  },
                 },
               },
             },
@@ -365,13 +406,37 @@ export class RetailIntelligenceService {
       savedPaymentCfg._commercialIntelligenceConfig,
     );
 
+    for (const op of operators) {
+      const opImg = imagesMap.byOperatorId.get(op.id);
+      if (opImg && op.name) {
+        const exact = EntityPhotoResolverService.normalizeName(op.name);
+        if (exact && !imagesMap.byName.has(exact)) {
+          imagesMap.byName.set(exact, opImg);
+        }
+        const stripped = EntityPhotoResolverService.normalizeBaseName(op.name);
+        if (stripped && !imagesMap.byName.has(stripped)) {
+          imagesMap.byName.set(stripped, opImg);
+        }
+      }
+    }
+
     const resolveAvatar = (opId?: string | null, opName?: string | null) => {
       if (opId && imagesMap.byOperatorId.has(opId)) {
         return imagesMap.byOperatorId.get(opId) || null;
       }
+      if (opId && imagesMap.byUserId.has(opId)) {
+        const userImg = imagesMap.byUserId.get(opId)?.imageUrl;
+        if (userImg) return userImg;
+      }
       if (opName) {
-        const key = opName.trim().toLowerCase();
-        if (imagesMap.byName.has(key)) return imagesMap.byName.get(key) || null;
+        const exact = EntityPhotoResolverService.normalizeName(opName);
+        if (exact && imagesMap.byName.has(exact)) {
+          return imagesMap.byName.get(exact) || null;
+        }
+        const stripped = EntityPhotoResolverService.normalizeBaseName(opName);
+        if (stripped && imagesMap.byName.has(stripped)) {
+          return imagesMap.byName.get(stripped) || null;
+        }
       }
       return null;
     };
@@ -437,7 +502,16 @@ export class RetailIntelligenceService {
       byWeekday: Map<number, { revenue: number; salesCount: number }>;
       byHour: Map<number, { revenue: number; salesCount: number }>;
       categoriesMap: Map<string, { name: string; quantity: number; revenue: number }>;
-      groupsMap: Map<string, { id: string; name: string; quantity: number; revenue: number }>;
+      groupsMap: Map<
+        string,
+        {
+          id: string;
+          name: string;
+          imageUrl: string | null;
+          quantity: number;
+          revenue: number;
+        }
+      >;
       recentSales: any[];
       recentReturns: any[];
     }
@@ -564,13 +638,21 @@ export class RetailIntelligenceService {
 
     // Processar todas as vendas concluídas
     for (const sale of sales) {
-      const opId = sale.operatorId || 'sem-vendedor';
-      const opName = sale.operator?.name || 'Balcão (Sem Vendedor)';
+      const hasRegisteredOperator = Boolean(
+        sale.operatorId &&
+          (sellerMap.has(sale.operatorId) || sale.operator?.name),
+      );
+      const opId = hasRegisteredOperator ? sale.operatorId! : 'sem-vendedor';
+      const opName = hasRegisteredOperator
+        ? sale.operator?.name || sellerMap.get(opId)?.name || 'Vendedor'
+        : 'Balcão (Sem Vendedor)';
       const seller = ensureSeller(
         opId,
         opName,
-        sale.operator?.jobTitle,
-        sale.operator?.isManager ?? false,
+        hasRegisteredOperator
+          ? sale.operator?.jobTitle
+          : 'Sem vendedor vinculado',
+        hasRegisteredOperator ? (sale.operator?.isManager ?? false) : false,
         true,
       );
 
@@ -609,14 +691,21 @@ export class RetailIntelligenceService {
         const grpId = item.product?.retailGroup?.id || item.productId;
         const grpName =
           item.product?.retailGroup?.name || item.productName || 'Mercadoria';
+        const itemImageUrl = EntityPhotoResolverService.resolveProductImageUrl(
+          item.product,
+        );
         const grpPrev = seller.groupsMap.get(grpId) || {
           id: grpId,
           name: grpName,
+          imageUrl: null,
           quantity: 0,
           revenue: 0,
         };
         grpPrev.quantity += qty;
         grpPrev.revenue = round2(grpPrev.revenue + itemSub);
+        if (!grpPrev.imageUrl && itemImageUrl) {
+          grpPrev.imageUrl = itemImageUrl;
+        }
         seller.groupsMap.set(grpId, grpPrev);
 
         return {
@@ -625,6 +714,7 @@ export class RetailIntelligenceService {
           productName: item.productName,
           groupName: grpName,
           categoryName: catName,
+          imageUrl: itemImageUrl,
           size: item.product?.size || null,
           color: item.product?.color || null,
           quantity: qty,
@@ -762,11 +852,21 @@ export class RetailIntelligenceService {
 
     // Processar todas as trocas do período (atribuindo ao vendedor da venda original!)
     for (const ret of returns) {
-      const originOpId = ret.sale?.operatorId || ret.operatorId || 'sem-vendedor';
-      let seller = sellerMap.get(originOpId);
-      if (!seller) {
-        seller = ensureSeller(originOpId, 'Balcão (Sem Vendedor)', 'Balcão', false, true);
+      let originOpId = 'sem-vendedor';
+      if (ret.sale) {
+        if (ret.sale.operatorId && sellerMap.has(ret.sale.operatorId)) {
+          originOpId = ret.sale.operatorId;
+        }
+      } else if (ret.operatorId && sellerMap.has(ret.operatorId)) {
+        originOpId = ret.operatorId;
       }
+      const seller = ensureSeller(
+        originOpId,
+        'Balcão (Sem Vendedor)',
+        'Sem vendedor vinculado',
+        false,
+        true,
+      );
 
       const retVal = round2(Number(ret.total || 0));
       const retPieces = (ret.items || []).reduce(
@@ -820,6 +920,16 @@ export class RetailIntelligenceService {
       dayAcc.sellers.set(originOpId, daySeller);
 
       if (seller.recentReturns.length < 15) {
+        const procId = ret.operatorId || null;
+        const procSeller =
+          procId && procId !== 'sem-vendedor' ? sellerMap.get(procId) : null;
+        const procUser = procId ? imagesMap.byUserId.get(procId) : null;
+        const processedByOperatorName =
+          procSeller?.name || procUser?.name || null;
+        const processedByOperatorImageUrl = procId
+          ? resolveAvatar(procId, processedByOperatorName)
+          : null;
+
         seller.recentReturns.push({
           id: ret.id,
           saleId: ret.saleId,
@@ -827,11 +937,18 @@ export class RetailIntelligenceService {
           date: dateStr,
           time: timeStr,
           customerName: ret.customer?.name || 'Cliente',
+          processedByOperatorId: procId,
+          processedByOperatorName,
+          processedByOperatorImageUrl,
           reason: reasonText,
           total: retVal,
           piecesCount: retPieces,
-          items: (ret.items || []).map((ri) => ({
+          items: (ret.items || []).map((ri: any) => ({
+            productId: ri.saleItem?.productId || null,
             productName: ri.saleItem?.productName || 'Mercadoria',
+            imageUrl: EntityPhotoResolverService.resolveProductImageUrl(
+              ri.saleItem?.product,
+            ),
             quantity: ri.quantity,
             value: round2(Number(ri.value || 0)),
             restock: ri.restock,
@@ -871,7 +988,9 @@ export class RetailIntelligenceService {
           shareOfDayPct: number;
         } | null = null;
 
-        const sellersWithSales = sellerBreakdown.filter((s) => s.salesCount > 0);
+        const sellersWithSales = sellerBreakdown.filter(
+          (s) => s.salesCount > 0 && s.operatorId !== 'sem-vendedor',
+        );
         if (sellersWithSales.length > 0) {
           const top = sellersWithSales[0];
           champion = {
@@ -970,8 +1089,14 @@ export class RetailIntelligenceService {
 
     // Consolidar lista final de vendedores
     const sellers = [...sellerMap.values()]
-      .filter((s) => s.operatorId !== 'sem-vendedor' || s.salesCount > 0)
+      .filter(
+        (s) =>
+          s.operatorId !== 'sem-vendedor' ||
+          s.salesCount > 0 ||
+          s.returnsCount > 0,
+      )
       .map((s) => {
+        const isUnassigned = s.operatorId === 'sem-vendedor';
         const netRevenue = round2(s.grossRevenue - s.returnsAmount);
         const sharePct =
           storeGrossRevenue > 0
@@ -1017,7 +1142,7 @@ export class RetailIntelligenceService {
             ? round1((s.identifiedSalesCount / s.salesCount) * 100)
             : 0;
 
-        // Melhor dia do vendedor
+        // Melhor dia do vendedor (apenas dias com venda real > 0)
         const dailyHistory = [...s.byDate.values()]
           .map((d) => ({
             ...d,
@@ -1027,9 +1152,11 @@ export class RetailIntelligenceService {
           .sort((a, b) => a.date.localeCompare(b.date));
 
         const bestDay =
-          [...dailyHistory].sort(
-            (a, b) => b.revenue - a.revenue || b.piecesCount - a.piecesCount,
-          )[0] || null;
+          [...dailyHistory]
+            .filter((d) => d.salesCount > 0 && d.revenue > 0)
+            .sort(
+              (a, b) => b.revenue - a.revenue || b.piecesCount - a.piecesCount,
+            )[0] || null;
 
         // Melhor dia da semana
         const bestWeekdayEntry = [...s.byWeekday.entries()].sort(
@@ -1057,31 +1184,36 @@ export class RetailIntelligenceService {
             }
           : null;
 
-        // Metas e comissões
+        // Metas e comissões (vendas sem vendedor não acumulam meta/comissão)
         const override = goalsConfig.sellerOverrides[s.operatorId] || {};
-        const goal =
-          override.goal !== undefined
+        const goal = isUnassigned
+          ? 0
+          : override.goal !== undefined
             ? override.goal
             : goalsConfig.defaultSellerGoal;
-        const commissionPct =
-          override.commissionPct !== undefined
+        const commissionPct = isUnassigned
+          ? 0
+          : override.commissionPct !== undefined
             ? override.commissionPct
             : goalsConfig.defaultCommissionPct;
         const basisAmount =
           goalsConfig.commissionBasis === 'gross'
             ? s.grossRevenue
             : Math.max(0, netRevenue);
-        const estimatedCommission = round2((basisAmount * commissionPct) / 100);
+        const estimatedCommission = isUnassigned
+          ? 0
+          : round2((basisAmount * commissionPct) / 100);
         const goalProgressPct =
-          goal > 0 ? round1((basisAmount / goal) * 100) : 0;
+          !isUnassigned && goal > 0 ? round1((basisAmount / goal) * 100) : 0;
 
         const winRatePct =
-          storeActiveDaysCount > 0
+          !isUnassigned && storeActiveDaysCount > 0
             ? round1((s.dailyWinsCount / storeActiveDaysCount) * 100)
             : 0;
 
         return {
           operatorId: s.operatorId,
+          isUnassigned,
           name: s.name,
           jobTitle: s.jobTitle,
           isManager: s.isManager,
@@ -1157,9 +1289,11 @@ export class RetailIntelligenceService {
         .sort((a, b) => b.revenue - a.revenue || b.piecesCount - a.piecesCount)[0] ||
       null;
 
-    const topSeller = sellers[0] || null;
+    const teamSellers = sellers.filter((s) => !s.isUnassigned);
+    const unassignedSeller = sellers.find((s) => s.isUnassigned) || null;
+    const topSeller = teamSellers.find((s) => s.salesCount > 0) || null;
     const totalEstimatedCommission = round2(
-      sellers.reduce((n, s) => n + s.estimatedCommission, 0),
+      teamSellers.reduce((n, s) => n + s.estimatedCommission, 0),
     );
     const storeDiscountRatePct =
       storeSubtotalBeforeDiscount > 0
@@ -1197,14 +1331,24 @@ export class RetailIntelligenceService {
           )
         : 0;
 
-    // Gerar insights acionáveis para o gestor
+    // Gerar insights acionáveis para o gestor (100% formatados em pt-BR)
     const insights: Array<{
       id: string;
-      kind: 'leader' | 'pa' | 'discount' | 'return' | 'calendar' | 'loyalty';
+      kind:
+        | 'leader'
+        | 'pa'
+        | 'discount'
+        | 'return'
+        | 'calendar'
+        | 'loyalty'
+        | 'unassigned';
       title: string;
       metric: string;
       description: string;
       operatorId?: string;
+      operatorName?: string | null;
+      operatorImageUrl?: string | null;
+      date?: string;
     }> = [];
 
     if (topSeller && topSeller.salesCount > 0) {
@@ -1212,27 +1356,31 @@ export class RetailIntelligenceService {
         id: 'top-leader',
         kind: 'leader',
         title: `Liderança do Período · ${topSeller.name}`,
-        metric: `R$ ${topSeller.netRevenue.toFixed(2)} líquidos (${topSeller.sharePct}% da loja)`,
-        description: `Lidera o ranking com ${topSeller.salesCount} vendas, ${topSeller.piecesCount} peças e ${topSeller.dailyWinsCount} ${topSeller.dailyWinsCount === 1 ? 'dia em 1º lugar' : 'dias em 1º lugar'}.`,
+        metric: `${formatBrlPt(topSeller.netRevenue)} líquidos (${formatDecPt(topSeller.sharePct, 1)}% da loja)`,
+        description: `Lidera o ranking com ${topSeller.salesCount} ${topSeller.salesCount === 1 ? 'venda' : 'vendas'}, ${topSeller.piecesCount} ${topSeller.piecesCount === 1 ? 'peça' : 'peças'} e ${topSeller.dailyWinsCount} ${topSeller.dailyWinsCount === 1 ? 'dia em 1º lugar' : 'dias em 1º lugar'}.`,
         operatorId: topSeller.operatorId,
+        operatorName: topSeller.name,
+        operatorImageUrl: topSeller.imageUrl,
       });
     }
 
-    const bestPaSeller = [...sellers]
+    const bestPaSeller = [...teamSellers]
       .filter((s) => s.salesCount >= 1)
       .sort((a, b) => b.pa - a.pa)[0];
     if (bestPaSeller) {
       insights.push({
         id: 'best-pa',
         kind: 'pa',
-        title: `Especialista em Venda Casada (PA) · ${bestPaSeller.name}`,
-        metric: `${bestPaSeller.pa.toFixed(2)} peças/venda (${bestPaSeller.multiItemRatePct}% combos)`,
-        description: `Coloca mais peças por sacola e eleva o giro de grade com ticket médio de R$ ${bestPaSeller.avgTicket.toFixed(2)}.`,
+        title: `Venda Casada (PA) · ${bestPaSeller.name}`,
+        metric: `${formatDecPt(bestPaSeller.pa, 2)} pçs/venda (${formatDecPt(bestPaSeller.multiItemRatePct, 1)}% combos)`,
+        description: `Média de peças por atendimento com ticket médio de ${formatBrlPt(bestPaSeller.avgTicket)}.`,
         operatorId: bestPaSeller.operatorId,
+        operatorName: bestPaSeller.name,
+        operatorImageUrl: bestPaSeller.imageUrl,
       });
     }
 
-    const highDiscountSeller = [...sellers]
+    const highDiscountSeller = [...teamSellers]
       .filter((s) => s.discountTotal > 0)
       .sort((a, b) => b.discountRatePct - a.discountRatePct)[0];
     if (highDiscountSeller) {
@@ -1242,27 +1390,31 @@ export class RetailIntelligenceService {
         id: 'discount-watch',
         kind: 'discount',
         title: isAlert
-          ? `Alerta de Desconto Elevado · ${highDiscountSeller.name}`
+          ? `Alerta de Desconto · ${highDiscountSeller.name}`
           : `Maior Índice de Desconto · ${highDiscountSeller.name}`,
-        metric: `${highDiscountSeller.discountRatePct}% de desconto (R$ ${highDiscountSeller.discountTotal.toFixed(2)})`,
-        description: `Aplicou desconto em ${highDiscountSeller.discountedSalesCount} de ${highDiscountSeller.salesCount} vendas (${highDiscountSeller.discountedSalesRatePct}% dos atendimentos).`,
+        metric: `${formatDecPt(highDiscountSeller.discountRatePct, 1)}% (${formatBrlPt(highDiscountSeller.discountTotal)})`,
+        description: `Aplicou desconto em ${highDiscountSeller.discountedSalesCount} de ${highDiscountSeller.salesCount} ${highDiscountSeller.salesCount === 1 ? 'venda' : 'vendas'} (${formatDecPt(highDiscountSeller.discountedSalesRatePct, 1)}% dos atendimentos).`,
         operatorId: highDiscountSeller.operatorId,
+        operatorName: highDiscountSeller.name,
+        operatorImageUrl: highDiscountSeller.imageUrl,
       });
     }
 
     const highReturnSeller = [...sellers]
       .filter((s) => s.returnsAmount > 0)
-      .sort((a, b) => b.returnRatePct - a.returnRatePct)[0];
+      .sort((a, b) => b.returnRatePct - a.returnRatePct || b.returnsAmount - a.returnsAmount)[0];
     if (highReturnSeller) {
       const topReason =
         highReturnSeller.returnReasons[0]?.reason || 'Troca de tamanho/cor';
       insights.push({
         id: 'return-watch',
         kind: 'return',
-        title: `Taxa de Trocas por Vendedor · ${highReturnSeller.name}`,
-        metric: `${highReturnSeller.returnRatePct}% trocado (R$ ${highReturnSeller.returnsAmount.toFixed(2)})`,
-        description: `${highReturnSeller.returnedPieces} ${highReturnSeller.returnedPieces === 1 ? 'peça retornou' : 'peças retornaram'} em ${highReturnSeller.returnsCount} ${highReturnSeller.returnsCount === 1 ? 'troca' : 'trocas'}. Principal motivo: "${topReason}".`,
+        title: `Trocas por Origem · ${highReturnSeller.name}`,
+        metric: `${formatDecPt(highReturnSeller.returnRatePct, 1)}% trocado (${formatBrlPt(highReturnSeller.returnsAmount)})`,
+        description: `${highReturnSeller.returnedPieces} ${highReturnSeller.returnedPieces === 1 ? 'peça retornou' : 'peças retornaram'} em ${highReturnSeller.returnsCount} ${highReturnSeller.returnsCount === 1 ? 'troca' : 'trocas'}. Motivo: "${topReason}".`,
         operatorId: highReturnSeller.operatorId,
+        operatorName: highReturnSeller.name,
+        operatorImageUrl: highReturnSeller.imageUrl,
       });
     }
 
@@ -1271,11 +1423,28 @@ export class RetailIntelligenceService {
         id: 'best-day',
         kind: 'calendar',
         title: `Recorde Diário · ${bestStoreDay.date.split('-').reverse().join('/')} (${bestStoreDay.weekdayLabel})`,
-        metric: `R$ ${bestStoreDay.revenue.toFixed(2)} em ${bestStoreDay.salesCount} vendas`,
+        metric: `${formatBrlPt(bestStoreDay.revenue)} em ${bestStoreDay.salesCount} ${bestStoreDay.salesCount === 1 ? 'venda' : 'vendas'}`,
         description: bestStoreDay.champion
-          ? `O destaque do dia foi ${bestStoreDay.champion.name} com R$ ${bestStoreDay.champion.revenue.toFixed(2)} (${bestStoreDay.champion.shareOfDayPct}% do dia).`
-          : `${bestStoreDay.piecesCount} peças vendidas no dia mais forte do período.`,
+          ? `Destaque do dia: ${bestStoreDay.champion.name} com ${formatBrlPt(bestStoreDay.champion.revenue)} (${formatDecPt(bestStoreDay.champion.shareOfDayPct, 1)}% do dia).`
+          : `${bestStoreDay.piecesCount} ${bestStoreDay.piecesCount === 1 ? 'peça vendida' : 'peças vendidas'} no dia mais forte do período.`,
         operatorId: bestStoreDay.champion?.operatorId,
+        operatorName: bestStoreDay.champion?.name || null,
+        operatorImageUrl: bestStoreDay.champion?.imageUrl || null,
+        date: bestStoreDay.date,
+      });
+    }
+
+    if (unassignedSeller && unassignedSeller.salesCount > 0) {
+      insights.push({
+        id: 'unassigned-watch',
+        kind: 'unassigned',
+        title: 'Vendas sem vendedor vinculado',
+        metric: `${unassignedSeller.salesCount} ${unassignedSeller.salesCount === 1 ? 'venda' : 'vendas'} (${formatBrlPt(unassignedSeller.grossRevenue)})`,
+        description:
+          'Vincule o operador no fechamento da venda no PDV para contabilizar comissão e ranking da equipe.',
+        operatorId: unassignedSeller.operatorId,
+        operatorName: unassignedSeller.name,
+        operatorImageUrl: unassignedSeller.imageUrl,
       });
     }
 
@@ -1300,8 +1469,8 @@ export class RetailIntelligenceService {
         identifiedCustomerRatePct: storeIdentifiedRatePct,
         estimatedGrossMargin: storeEstimatedMargin,
         marginRatePct: storeMarginRatePct,
-        activeSellersCount: sellers.filter((s) => s.salesCount > 0).length,
-        totalSellersCount: sellers.length,
+        activeSellersCount: teamSellers.filter((s) => s.salesCount > 0).length,
+        totalSellersCount: teamSellers.length,
         activeDaysCount: storeActiveDaysCount,
         storeGoal: goalsConfig.storeMonthlyGoal,
         storeGoalProgressPct,
@@ -1314,7 +1483,9 @@ export class RetailIntelligenceService {
               netRevenue: bestStoreDay.netRevenue,
               salesCount: bestStoreDay.salesCount,
               piecesCount: bestStoreDay.piecesCount,
+              championOperatorId: bestStoreDay.champion?.operatorId || null,
               championName: bestStoreDay.champion?.name || null,
+              championImageUrl: bestStoreDay.champion?.imageUrl || null,
               championRevenue: bestStoreDay.champion?.revenue || 0,
             }
           : null,

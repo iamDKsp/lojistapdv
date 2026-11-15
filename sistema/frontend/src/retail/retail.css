@@ -6432,8 +6432,8 @@ textarea:focus-visible {
   color: var(--pdv-primary);
   border: 1px solid color-mix(in srgb, var(--pdv-primary) 26%, var(--pdv-border));
   font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.06em;
+  font-weight: 700;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
@@ -6444,224 +6444,6 @@ textarea:focus-visible {
   flex-wrap: wrap;
 }
 
-.retail-intel-ranking-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1.38fr) minmax(320px, 0.85fr);
-  gap: 18px;
-  align-items: start;
-}
-
-/* Palco escuro de alto contraste inspirado na referência UI Design Ranking */
-.retail-intel-stage-card {
-  border-radius: 24px;
-  background: var(--pdv-text);
-  color: var(--pdv-white);
-  border: 1px solid color-mix(in srgb, var(--pdv-primary) 35%, var(--pdv-text));
-  box-shadow:
-    0 22px 48px color-mix(in srgb, var(--pdv-text) 24%, transparent),
-    inset 0 1px 0 color-mix(in srgb, var(--pdv-white) 10%, transparent);
-  overflow: hidden;
-}
-
-.retail-intel-stage-top {
-  position: relative;
-  padding: 18px 20px 20px;
-  background:
-    radial-gradient(
-      circle at 50% 24%,
-      color-mix(in srgb, var(--pdv-primary) 34%, var(--pdv-text)) 0%,
-      var(--pdv-text) 72%
-    );
-  border-bottom: 1px solid color-mix(in srgb, var(--pdv-white) 10%, transparent);
-  text-align: center;
-}
-
-.retail-intel-stage-header h2 {
-  margin: 0;
-  font-size: 1.25rem;
-  font-weight: 800;
-  color: var(--pdv-white);
-  letter-spacing: -0.02em;
-}
-
-.retail-intel-stage-header p {
-  margin: 0;
-  font-size: 0.84rem;
-  color: color-mix(in srgb, var(--pdv-white) 72%, var(--pdv-text-secondary));
-}
-
-.retail-intel-stage-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 12px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--pdv-primary) 26%, var(--pdv-text));
-  border: 1px solid color-mix(in srgb, var(--pdv-primary) 55%, transparent);
-  color: var(--pdv-support);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-}
-
-/* Seletor central "Challenges v" */
-.retail-intel-challenge-wrap {
-  position: relative;
-  display: inline-flex;
-  justify-content: center;
-  margin: 10px auto 14px;
-  z-index: 15;
-}
-
-.retail-intel-challenge-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 18px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--pdv-white) 9%, var(--pdv-text));
-  border: 1px solid color-mix(in srgb, var(--pdv-primary) 52%, transparent);
-  color: var(--pdv-white);
-  font-size: 0.86rem;
-  font-weight: 700;
-  cursor: pointer;
-  box-shadow: 0 8px 20px color-mix(in srgb, var(--pdv-primary) 24%, transparent);
-  transition:
-    background-color 160ms ease,
-    border-color 160ms ease,
-    transform 160ms ease;
-}
-
-.retail-intel-challenge-btn:hover {
-  background: color-mix(in srgb, var(--pdv-primary) 30%, var(--pdv-text));
-  border-color: var(--pdv-primary);
-  transform: translateY(-1px);
-}
-
-.retail-intel-challenge-menu {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(340px, 90vw);
-  background: var(--pdv-white);
-  color: var(--pdv-text);
-  border: 1px solid var(--pdv-border);
-  border-radius: 16px;
-  padding: 6px;
-  box-shadow: 0 20px 44px color-mix(in srgb, var(--pdv-text) 36%, transparent);
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  text-align: left;
-}
-
-.retail-intel-challenge-option {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  width: 100%;
-  padding: 10px 12px;
-  border: 0;
-  border-radius: 11px;
-  background: transparent;
-  color: var(--pdv-text);
-  cursor: pointer;
-  text-align: left;
-  transition: background-color 140ms ease;
-}
-
-.retail-intel-challenge-option strong {
-  display: block;
-  font-size: 0.84rem;
-}
-
-.retail-intel-challenge-option small {
-  display: block;
-  font-size: 0.75rem;
-  color: var(--pdv-text-secondary);
-  margin-top: 2px;
-}
-
-.retail-intel-challenge-option:hover,
-.retail-intel-challenge-option.is-active {
-  background: var(--pdv-support);
-  color: var(--pdv-primary-hover);
-}
-
-/* Pódio 3 lugares (2º - 1º - 3º) */
-.retail-intel-podium-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-  align-items: end;
-  max-width: 640px;
-  margin: 0 auto;
-}
-
-.retail-intel-podium-slot {
-  display: flex;
-  justify-content: center;
-}
-
-.retail-intel-podium-slot.is-first {
-  transform: translateY(-8px);
-}
-
-.retail-intel-podium-person {
-  width: 100%;
-  border: 1px solid transparent;
-  border-radius: 20px;
-  background: transparent;
-  color: var(--pdv-white);
-  padding: 12px 8px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-  transition:
-    transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
-    background-color 180ms ease,
-    border-color 180ms ease;
-}
-
-.retail-intel-podium-person:hover {
-  transform: translateY(-4px);
-  background: color-mix(in srgb, var(--pdv-white) 6%, transparent);
-  border-color: color-mix(in srgb, var(--pdv-primary) 45%, transparent);
-}
-
-.retail-intel-podium-person.is-champion {
-  background: color-mix(in srgb, var(--pdv-primary) 16%, transparent);
-  border-color: color-mix(in srgb, var(--pdv-primary) 48%, transparent);
-  padding: 14px 10px 16px;
-}
-
-.retail-intel-laurel-svg {
-  width: 68px;
-  height: 40px;
-  margin-bottom: 2px;
-  filter: drop-shadow(0 4px 12px color-mix(in srgb, var(--pdv-primary) 65%, transparent));
-}
-
-.retail-intel-rank-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 28px;
-  height: 24px;
-  padding: 0 9px;
-  border-radius: 999px;
-  background: var(--pdv-primary);
-  color: var(--pdv-white);
-  font-size: 0.8rem;
-  font-weight: 900;
-  box-shadow: 0 4px 14px color-mix(in srgb, var(--pdv-primary) 68%, transparent);
-  margin-bottom: 4px;
-}
-
 .retail-intel-avatar {
   position: relative;
   display: inline-flex;
@@ -6669,9 +6451,9 @@ textarea:focus-visible {
   justify-content: center;
   border-radius: 999px;
   overflow: hidden;
-  background: var(--pdv-support);
-  color: var(--pdv-primary-hover);
-  border: 2px solid var(--pdv-border);
+  background: var(--pdv-background);
+  color: var(--pdv-text);
+  border: 1.5px solid var(--pdv-border);
   flex-shrink: 0;
 }
 
@@ -6682,230 +6464,69 @@ textarea:focus-visible {
 }
 
 .retail-intel-avatar-fallback {
-  font-weight: 800;
-  font-size: 0.9rem;
+  font-weight: 700;
+  font-size: 0.82rem;
   letter-spacing: 0.02em;
 }
 
 .retail-intel-avatar.is-rank-podium {
-  border: 3px solid var(--pdv-primary);
-  box-shadow: 0 8px 22px color-mix(in srgb, var(--pdv-primary) 42%, transparent);
+  border-color: var(--pdv-text);
+  background: var(--pdv-white);
+  color: var(--pdv-text);
 }
 
 .retail-intel-avatar.is-rank-1 {
-  border: 3.5px solid var(--pdv-primary);
-  box-shadow:
-    0 0 0 4px color-mix(in srgb, var(--pdv-primary) 28%, transparent),
-    0 12px 28px color-mix(in srgb, var(--pdv-primary) 55%, transparent);
-}
-
-.retail-intel-podium-name {
-  margin-top: 6px;
-  font-size: 0.98rem;
-  font-weight: 800;
-  color: var(--pdv-white);
-  line-height: 1.2;
-}
-
-.retail-intel-podium-metric {
-  font-size: 0.92rem;
-  font-weight: 800;
-  color: var(--pdv-support);
-}
-
-.retail-intel-podium-metric.is-champion-metric {
-  font-size: 1.08rem;
-  color: var(--pdv-white);
-  background: var(--pdv-primary);
-  padding: 3px 12px;
-  border-radius: 999px;
-}
-
-.retail-intel-podium-sub {
-  font-size: 0.74rem;
-  color: color-mix(in srgb, var(--pdv-white) 68%, var(--pdv-text-secondary));
-}
-
-.retail-intel-podium-empty {
-  padding: 20px 10px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  opacity: 0.5;
-}
-
-/* Lista Leaderboard abaixo do Pódio */
-.retail-intel-leaderboard-wrap {
-  padding: 18px 20px 22px;
-  background: color-mix(in srgb, var(--pdv-text) 96%, var(--pdv-primary));
-}
-
-.retail-intel-leaderboard-head {
-  display: grid;
-  grid-template-columns: minmax(190px, 1.7fr) repeat(5, minmax(84px, 1fr));
-  gap: 10px;
-  padding: 0 14px 10px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: color-mix(in srgb, var(--pdv-white) 58%, var(--pdv-text-secondary));
-  border-bottom: 1px solid color-mix(in srgb, var(--pdv-white) 10%, transparent);
-}
-
-.retail-intel-leaderboard-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.retail-intel-leaderboard-row {
-  display: grid;
-  grid-template-columns: minmax(190px, 1.7fr) repeat(5, minmax(84px, 1fr));
-  gap: 10px;
-  align-items: center;
-  padding: 12px 14px;
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--pdv-white) 5%, var(--pdv-text));
-  border: 1px solid color-mix(in srgb, var(--pdv-white) 8%, transparent);
-  cursor: pointer;
-  transition:
-    background-color 150ms ease,
-    border-color 150ms ease,
-    transform 150ms ease;
-}
-
-.retail-intel-leaderboard-row:hover {
-  background: color-mix(in srgb, var(--pdv-primary) 22%, var(--pdv-text));
-  border-color: color-mix(in srgb, var(--pdv-primary) 55%, transparent);
-  transform: translateX(2px);
-}
-
-.retail-intel-leaderboard-row.is-top-three {
-  background: color-mix(in srgb, var(--pdv-primary) 13%, var(--pdv-text));
-  border-color: color-mix(in srgb, var(--pdv-primary) 34%, transparent);
-}
-
-.retail-intel-lb-seller {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
+  border: 2px solid var(--pdv-primary);
+  background: var(--pdv-support);
+  color: var(--pdv-primary-hover);
 }
 
 .retail-intel-lb-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 28px;
-  height: 28px;
-  padding: 0 7px;
-  border-radius: 9px;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: var(--pdv-background);
+  color: var(--pdv-text-secondary);
+  border: 1px solid var(--pdv-border);
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.retail-intel-lb-badge.is-pos-podium {
+  background: var(--pdv-support);
+  color: var(--pdv-primary-hover);
+  border-color: var(--pdv-primary);
+}
+
+.retail-intel-lb-badge.is-pos-1 {
   background: var(--pdv-primary);
   color: var(--pdv-white);
-  font-size: 0.8rem;
-  font-weight: 900;
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--pdv-primary) 50%, transparent);
-  flex-shrink: 0;
+  border-color: var(--pdv-primary);
 }
 
 .retail-intel-lb-badge.is-small {
   min-width: 24px;
   height: 24px;
-  font-size: 0.74rem;
-  border-radius: 7px;
-}
-
-.retail-intel-lb-ident {
-  min-width: 0;
-}
-
-.retail-intel-lb-ident strong {
-  display: block;
-  font-size: 0.9rem;
-  color: var(--pdv-white);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.retail-intel-lb-ident small {
-  display: block;
-  font-size: 0.74rem;
-  color: color-mix(in srgb, var(--pdv-white) 64%, var(--pdv-text-secondary));
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.retail-intel-lb-cell strong {
-  display: block;
-  font-size: 0.86rem;
-  color: var(--pdv-white);
-}
-
-.retail-intel-lb-cell small {
-  display: block;
   font-size: 0.72rem;
-  color: color-mix(in srgb, var(--pdv-white) 62%, var(--pdv-text-secondary));
-}
-
-.retail-intel-lb-win strong {
-  color: var(--pdv-support);
-  font-size: 0.94rem;
-}
-
-/* Cards de Diagnóstico e Recordes na Coluna Direita */
-.retail-intel-insight-card {
-  padding: 12px 14px;
-  border-radius: 14px;
-  background: var(--pdv-background);
-  border: 1px solid var(--pdv-border);
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  cursor: pointer;
-  transition:
-    border-color 150ms ease,
-    background-color 150ms ease;
-}
-
-.retail-intel-insight-card:hover {
-  border-color: var(--pdv-primary);
-  background: var(--pdv-support);
-}
-
-.retail-intel-insight-badge {
-  font-size: 0.78rem;
-  font-weight: 800;
-  color: var(--pdv-primary);
-  background: var(--pdv-support);
-  padding: 2px 9px;
-  border-radius: 999px;
-}
-
-.retail-intel-bestday-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: var(--pdv-background);
-  border: 1px solid var(--pdv-border);
+  border-radius: 6px;
 }
 
 .retail-intel-link-btn {
-  display: block;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   border: 0;
   background: transparent;
   color: var(--pdv-primary);
   font-size: 0.75rem;
-  font-weight: 700;
+  font-weight: 600;
   padding: 0;
-  margin-top: 2px;
   cursor: pointer;
 }
 
@@ -7148,26 +6769,12 @@ textarea:focus-visible {
 }
 
 @media (max-width: 1100px) {
-  .retail-intel-ranking-layout,
   .retail-intel-calendar-split {
     grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 768px) {
-  .retail-intel-podium-grid {
-    gap: 8px;
-  }
-  .retail-intel-leaderboard-head {
-    display: none;
-  }
-  .retail-intel-leaderboard-row {
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-  }
-  .retail-intel-lb-seller {
-    grid-column: 1 / -1;
-  }
   .retail-intel-calendar-grid {
     gap: 4px;
   }

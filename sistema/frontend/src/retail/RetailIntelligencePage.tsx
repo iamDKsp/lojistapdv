@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
-  Award,
+  AlertTriangle,
+  ArrowRight,
   Calendar as CalendarIcon,
-  ChevronDown,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Clock,
@@ -11,14 +12,13 @@ import {
   Eye,
   Filter,
   Percent,
+  RefreshCw,
   RotateCcw,
   Save,
   ShoppingBag,
-  Sparkles,
   Target,
   TrendingUp,
   Trophy,
-  UserCheck,
   Users,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -26,22 +26,27 @@ import { api } from "@/lib/api";
 import { getFullUrl } from "@/lib/getFullUrl";
 import { ROUTES } from "@/lib/routes";
 import PdvLojistaLoader from "@/components/PdvLojistaLoader";
-import { RetailDatePicker } from "@/components/ui/DatePicker";
+import {
+  StoreKpiCard,
+  StorePeriodFilterBar,
+  getSaoPauloPresetRange,
+  type StorePeriodPreset,
+} from "@/components/analytics/StoreAnalyticsUI";
 import { RetailDialog } from "./RetailDialog";
 import { apiError, money } from "./types";
 
 type RankingCriterionId =
   | "netRevenue"
   | "grossRevenue"
-  | "dailyWinsCount"
-  | "piecesCount"
   | "pa"
+  | "piecesCount"
   | "avgTicket"
+  | "dailyWinsCount"
   | "identifiedRatePct";
 
 interface RankingCriterionOption {
   id: RankingCriterionId;
-  label: string;
+  segmentLabel: string;
   shortLabel: string;
   description: string;
 }
@@ -49,45 +54,49 @@ interface RankingCriterionOption {
 const RANKING_CRITERIA: RankingCriterionOption[] = [
   {
     id: "netRevenue",
-    label: "Desafio · Faturamento Líquido",
+    segmentLabel: "Líquido",
     shortLabel: "Líquido",
-    description: "Vendas concluídas descontando trocas das vendas do vendedor",
+    description:
+      "Ordenado por faturamento líquido (vendas concluídas descontando trocas da venda original).",
   },
   {
     id: "grossRevenue",
-    label: "Desafio · Faturamento Bruto",
+    segmentLabel: "Bruto",
     shortLabel: "Bruto",
-    description: "Volume financeiro total vendido antes de trocas",
-  },
-  {
-    id: "dailyWinsCount",
-    label: "Desafio · Dias em 1º Lugar (Vitórias)",
-    shortLabel: "Vitórias",
-    description: "Quantidade de dias em que o vendedor foi o Campeão do Dia",
-  },
-  {
-    id: "piecesCount",
-    label: "Desafio · Volume de Peças",
-    shortLabel: "Peças",
-    description: "Quantidade total de peças vendidas no período",
+    description: "Ordenado pelo volume financeiro bruto vendido antes de trocas.",
   },
   {
     id: "pa",
-    label: "Desafio · PA (Peças por Atendimento)",
+    segmentLabel: "PA",
     shortLabel: "PA",
-    description: "Média de peças por sacola (eficiência de venda casada)",
+    description:
+      "Ordenado pela média de peças por atendimento (eficiência de venda casada).",
+  },
+  {
+    id: "piecesCount",
+    segmentLabel: "Peças",
+    shortLabel: "Peças",
+    description: "Ordenado pela quantidade total de peças vendidas no período.",
   },
   {
     id: "avgTicket",
-    label: "Desafio · Ticket Médio",
-    shortLabel: "Ticket Médio",
-    description: "Valor médio por venda concluída pelo vendedor",
+    segmentLabel: "Ticket Médio",
+    shortLabel: "Ticket",
+    description: "Ordenado pelo valor médio por venda concluída.",
+  },
+  {
+    id: "dailyWinsCount",
+    segmentLabel: "Vitórias",
+    shortLabel: "Vitórias",
+    description:
+      "Ordenado pela quantidade de dias em que o consultor liderou o dia (#1).",
   },
   {
     id: "identifiedRatePct",
-    label: "Desafio · Fidelização de Clientes",
+    segmentLabel: "Fidelização",
     shortLabel: "Fidelização",
-    description: "Percentual de vendas com cliente identificado no PDV",
+    description:
+      "Ordenado pelo percentual de atendimentos com cliente identificado no PDV.",
   },
 ];
 
@@ -119,6 +128,13 @@ function formatShortBrDate(isoDate?: string | null): string {
   return `${parts[2]}/${parts[1]}`;
 }
 
+function formatDec(value: number | null | undefined, digits = 1): string {
+  return Number(value || 0).toLocaleString("pt-BR", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
+}
+
 function getMonthBounds(yearMonth: string): { start: string; end: string } {
   const [yStr, mStr] = yearMonth.split("-");
   const year = Number(yStr);
@@ -132,7 +148,9 @@ function getMonthBounds(yearMonth: string): { start: string; end: string } {
 
 function shiftYearMonth(yearMonth: string, deltaMonths: number): string {
   const [yStr, mStr] = yearMonth.split("-");
-  const dt = new Date(Date.UTC(Number(yStr), Number(mStr) - 1 + deltaMonths, 1));
+  const dt = new Date(
+    Date.UTC(Number(yStr), Number(mStr) - 1 + deltaMonths, 1),
+  );
   return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
@@ -146,123 +164,10 @@ function formatMonthTitle(yearMonth: string): string {
   }).format(dt);
 }
 
-/**
- * Coroa de louros vetorial (#1 do Pódio) inspirada na referência visual enviada,
- * construída 100% com os tokens aprovados da paleta roxa, branca e neutra.
- */
-function PodiumLaurelCrownSvg() {
-  return (
-    <svg
-      viewBox="0 0 88 52"
-      className="retail-intel-laurel-svg"
-      fill="none"
-      aria-hidden="true"
-    >
-      {/* Ramo esquerdo */}
-      <path
-        d="M36 45 C22 42, 13 31, 14 15"
-        stroke="var(--pdv-primary)"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-      />
-      <ellipse
-        cx="15"
-        cy="34"
-        rx="5.5"
-        ry="2.6"
-        transform="rotate(-35 15 34)"
-        fill="var(--pdv-primary)"
-      />
-      <ellipse
-        cx="12"
-        cy="25"
-        rx="5.5"
-        ry="2.6"
-        transform="rotate(-15 12 25)"
-        fill="var(--pdv-support)"
-      />
-      <ellipse
-        cx="15"
-        cy="16"
-        rx="5.2"
-        ry="2.5"
-        transform="rotate(15 15 16)"
-        fill="var(--pdv-primary)"
-      />
-      <ellipse
-        cx="23"
-        cy="41"
-        rx="5.2"
-        ry="2.5"
-        transform="rotate(-50 23 41)"
-        fill="var(--pdv-support)"
-      />
-      {/* Ramo direito */}
-      <path
-        d="M52 45 C66 42, 75 31, 74 15"
-        stroke="var(--pdv-primary)"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-      />
-      <ellipse
-        cx="73"
-        cy="34"
-        rx="5.5"
-        ry="2.6"
-        transform="rotate(35 73 34)"
-        fill="var(--pdv-primary)"
-      />
-      <ellipse
-        cx="76"
-        cy="25"
-        rx="5.5"
-        ry="2.6"
-        transform="rotate(15 76 25)"
-        fill="var(--pdv-support)"
-      />
-      <ellipse
-        cx="73"
-        cy="16"
-        rx="5.2"
-        ry="2.5"
-        transform="rotate(-15 73 16)"
-        fill="var(--pdv-primary)"
-      />
-      <ellipse
-        cx="65"
-        cy="41"
-        rx="5.2"
-        ry="2.5"
-        transform="rotate(50 65 41)"
-        fill="var(--pdv-support)"
-      />
-      {/* Escudo central com número 1 */}
-      <path
-        d="M31 10 H57 L53 34 L44 41 L35 34 Z"
-        fill="var(--pdv-primary)"
-        stroke="var(--pdv-support)"
-        strokeWidth="2"
-        strokeLinejoin="round"
-      />
-      <text
-        x="44"
-        y="29"
-        textAnchor="middle"
-        fill="var(--pdv-white)"
-        fontFamily="Inter, system-ui, sans-serif"
-        fontWeight="900"
-        fontSize="16"
-      >
-        1
-      </text>
-    </svg>
-  );
-}
-
 function SellerAvatar({
   name,
   imageUrl,
-  size = 44,
+  size = 40,
   rank,
 }: {
   name: string;
@@ -286,7 +191,7 @@ function SellerAvatar({
   }, [name]);
 
   const isTop1 = rank === 1;
-  const isPodium = rank === 1 || rank === 2 || rank === 3;
+  const isPodium = rank === 2 || rank === 3;
 
   return (
     <span
@@ -306,6 +211,23 @@ function SellerAvatar({
   );
 }
 
+function InsightKindIcon({ kind }: { kind?: string }) {
+  switch (kind) {
+    case "leader":
+      return <Trophy size={14} />;
+    case "pa":
+      return <ShoppingBag size={14} />;
+    case "discount":
+      return <Percent size={14} />;
+    case "return":
+      return <RotateCcw size={14} />;
+    case "calendar":
+      return <CalendarIcon size={14} />;
+    default:
+      return <Users size={14} />;
+  }
+}
+
 export function RetailIntelligencePage() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -321,15 +243,16 @@ export function RetailIntelligencePage() {
     return "ranking";
   }, [location.pathname]);
 
-  const [start, setStart] = useState(() => todaySaoPaulo().slice(0, 8) + "01");
-  const [end, setEnd] = useState(todaySaoPaulo);
+  const initialRange = useMemo(() => getSaoPauloPresetRange("month"), []);
+  const [preset, setPreset] = useState<StorePeriodPreset>("month");
+  const [start, setStart] = useState(initialRange.startDate);
+  const [end, setEnd] = useState(initialRange.endDate);
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // Estado do Pódio / Ranking
+  // Estado do Ranking
   const [criterion, setCriterion] = useState<RankingCriterionId>("netRevenue");
-  const [challengeMenuOpen, setChallengeMenuOpen] = useState(false);
   const [selectedSellerId, setSelectedSellerId] = useState<string | null>(null);
 
   // Estado do Calendário Comercial
@@ -359,6 +282,21 @@ export function RetailIntelligencePage() {
   });
   const [savingGoals, setSavingGoals] = useState(false);
 
+  const handleSelectPreset = (nextPreset: StorePeriodPreset) => {
+    setPreset(nextPreset);
+    if (nextPreset !== "custom") {
+      const range = getSaoPauloPresetRange(nextPreset);
+      setStart(range.startDate);
+      setEnd(range.endDate);
+    }
+  };
+
+  const handleChangeRange = (nextStart: string, nextEnd: string) => {
+    setPreset("custom");
+    setStart(nextStart);
+    setEnd(nextEnd);
+  };
+
   const load = useCallback(
     async (signal?: AbortSignal) => {
       setLoading(true);
@@ -377,6 +315,7 @@ export function RetailIntelligencePage() {
               { goal: string; commissionPct: string }
             > = {};
             for (const s of res.data?.sellers || []) {
+              if (s.isUnassigned || s.operatorId === "sem-vendedor") continue;
               const ov = cfg.sellerOverrides?.[s.operatorId] || {};
               overrides[s.operatorId] = {
                 goal: String(ov.goal ?? cfg.defaultSellerGoal ?? 8000),
@@ -396,7 +335,6 @@ export function RetailIntelligencePage() {
             });
           }
 
-          // Seleciona automaticamente o último dia com vendas (ou hoje) no calendário
           const daysWithSales = (res.data?.calendar?.days || []).filter(
             (d: any) => d.hasSales,
           );
@@ -431,19 +369,38 @@ export function RetailIntelligencePage() {
     [criterion],
   );
 
-  // Vendedores ordenados pelo desafio/critério selecionado no Pódio
-  const rankedSellers = useMemo(() => {
-    const list = [...(data?.sellers || [])];
-    return list.sort((a, b) => {
-      const valA = Number(a[criterion] || 0);
-      const valB = Number(b[criterion] || 0);
-      if (valB !== valA) return valB - valA;
-      return (
-        Number(b.netRevenue || 0) - Number(a.netRevenue || 0) ||
-        Number(b.grossRevenue || 0) - Number(a.grossRevenue || 0)
-      );
-    });
-  }, [data?.sellers, criterion]);
+  // Vendedores reais ordenados pelo critério selecionado (separando atendimentos sem vendedor)
+  const { teamRankedSellers, unassignedSeller, allOrderedSellers } =
+    useMemo(() => {
+      const raw: any[] = data?.sellers || [];
+      const real = raw
+        .filter((s) => !s.isUnassigned && s.operatorId !== "sem-vendedor")
+        .sort((a, b) => {
+          const valA = Number(a[criterion] || 0);
+          const valB = Number(b[criterion] || 0);
+          if (valB !== valA) return valB - valA;
+          return (
+            Number(b.netRevenue || 0) - Number(a.netRevenue || 0) ||
+            Number(b.grossRevenue || 0) - Number(a.grossRevenue || 0)
+          );
+        });
+      const unassigned =
+        raw.find((s) => s.isUnassigned || s.operatorId === "sem-vendedor") ||
+        null;
+      return {
+        teamRankedSellers: real,
+        unassignedSeller: unassigned,
+        allOrderedSellers: unassigned ? [...real, unassigned] : real,
+      };
+    }, [data?.sellers, criterion]);
+
+  const maxTeamMetric = useMemo(() => {
+    if (!teamRankedSellers.length) return 1;
+    return Math.max(
+      1,
+      ...teamRankedSellers.map((s) => Math.max(0, Number(s[criterion] || 0))),
+    );
+  }, [teamRankedSellers, criterion]);
 
   const formatCriterionMetric = useCallback(
     (seller: any, crit: RankingCriterionId = criterion): string => {
@@ -458,11 +415,11 @@ export function RetailIntelligencePage() {
         case "piecesCount":
           return `${seller.piecesCount} ${seller.piecesCount === 1 ? "peça" : "peças"}`;
         case "pa":
-          return `${Number(seller.pa || 0).toFixed(2)} PA`;
+          return `${formatDec(seller.pa, 2)} PA`;
         case "avgTicket":
           return money(seller.avgTicket);
         case "identifiedRatePct":
-          return `${Number(seller.identifiedRatePct || 0).toFixed(1)}% fiel`;
+          return `${formatDec(seller.identifiedRatePct, 1)}% fiel`;
         default:
           return money(seller.netRevenue);
       }
@@ -536,8 +493,16 @@ export function RetailIntelligencePage() {
   const handleNavigateMonth = (delta: number) => {
     const nextYm = shiftYearMonth(currentYearMonth, delta);
     const bounds = getMonthBounds(nextYm);
-    setStart(bounds.start);
-    setEnd(bounds.end);
+    const monthPreset = getSaoPauloPresetRange("month");
+    if (bounds.start === monthPreset.startDate && nextYm === todaySaoPaulo().slice(0, 7)) {
+      setPreset("month");
+      setStart(monthPreset.startDate);
+      setEnd(monthPreset.endDate);
+    } else {
+      setPreset("custom");
+      setStart(bounds.start);
+      setEnd(bounds.end);
+    }
     setSelectedCalendarDate(bounds.start);
   };
 
@@ -597,466 +562,863 @@ export function RetailIntelligencePage() {
     navigate(ROUTES.inteligenciaComercial.calendario);
   };
 
-  const podiumTop1 = rankedSellers[0] || null;
-  const podiumTop2 = rankedSellers[1] || null;
-  const podiumTop3 = rankedSellers[2] || null;
+  const maxHealthyDiscount = data?.goalsConfig?.maxHealthyDiscountPct ?? 8;
+  const maxHealthyReturn = data?.goalsConfig?.maxHealthyReturnPct ?? 10;
+  const storeAlertsTriggered = Boolean(
+    data &&
+      (Number(data.summary?.discountRatePct || 0) > maxHealthyDiscount ||
+        Number(data.summary?.returnRatePct || 0) > maxHealthyReturn),
+  );
+
+  const storeRealizedForGoal = useMemo(() => {
+    if (!data?.summary) return 0;
+    return data.goalsConfig?.commissionBasis === "gross"
+      ? Number(data.summary.grossRevenue || 0)
+      : Math.max(0, Number(data.summary.netRevenue || 0));
+  }, [data]);
+
+  const remainingStoreGoal = useMemo(() => {
+    if (!data?.summary) return 0;
+    return Math.max(0, Number(data.summary.storeGoal || 0) - storeRealizedForGoal);
+  }, [data, storeRealizedForGoal]);
+
+  const topTeamLeader = useMemo(() => {
+    if (!data?.summary?.topSeller) return null;
+    const match = teamRankedSellers.find(
+      (s) => s.operatorId === data.summary.topSeller.operatorId,
+    );
+    return match || data.summary.topSeller;
+  }, [data?.summary?.topSeller, teamRankedSellers]);
 
   return (
-    <>
+    <div className="space-y-5 pb-8">
+      {/* =====================================================================
+          TOPO UNIFICADO: FILTRO DE PERÍODO + ATUALIZAÇÃO
+         ===================================================================== */}
+      <StorePeriodFilterBar
+        preset={preset}
+        startDate={start}
+        endDate={end}
+        presets={[
+          { id: "today", label: "Hoje" },
+          { id: "yesterday", label: "Ontem" },
+          { id: "last7", label: "7 dias" },
+          { id: "month", label: "Este mês" },
+          { id: "custom", label: "Personalizado" },
+        ]}
+        alwaysShowDateInputs
+        onSelectPreset={handleSelectPreset}
+        onChangeRange={handleChangeRange}
+        rightSlot={
+          <button
+            type="button"
+            onClick={() => void load()}
+            disabled={loading}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface border border-line text-ink hover:bg-support hover:border-brand text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
+          >
+            <RefreshCw
+              size={13}
+              className={loading ? "animate-spin text-brand" : "text-brand"}
+            />
+            Atualizar
+          </button>
+        }
+      />
+
       {error && (
-        <p role="alert" className="retail-message">
-          {error}
-        </p>
+        <div
+          role="alert"
+          className="rounded-xl border border-brand bg-support p-4 text-xs font-medium text-ink flex items-center justify-between gap-3"
+        >
+          <span>{error}</span>
+          <button
+            type="button"
+            onClick={() => void load()}
+            className="px-3 py-1.5 rounded-lg bg-brand text-on-brand font-bold cursor-pointer shrink-0"
+          >
+            Tentar novamente
+          </button>
+        </div>
       )}
 
-      {loading ? (
-        <div className="retail-loader-region" role="status" aria-busy="true">
+      {loading && !data ? (
+        <div
+          className="retail-loader-region py-16 flex items-center justify-center"
+          role="status"
+          aria-busy="true"
+        >
           <PdvLojistaLoader
             mode="loader"
-            size={88}
-            label="Calculando ranking, pódio e calendário comercial…"
+            size={80}
+            label="Calculando ranking, metas e calendário comercial…"
           />
         </div>
       ) : (
         data && (
-          <div className="retail-stack" style={{ gap: 18 }}>
-            {/* =================================================================
-                ABA 1: RANKING E PÓDIO (NO TOPO, VISÃO COMPLETA AO ABRIR O MÓDULO)
-               ================================================================= */}
+          <div className="space-y-5">
+            {/* ===============================================================
+                4 KPIS EXECUTIVOS NO TOPO (ACIMA DA DOBRA)
+               =============================================================== */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+              <StoreKpiCard
+                emphasis="primary"
+                label="Faturamento Líquido da Loja"
+                value={money(data.summary.netRevenue)}
+                icon={<TrendingUp size={17} />}
+                subtitle={
+                  <span>
+                    Bruto{" "}
+                    <strong className="text-ink">
+                      {money(data.summary.grossRevenue)}
+                    </strong>{" "}
+                    · {data.summary.totalSales}{" "}
+                    {data.summary.totalSales === 1 ? "venda" : "vendas"} (
+                    {data.summary.totalPieces} pçs)
+                  </span>
+                }
+              />
+
+              <StoreKpiCard
+                label="Líder do Período (#1)"
+                value={topTeamLeader ? topTeamLeader.name : "Sem vendas da equipe"}
+                icon={<Trophy size={17} />}
+                onClick={
+                  topTeamLeader
+                    ? () => setSelectedSellerId(topTeamLeader.operatorId)
+                    : undefined
+                }
+                badge={
+                  topTeamLeader && typeof topTeamLeader.sharePct === "number" ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-support text-brand border border-brand tabular-nums">
+                      {formatDec(topTeamLeader.sharePct, 1)}% da loja
+                    </span>
+                  ) : undefined
+                }
+                subtitle={
+                  topTeamLeader ? (
+                    <span>
+                      <strong className="text-ink">
+                        {money(topTeamLeader.netRevenue)}
+                      </strong>{" "}
+                      líquidos · {topTeamLeader.dailyWinsCount}{" "}
+                      {topTeamLeader.dailyWinsCount === 1
+                        ? "dia em 1º"
+                        : "dias em 1º"}
+                    </span>
+                  ) : (
+                    <span>Vincule o vendedor nas vendas do PDV</span>
+                  )
+                }
+              />
+
+              <StoreKpiCard
+                label="PA & Ticket Médio"
+                value={`${formatDec(data.summary.pa, 2)} pçs/venda`}
+                icon={<ShoppingBag size={17} />}
+                subtitle={
+                  <span>
+                    Ticket{" "}
+                    <strong className="text-ink">
+                      {money(data.summary.avgTicket)}
+                    </strong>{" "}
+                    · {formatDec(data.summary.multiItemRatePct, 1)}% c/ 2+ peças
+                  </span>
+                }
+              />
+
+              <StoreKpiCard
+                label="Descontos & Taxa de Trocas"
+                value={`${formatDec(data.summary.discountRatePct, 1)}% · ${formatDec(data.summary.returnRatePct, 1)}%`}
+                icon={<RotateCcw size={17} />}
+                badge={
+                  storeAlertsTriggered ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-page text-ink border border-ink">
+                      <AlertTriangle size={11} />
+                      Acima do teto configurado
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-page text-muted border border-line">
+                      <CheckCircle2 size={11} />
+                      Dentro dos parâmetros
+                    </span>
+                  )
+                }
+                subtitle={
+                  <span>
+                    Desc.{" "}
+                    <strong className="text-ink">
+                      {money(data.summary.totalDiscounts)}
+                    </strong>{" "}
+                    · Trocas{" "}
+                    <strong className="text-ink">
+                      {money(data.summary.returnsTotal)}
+                    </strong>
+                  </span>
+                }
+              />
+            </div>
+
+            {/* ===============================================================
+                ABA 1: RANKING EDITORIAL & PAINEL DE META / LEITURA COMERCIAL
+               =============================================================== */}
             {activeSubTab === "ranking" && (
-              <div className="retail-intel-ranking-layout">
-                {/* COLUNA PRINCIPAL: PALCO DO PÓDIO + TABELA LEADERBOARD */}
+              <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
+                {/* COLUNA PRINCIPAL (8 COL): CARDS TOP 3 + TABELA COMPARATIVA */}
                 <section
-                  className="retail-intel-stage-card"
-                  aria-label="Ranking Comercial do Time"
+                  aria-label="Ranking Comercial de Vendedores"
+                  className="xl:col-span-8 bg-surface border border-line rounded-xl overflow-hidden"
                 >
-                  <div className="retail-intel-stage-top">
-                    <div className="retail-intel-stage-header">
-                      <h2>Ranking de Vendedores</h2>
-                    </div>
-
-                    {/* Seletor Central "Challenges v" da referência */}
-                    <div className="retail-intel-challenge-wrap">
-                      <button
-                        type="button"
-                        className="retail-intel-challenge-btn"
-                        onClick={() => setChallengeMenuOpen((prev) => !prev)}
-                        aria-expanded={challengeMenuOpen}
-                      >
-                        <span>{activeCriterionObj.label}</span>
-                        <ChevronDown size={16} />
-                      </button>
-                      {challengeMenuOpen && (
-                        <div
-                          className="retail-intel-challenge-menu"
-                          role="listbox"
-                        >
-                          {RANKING_CRITERIA.map((opt) => (
-                            <button
-                              type="button"
-                              key={opt.id}
-                              className={`retail-intel-challenge-option ${criterion === opt.id ? "is-active" : ""}`}
-                              onClick={() => {
-                                setCriterion(opt.id);
-                                setChallengeMenuOpen(false);
-                              }}
-                            >
-                              <div>
-                                <strong>{opt.label}</strong>
-                                <small>{opt.description}</small>
-                              </div>
-                              {criterion === opt.id && <Trophy size={15} />}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* PÓDIO TOP 3 (2º Esquerda · 1º Centro · 3º Direita) */}
-                    <div className="retail-intel-podium-grid">
-                      {/* 2º LUGAR */}
-                      <div className="retail-intel-podium-slot is-second">
-                        {podiumTop2 ? (
-                          <button
-                            type="button"
-                            className="retail-intel-podium-person"
-                            onClick={() =>
-                              setSelectedSellerId(podiumTop2.operatorId)
-                            }
-                          >
-                            <span className="retail-intel-rank-pill">2</span>
-                            <SellerAvatar
-                              name={podiumTop2.name}
-                              imageUrl={podiumTop2.imageUrl}
-                              size={72}
-                              rank={2}
-                            />
-                            <strong className="retail-intel-podium-name">
-                              {podiumTop2.name}
-                            </strong>
-                            <span className="retail-intel-podium-metric">
-                              {formatCriterionMetric(podiumTop2)}
-                            </span>
-                            <small className="retail-intel-podium-sub">
-                              {podiumTop2.dailyWinsCount}{" "}
-                              {podiumTop2.dailyWinsCount === 1
-                                ? "dia em 1º"
-                                : "dias em 1º"}{" "}
-                              · {podiumTop2.salesCount} vendas
-                            </small>
-                          </button>
-                        ) : (
-                          <div className="retail-intel-podium-empty">
-                            <span className="retail-intel-rank-pill">2</span>
-                            <small>2º Lugar</small>
-                          </div>
-                        )}
+                  {/* Cabeçalho + Seletor Segmentado 1-Clique */}
+                  <div className="p-5 border-b border-line space-y-3.5">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                      <div>
+                        <h2 className="text-base font-bold text-ink tracking-tight">
+                          Ranking de Vendedores
+                        </h2>
+                        <p className="text-xs text-muted mt-0.5">
+                          {activeCriterionObj.description}
+                        </p>
                       </div>
-
-                      {/* 1º LUGAR (CENTRO COM COROA DE LOUROS) */}
-                      <div className="retail-intel-podium-slot is-first">
-                        {podiumTop1 ? (
-                          <button
-                            type="button"
-                            className="retail-intel-podium-person is-champion"
-                            onClick={() =>
-                              setSelectedSellerId(podiumTop1.operatorId)
-                            }
-                          >
-                            <PodiumLaurelCrownSvg />
-                            <SellerAvatar
-                              name={podiumTop1.name}
-                              imageUrl={podiumTop1.imageUrl}
-                              size={92}
-                              rank={1}
-                            />
-                            <strong className="retail-intel-podium-name">
-                              {podiumTop1.name}
-                            </strong>
-                            <span className="retail-intel-podium-metric is-champion-metric">
-                              {formatCriterionMetric(podiumTop1)}
-                            </span>
-                            <small className="retail-intel-podium-sub">
-                              {podiumTop1.dailyWinsCount}{" "}
-                              {podiumTop1.dailyWinsCount === 1
-                                ? "dia líder"
-                                : "dias líder"}{" "}
-                              · {podiumTop1.piecesCount} peças · PA{" "}
-                              {Number(podiumTop1.pa || 0).toFixed(2)}
-                            </small>
-                          </button>
-                        ) : (
-                          <div className="retail-intel-podium-empty">
-                            <PodiumLaurelCrownSvg />
-                            <small>1º Lugar</small>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* 3º LUGAR */}
-                      <div className="retail-intel-podium-slot is-third">
-                        {podiumTop3 ? (
-                          <button
-                            type="button"
-                            className="retail-intel-podium-person"
-                            onClick={() =>
-                              setSelectedSellerId(podiumTop3.operatorId)
-                            }
-                          >
-                            <span className="retail-intel-rank-pill">3</span>
-                            <SellerAvatar
-                              name={podiumTop3.name}
-                              imageUrl={podiumTop3.imageUrl}
-                              size={72}
-                              rank={3}
-                            />
-                            <strong className="retail-intel-podium-name">
-                              {podiumTop3.name}
-                            </strong>
-                            <span className="retail-intel-podium-metric">
-                              {formatCriterionMetric(podiumTop3)}
-                            </span>
-                            <small className="retail-intel-podium-sub">
-                              {podiumTop3.dailyWinsCount}{" "}
-                              {podiumTop3.dailyWinsCount === 1
-                                ? "dia em 1º"
-                                : "dias em 1º"}{" "}
-                              · {podiumTop3.salesCount} vendas
-                            </small>
-                          </button>
-                        ) : (
-                          <div className="retail-intel-podium-empty">
-                            <span className="retail-intel-rank-pill">3</span>
-                            <small>3º Lugar</small>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* TABELA DE LEADERBOARD ABAIXO DO PÓDIO (ESTILO DA PRINT) */}
-                  <div className="retail-intel-leaderboard-wrap">
-                    <div className="retail-intel-leaderboard-head">
-                      <span>Vendedor</span>
-                      <span className="text-right">Liderança / PA</span>
-                      <span className="text-right">% Desconto</span>
-                      <span className="text-right">% Trocas</span>
-                      <span className="text-right">Melhor Dia</span>
-                      <span className="text-right">
-                        {activeCriterionObj.shortLabel}
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-page border border-line text-[11px] font-medium text-muted shrink-0 self-start tabular-nums">
+                        <Users size={12} className="text-brand" />
+                        {data.summary.activeSellersCount} de{" "}
+                        {data.summary.totalSellersCount}{" "}
+                        {data.summary.totalSellersCount === 1
+                          ? "consultor com venda"
+                          : "consultores com venda"}
                       </span>
                     </div>
 
-                    <div className="retail-intel-leaderboard-list">
-                      {rankedSellers.map((seller: any, idx: number) => {
-                        const pos = idx + 1;
-                        const isHighDiscount =
-                          seller.discountRatePct >
-                          (data.goalsConfig?.maxHealthyDiscountPct ?? 8);
-                        const isHighReturn =
-                          seller.returnRatePct >
-                          (data.goalsConfig?.maxHealthyReturnPct ?? 10);
-
+                    <div
+                      role="tablist"
+                      aria-label="Critério de classificação do ranking"
+                      className="inline-flex flex-wrap items-center bg-page border border-line rounded-lg p-1 gap-1"
+                    >
+                      {RANKING_CRITERIA.map((opt) => {
+                        const isActive = criterion === opt.id;
                         return (
-                          <div
-                            key={seller.operatorId}
-                            role="button"
-                            tabIndex={0}
-                            className={`retail-intel-leaderboard-row ${pos <= 3 ? "is-top-three" : ""}`}
-                            onClick={() =>
-                              setSelectedSellerId(seller.operatorId)
-                            }
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" || e.key === " ") {
-                                e.preventDefault();
-                                setSelectedSellerId(seller.operatorId);
-                              }
-                            }}
+                          <button
+                            key={opt.id}
+                            type="button"
+                            role="tab"
+                            aria-selected={isActive}
+                            onClick={() => setCriterion(opt.id)}
+                            className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
+                              isActive
+                                ? "bg-brand text-on-brand"
+                                : "text-muted hover:text-ink hover:bg-surface"
+                            }`}
                           >
-                            <div className="retail-intel-lb-seller">
-                              <span
-                                className={`retail-intel-lb-badge ${pos === 1 ? "is-pos-1" : pos <= 3 ? "is-pos-podium" : ""}`}
-                              >
-                                {pos}
-                              </span>
-                              <SellerAvatar
-                                name={seller.name}
-                                imageUrl={seller.imageUrl}
-                                size={40}
-                                rank={pos}
-                              />
-                              <div className="retail-intel-lb-ident">
-                                <strong>{seller.name}</strong>
-                                <small>
-                                  {seller.jobTitle} · {seller.salesCount} vendas
-                                  ({seller.piecesCount} pçs ·{" "}
-                                  {seller.sharePct}% da loja)
-                                </small>
-                              </div>
-                            </div>
-
-                            <div
-                              className="retail-intel-lb-cell text-right"
-                              data-label="Liderança / PA"
-                            >
-                              <strong className="retail-number">
-                                {seller.winRatePct}% ({seller.dailyWinsCount}d
-                                #1)
-                              </strong>
-                              <small>
-                                PA {Number(seller.pa || 0).toFixed(2)} · Ticket{" "}
-                                {money(seller.avgTicket)}
-                              </small>
-                            </div>
-
-                            <div
-                              className="retail-intel-lb-cell text-right"
-                              data-label="% Desconto"
-                            >
-                              <strong className="retail-number">
-                                {Number(seller.discountRatePct || 0).toFixed(1)}
-                                %
-                              </strong>
-                              <small>
-                                {money(seller.discountTotal)}
-                                {isHighDiscount ? " · Acima do teto" : ""}
-                              </small>
-                            </div>
-
-                            <div
-                              className="retail-intel-lb-cell text-right"
-                              data-label="% Trocas"
-                            >
-                              <strong className="retail-number">
-                                {Number(seller.returnRatePct || 0).toFixed(1)}%
-                              </strong>
-                              <small>
-                                {seller.returnsCount}{" "}
-                                {seller.returnsCount === 1 ? "troca" : "trocas"}{" "}
-                                ({money(seller.returnsAmount)})
-                                {isHighReturn ? " · Atenção" : ""}
-                              </small>
-                            </div>
-
-                            <div
-                              className="retail-intel-lb-cell text-right"
-                              data-label="Melhor Dia"
-                            >
-                              {seller.bestDay ? (
-                                <>
-                                  <strong className="retail-number">
-                                    {formatShortBrDate(seller.bestDay.date)}
-                                  </strong>
-                                  <small>{money(seller.bestDay.revenue)}</small>
-                                </>
-                              ) : (
-                                <small>Sem vendas</small>
-                              )}
-                            </div>
-
-                            <div
-                              className="retail-intel-lb-cell retail-intel-lb-win text-right"
-                              data-label={activeCriterionObj.shortLabel}
-                            >
-                              <strong className="retail-number">
-                                {formatCriterionMetric(seller)}
-                              </strong>
-                              <small>
-                                Bruto {money(seller.grossRevenue)}
-                              </small>
-                            </div>
-                          </div>
+                            {opt.segmentLabel}
+                          </button>
                         );
                       })}
                     </div>
                   </div>
+
+                  {/* DESTAQUES EDITORIAIS TOP 3 (LADO A LADO, SEM ILUSTRAÇÃO GENÉRICA) */}
+                  {teamRankedSellers.length > 0 ? (
+                    <div className="p-5 bg-page border-b border-line">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+                        {[0, 1, 2].map((slotIdx) => {
+                          const seller = teamRankedSellers[slotIdx] || null;
+                          const rankNum = slotIdx + 1;
+                          const isLeader = rankNum === 1;
+
+                          if (!seller) {
+                            return (
+                              <div
+                                key={`empty-slot-${rankNum}`}
+                                className="rounded-xl border border-dashed border-line bg-surface p-4 flex flex-col justify-between gap-3"
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-page border border-line text-[11px] font-semibold text-muted">
+                                    {rankNum}º Lugar
+                                  </span>
+                                  <span className="text-[11px] text-muted">
+                                    Vaga aberta
+                                  </span>
+                                </div>
+                                <div>
+                                  <p className="text-xs font-semibold text-ink">
+                                    Posição disponível na equipe
+                                  </p>
+                                  <p className="text-[11px] text-muted mt-1 leading-relaxed">
+                                    Cadastre novos consultores para acompanhar
+                                    metas, PA e comissões individuais.
+                                  </p>
+                                </div>
+                                <Link
+                                  to={ROUTES.equipe}
+                                  className="inline-flex items-center gap-1 text-xs font-semibold text-brand hover:underline"
+                                >
+                                  Gerenciar equipe <ArrowRight size={12} />
+                                </Link>
+                              </div>
+                            );
+                          }
+
+                          const goalPctClamped = Math.min(
+                            100,
+                            Math.max(0, Number(seller.goalProgressPct || 0)),
+                          );
+
+                          return (
+                            <button
+                              key={seller.operatorId}
+                              type="button"
+                              onClick={() =>
+                                setSelectedSellerId(seller.operatorId)
+                              }
+                              className={`relative overflow-hidden rounded-xl border p-4 text-left flex flex-col justify-between gap-3.5 transition-colors cursor-pointer bg-surface ${
+                                isLeader
+                                  ? "border-brand hover:bg-support/40"
+                                  : "border-line hover:border-brand"
+                              }`}
+                            >
+                              <span
+                                aria-hidden="true"
+                                className={`absolute inset-x-0 top-0 h-1 ${
+                                  isLeader
+                                    ? "bg-brand"
+                                    : rankNum === 2
+                                      ? "bg-ink"
+                                      : "bg-line"
+                                }`}
+                              />
+
+                              {/* Topo do card: Posição + % da loja */}
+                              <div className="flex items-center justify-between gap-2">
+                                <span
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold tracking-wide tabular-nums ${
+                                    isLeader
+                                      ? "bg-brand text-on-brand"
+                                      : rankNum === 2
+                                        ? "bg-ink text-on-brand"
+                                        : "bg-page text-ink border border-line"
+                                  }`}
+                                >
+                                  {isLeader && <Trophy size={11} />}
+                                  {rankNum}º Lugar
+                                </span>
+                                <span
+                                  className={`text-[11px] font-semibold px-2 py-0.5 rounded-md tabular-nums ${
+                                    isLeader
+                                      ? "bg-support text-brand"
+                                      : "bg-page text-muted border border-line"
+                                  }`}
+                                >
+                                  {formatDec(seller.sharePct, 1)}% da loja
+                                </span>
+                              </div>
+
+                              {/* Identificação do vendedor */}
+                              <div className="flex items-center gap-3 min-w-0">
+                                <SellerAvatar
+                                  name={seller.name}
+                                  imageUrl={seller.imageUrl}
+                                  size={44}
+                                  rank={rankNum}
+                                />
+                                <div className="min-w-0">
+                                  <strong className="block text-sm font-bold text-ink truncate">
+                                    {seller.name}
+                                  </strong>
+                                  <span className="block text-xs text-muted truncate">
+                                    {seller.jobTitle}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Métrica principal do critério */}
+                              <div>
+                                <div className="text-xl font-bold text-ink tracking-tight tabular-nums">
+                                  {formatCriterionMetric(seller)}
+                                </div>
+                                <div className="text-[11px] text-muted mt-0.5 tabular-nums">
+                                  {seller.salesCount}{" "}
+                                  {seller.salesCount === 1 ? "venda" : "vendas"}{" "}
+                                  · {seller.piecesCount} pçs · PA{" "}
+                                  {formatDec(seller.pa, 2)}
+                                </div>
+                              </div>
+
+                              {/* Progresso da meta individual */}
+                              <div className="pt-2.5 border-t border-line w-full space-y-1.5">
+                                <div className="flex items-center justify-between gap-2 text-[11px] tabular-nums">
+                                  <span className="text-muted">
+                                    Meta {money(seller.goal)}
+                                  </span>
+                                  <strong className="text-ink font-semibold">
+                                    {formatDec(seller.goalProgressPct, 1)}%
+                                  </strong>
+                                </div>
+                                <div
+                                  className={`h-1.5 w-full rounded-full overflow-hidden ${
+                                    isLeader ? "bg-support" : "bg-page"
+                                  }`}
+                                >
+                                  <div
+                                    className={`h-full rounded-full transition-all duration-300 ${
+                                      isLeader ? "bg-brand" : "bg-ink"
+                                    }`}
+                                    style={{ width: `${goalPctClamped}%` }}
+                                  />
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-8 bg-page border-b border-line text-center">
+                      <p className="text-sm font-semibold text-ink">
+                        Nenhum vendedor cadastrado na equipe
+                      </p>
+                      <p className="text-xs text-muted mt-1">
+                        Cadastre seus consultores para acompanhar metas,
+                        comissões e ranking comercial.
+                      </p>
+                      <Link
+                        to={ROUTES.equipe}
+                        className="mt-3 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-brand text-on-brand text-xs font-bold"
+                      >
+                        Cadastrar vendedores <ArrowRight size={13} />
+                      </Link>
+                    </div>
+                  )}
+
+                  {/* TABELA COMPARATIVA DA EQUIPE */}
+                  {teamRankedSellers.length > 0 && (
+                    <div className="overflow-x-auto">
+                      <table
+                        className="w-full text-left border-collapse min-w-[740px]"
+                        aria-label="Classificação detalhada de vendedores"
+                      >
+                        <thead>
+                          <tr className="border-b border-line">
+                            <th className="py-2.5 pl-5 pr-3">Vendedor</th>
+                            <th className="py-2.5 px-3 text-right">
+                              Volume &amp; PA
+                            </th>
+                            <th className="py-2.5 px-3 text-right">
+                              Meta &amp; Comissão
+                            </th>
+                            <th className="py-2.5 px-3 text-right">
+                              Descontos
+                            </th>
+                            <th className="py-2.5 px-3 text-right">Trocas</th>
+                            <th className="py-2.5 px-3 text-right">
+                              Melhor Dia
+                            </th>
+                            <th className="py-2.5 pl-3 pr-5 text-right">
+                              {activeCriterionObj.shortLabel}
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-line">
+                          {teamRankedSellers.map((seller: any, idx: number) => {
+                            const pos = idx + 1;
+                            const metricVal = Math.max(
+                              0,
+                              Number(seller[criterion] || 0),
+                            );
+                            const barWidthPct =
+                              maxTeamMetric > 0 && metricVal > 0
+                                ? Math.max(
+                                    4,
+                                    Math.round((metricVal / maxTeamMetric) * 100),
+                                  )
+                                : 0;
+                            const isHighDiscount =
+                              Number(seller.discountRatePct || 0) >
+                              maxHealthyDiscount;
+                            const isHighReturn =
+                              Number(seller.returnRatePct || 0) >
+                              maxHealthyReturn;
+
+                            return (
+                              <tr
+                                key={seller.operatorId}
+                                onClick={() =>
+                                  setSelectedSellerId(seller.operatorId)
+                                }
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" || e.key === " ") {
+                                    e.preventDefault();
+                                    setSelectedSellerId(seller.operatorId);
+                                  }
+                                }}
+                                tabIndex={0}
+                                role="button"
+                                className="cursor-pointer transition-colors"
+                              >
+                                <td className="py-3 pl-5 pr-3">
+                                  <div className="flex items-center gap-3 min-w-0">
+                                    <span
+                                      className={`retail-intel-lb-badge ${
+                                        pos === 1
+                                          ? "is-pos-1"
+                                          : pos <= 3
+                                            ? "is-pos-podium"
+                                            : ""
+                                      }`}
+                                    >
+                                      {pos}º
+                                    </span>
+                                    <SellerAvatar
+                                      name={seller.name}
+                                      imageUrl={seller.imageUrl}
+                                      size={36}
+                                      rank={pos}
+                                    />
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex items-center gap-2">
+                                        <strong className="text-[13px] font-semibold text-ink truncate">
+                                          {seller.name}
+                                        </strong>
+                                        {seller.dailyWinsCount > 0 && (
+                                          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-page border border-line text-[10px] font-semibold text-muted shrink-0 tabular-nums">
+                                            {seller.dailyWinsCount}d #1
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="text-[11px] text-muted truncate">
+                                        {seller.jobTitle} ·{" "}
+                                        {formatDec(seller.sharePct, 1)}% da loja
+                                      </div>
+                                      <div className="mt-1.5 h-1 w-full max-w-[180px] rounded-full bg-page overflow-hidden">
+                                        <div
+                                          className={`h-full rounded-full ${
+                                            pos === 1 ? "bg-brand" : "bg-muted"
+                                          }`}
+                                          style={{ width: `${barWidthPct}%` }}
+                                        />
+                                      </div>
+                                    </div>
+                                  </div>
+                                </td>
+
+                                <td className="py-3 px-3 text-right tabular-nums">
+                                  <strong className="block text-xs font-semibold text-ink">
+                                    {seller.salesCount}{" "}
+                                    {seller.salesCount === 1
+                                      ? "venda"
+                                      : "vendas"}{" "}
+                                    · PA {formatDec(seller.pa, 2)}
+                                  </strong>
+                                  <span className="block text-[11px] text-muted">
+                                    Ticket {money(seller.avgTicket)} (
+                                    {seller.piecesCount} pçs)
+                                  </span>
+                                </td>
+
+                                <td className="py-3 px-3 text-right tabular-nums">
+                                  <strong className="block text-xs font-semibold text-ink">
+                                    {formatDec(seller.goalProgressPct, 1)}%
+                                  </strong>
+                                  <span className="block text-[11px] text-muted">
+                                    Comissão {money(seller.estimatedCommission)}
+                                  </span>
+                                </td>
+
+                                <td className="py-3 px-3 text-right tabular-nums">
+                                  <strong className="inline-flex items-center justify-end gap-1 text-xs font-semibold text-ink">
+                                    {isHighDiscount && (
+                                      <AlertTriangle
+                                        size={12}
+                                        className="text-ink shrink-0"
+                                      />
+                                    )}
+                                    {formatDec(seller.discountRatePct, 1)}%
+                                  </strong>
+                                  <span className="block text-[11px] text-muted">
+                                    {money(seller.discountTotal)}
+                                    {isHighDiscount ? " · Acima do teto" : ""}
+                                  </span>
+                                </td>
+
+                                <td className="py-3 px-3 text-right tabular-nums">
+                                  <strong className="inline-flex items-center justify-end gap-1 text-xs font-semibold text-ink">
+                                    {isHighReturn && (
+                                      <AlertTriangle
+                                        size={12}
+                                        className="text-ink shrink-0"
+                                      />
+                                    )}
+                                    {formatDec(seller.returnRatePct, 1)}%
+                                  </strong>
+                                  <span className="block text-[11px] text-muted">
+                                    {seller.returnsCount}{" "}
+                                    {seller.returnsCount === 1
+                                      ? "troca"
+                                      : "trocas"}{" "}
+                                    ({money(seller.returnsAmount)})
+                                  </span>
+                                </td>
+
+                                <td className="py-3 px-3 text-right tabular-nums">
+                                  {seller.bestDay ? (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        openSellerInCalendar(
+                                          seller.operatorId,
+                                          seller.bestDay.date,
+                                        );
+                                      }}
+                                      className="text-right group cursor-pointer"
+                                      title="Ver este dia no calendário de vendas"
+                                    >
+                                      <strong className="block text-xs font-semibold text-ink group-hover:text-brand group-hover:underline">
+                                        {formatShortBrDate(seller.bestDay.date)}
+                                      </strong>
+                                      <span className="block text-[11px] text-muted">
+                                        {money(seller.bestDay.revenue)}
+                                      </span>
+                                    </button>
+                                  ) : (
+                                    <span className="text-[11px] text-muted">
+                                      Sem vendas
+                                    </span>
+                                  )}
+                                </td>
+
+                                <td className="py-3 pl-3 pr-5 text-right tabular-nums">
+                                  <strong
+                                    className={`block text-[13px] font-bold ${
+                                      pos === 1 ? "text-brand" : "text-ink"
+                                    }`}
+                                  >
+                                    {formatCriterionMetric(seller)}
+                                  </strong>
+                                  <span className="block text-[11px] text-muted">
+                                    {criterion === "netRevenue"
+                                      ? `Bruto ${money(seller.grossRevenue)}`
+                                      : `Líquido ${money(seller.netRevenue)}`}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* RODAPÉ SEPARADO: ATENDIMENTOS DE BALCÃO (SEM VENDEDOR VINCULADO) */}
+                  {unassignedSeller &&
+                    (unassignedSeller.salesCount > 0 ||
+                      unassignedSeller.returnsCount > 0) && (
+                      <div className="border-t border-line bg-page px-5 py-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span className="w-8 h-8 rounded-lg bg-surface border border-line text-muted flex items-center justify-center shrink-0">
+                            <ShoppingBag size={15} />
+                          </span>
+                          <div className="min-w-0">
+                            <strong className="block text-xs font-bold text-ink">
+                              Atendimentos de Balcão (sem vendedor vinculado)
+                            </strong>
+                            <span className="block text-[11px] text-muted">
+                              Contabilizado no faturamento da loja, mas fora do
+                              pódio e sem geração de comissão.
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-3 shrink-0 tabular-nums">
+                          <div className="text-right">
+                            <strong className="block text-xs font-bold text-ink">
+                              Líquido {money(unassignedSeller.netRevenue)}
+                            </strong>
+                            <span className="block text-[11px] text-muted">
+                              {unassignedSeller.salesCount}{" "}
+                              {unassignedSeller.salesCount === 1
+                                ? "venda"
+                                : "vendas"}{" "}
+                              ({money(unassignedSeller.grossRevenue)})
+                              {unassignedSeller.returnsCount > 0
+                                ? ` · ${unassignedSeller.returnsCount} ${unassignedSeller.returnsCount === 1 ? "troca" : "trocas"} (${money(unassignedSeller.returnsAmount)})`
+                                : ""}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setSelectedSellerId(unassignedSeller.operatorId)
+                            }
+                            className="px-3 py-1.5 rounded-lg bg-surface border border-line text-xs font-semibold text-ink hover:border-brand hover:text-brand transition-colors cursor-pointer"
+                          >
+                            Auditar
+                          </button>
+                        </div>
+                      </div>
+                    )}
                 </section>
 
-                {/* COLUNA LATERAL: INSIGHTS COMERCIAIS + RECORDE DIÁRIO + ATALHO PRO CALENDÁRIO */}
-                <aside className="retail-stack" style={{ gap: 16 }}>
-                  <section className="retail-panel">
-                    <div
-                      className="retail-row retail-spread"
-                      style={{ marginBottom: 12 }}
-                    >
+                {/* COLUNA LATERAL DIREITA (4 COL): META DA LOJA + LEITURA COMERCIAL ENXUTA */}
+                <aside className="xl:col-span-4 space-y-5">
+                  {/* Card 1: Meta Comercial da Loja & Comissões */}
+                  <section className="bg-surface border border-line rounded-xl p-5 space-y-4">
+                    <div className="flex items-start justify-between gap-3">
                       <div>
-                        <h2 style={{ margin: 0 }}>
-                          Diagnóstico Comercial da Equipe
+                        <h2 className="text-base font-bold text-ink flex items-center gap-2">
+                          <Target size={17} className="text-brand" />
+                          Meta da Loja &amp; Comissões
                         </h2>
-                        <p className="retail-muted" style={{ margin: 0 }}>
-                          Leitura automática de descontos, trocas, venda casada
-                          e recordes
+                        <p className="text-xs text-muted mt-0.5">
+                          Acompanhamento do objetivo configurado e comissão da
+                          equipe
                         </p>
                       </div>
-                      <Sparkles size={18} />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          navigate(ROUTES.inteligenciaComercial.metas)
+                        }
+                        className="text-xs font-semibold text-brand hover:underline shrink-0 cursor-pointer"
+                      >
+                        Ajustar
+                      </button>
                     </div>
 
-                    <div className="retail-stack" style={{ gap: 10 }}>
-                      {(data.insights || []).length > 0 ? (
-                        data.insights.map((ins: any) => (
-                          <article
-                            key={ins.id}
-                            className="retail-intel-insight-card"
-                            onClick={() => {
-                              if (ins.operatorId) {
-                                setSelectedSellerId(ins.operatorId);
-                              }
-                            }}
-                          >
-                            <div className="retail-row retail-spread">
-                              <strong>{ins.title}</strong>
-                              <span className="retail-intel-insight-badge retail-number">
-                                {ins.metric}
-                              </span>
-                            </div>
-                            <p className="retail-muted" style={{ margin: 0 }}>
-                              {ins.description}
-                            </p>
-                          </article>
-                        ))
-                      ) : (
-                        <p className="retail-empty">
-                          Registre vendas no PDV para gerar diagnósticos
-                          automáticos da equipe.
-                        </p>
-                      )}
+                    <div className="space-y-2">
+                      <div className="flex items-baseline justify-between gap-2 tabular-nums">
+                        <span className="text-2xl font-bold text-ink tracking-tight">
+                          {formatDec(data.summary.storeGoalProgressPct, 1)}%
+                        </span>
+                        <span className="text-xs text-muted">
+                          <strong className="text-ink">
+                            {money(storeRealizedForGoal)}
+                          </strong>{" "}
+                          de {money(data.summary.storeGoal)}
+                        </span>
+                      </div>
+                      <div className="h-2 w-full rounded-full bg-support overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-brand transition-all duration-300"
+                          style={{
+                            width: `${Math.min(100, Math.max(0, Number(data.summary.storeGoalProgressPct || 0)))}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 pt-3 border-t border-line">
+                      <div className="rounded-lg bg-page border border-line p-3">
+                        <span className="block text-[11px] font-medium text-muted">
+                          Saldo p/ bater a meta
+                        </span>
+                        <strong className="block text-sm font-bold text-ink mt-0.5 tabular-nums">
+                          {remainingStoreGoal > 0
+                            ? money(remainingStoreGoal)
+                            : "Meta batida"}
+                        </strong>
+                      </div>
+                      <div className="rounded-lg bg-page border border-line p-3">
+                        <span className="block text-[11px] font-medium text-muted">
+                          Comissão est. equipe
+                        </span>
+                        <strong className="block text-sm font-bold text-ink mt-0.5 tabular-nums">
+                          {money(data.summary.totalEstimatedCommission)}
+                        </strong>
+                      </div>
                     </div>
                   </section>
 
-                  {/* Card Rápido: Quem Vendeu Mais em Qual Dia */}
-                  <section className="retail-panel">
-                    <div
-                      className="retail-row retail-spread"
-                      style={{ marginBottom: 12 }}
-                    >
-                      <div>
-                        <h2 style={{ margin: 0 }}>
-                          Recorde de Vendas por Vendedor
-                        </h2>
-                        <p className="retail-muted" style={{ margin: 0 }}>
-                          Qual dia cada vendedor mais vendeu no período
-                        </p>
-                      </div>
-                      <CalendarIcon size={18} />
+                  {/* Card 2: Leitura Comercial do Período (Sem Sparkles e sem lista duplicada) */}
+                  <section className="bg-surface border border-line rounded-xl p-5">
+                    <div className="mb-3.5">
+                      <h2 className="text-base font-bold text-ink">
+                        Leitura Comercial do Período
+                      </h2>
+                      <p className="text-xs text-muted mt-0.5">
+                        Destaques objetivos de conversão, venda casada e pontos
+                        de auditoria
+                      </p>
                     </div>
 
-                    <div className="retail-stack" style={{ gap: 10 }}>
-                      {rankedSellers.map((s: any) => (
-                        <div
-                          key={s.operatorId}
-                          className="retail-intel-bestday-row"
-                        >
-                          <div className="retail-row" style={{ gap: 10 }}>
-                            <SellerAvatar
-                              name={s.name}
-                              imageUrl={s.imageUrl}
-                              size={36}
-                            />
-                            <div>
-                              <strong>{s.name}</strong>
-                              <small
-                                className="retail-muted"
-                                style={{ display: "block" }}
-                              >
-                                {s.bestDay
-                                  ? `Melhor dia: ${formatBrDate(s.bestDay.date)} (${s.bestDay.salesCount} vendas · ${s.bestDay.piecesCount} pçs)`
-                                  : "Sem vendas registradas no período"}
-                              </small>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <strong className="retail-number">
-                              {s.bestDay ? money(s.bestDay.revenue) : money(0)}
-                            </strong>
-                            {s.bestDay && (
-                              <button
-                                type="button"
-                                className="retail-intel-link-btn"
-                                onClick={() =>
-                                  openSellerInCalendar(
-                                    s.operatorId,
-                                    s.bestDay.date,
-                                  )
+                    {(data.insights || []).length > 0 ? (
+                      <div className="divide-y divide-line">
+                        {data.insights.map((ins: any) => {
+                          const isInteractive = Boolean(
+                            ins.operatorId || ins.kind === "calendar",
+                          );
+                          return (
+                            <div
+                              key={ins.id}
+                              role={isInteractive ? "button" : undefined}
+                              tabIndex={isInteractive ? 0 : undefined}
+                              onClick={() => {
+                                if (ins.kind === "calendar" && ins.date) {
+                                  openSellerInCalendar("ALL", ins.date);
+                                } else if (ins.operatorId) {
+                                  setSelectedSellerId(ins.operatorId);
                                 }
+                              }}
+                              onKeyDown={(e) => {
+                                if (
+                                  isInteractive &&
+                                  (e.key === "Enter" || e.key === " ")
+                                ) {
+                                  e.preventDefault();
+                                  if (ins.kind === "calendar" && ins.date) {
+                                    openSellerInCalendar("ALL", ins.date);
+                                  } else if (ins.operatorId) {
+                                    setSelectedSellerId(ins.operatorId);
+                                  }
+                                }
+                              }}
+                              className={`py-3 first:pt-0 last:pb-0 flex items-start gap-3 ${
+                                isInteractive
+                                  ? "cursor-pointer group"
+                                  : ""
+                              }`}
+                            >
+                              <span
+                                className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 border ${
+                                  ins.kind === "leader"
+                                    ? "bg-support border-brand text-brand"
+                                    : "bg-page border-line text-ink"
+                                }`}
                               >
-                                Ver no calendário →
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                                <InsightKindIcon kind={ins.kind} />
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
+                                  <strong className="text-xs font-bold text-ink group-hover:text-brand transition-colors">
+                                    {ins.title}
+                                  </strong>
+                                  <span className="text-[11px] font-semibold text-brand tabular-nums">
+                                    {ins.metric}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-muted mt-1 leading-relaxed">
+                                  {ins.description}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted py-4">
+                        Registre vendas no PDV para gerar destaques comerciais
+                        da equipe.
+                      </p>
+                    )}
                   </section>
                 </aside>
               </div>
             )}
 
-            {/* =================================================================
+            {/* ===============================================================
                 ABA 2: CALENDÁRIO COMERCIAL DE VENDAS & CAMPEÃO DO DIA
-               ================================================================= */}
+               =============================================================== */}
             {activeSubTab === "calendario" && (
               <div className="retail-stack" style={{ gap: 18 }}>
-                {/* Filtro de Vendedor no Topo do Calendário */}
                 <section className="retail-panel">
                   <div
                     className="retail-row retail-spread"
@@ -1121,7 +1483,7 @@ export function RetailIntelligencePage() {
                     >
                       Toda a Equipe ({data.summary.totalSales} vendas)
                     </button>
-                    {(data.sellers || []).map((s: any) => (
+                    {allOrderedSellers.map((s: any) => (
                       <button
                         type="button"
                         key={s.operatorId}
@@ -1135,7 +1497,6 @@ export function RetailIntelligencePage() {
                 </section>
 
                 <div className="retail-intel-calendar-split">
-                  {/* GRADE DE DIAS DO CALENDÁRIO */}
                   <section className="retail-panel">
                     <div className="retail-intel-calendar-weekdays">
                       {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map(
@@ -1146,7 +1507,6 @@ export function RetailIntelligencePage() {
                     </div>
 
                     <div className="retail-intel-calendar-grid">
-                      {/* Espaçamento inicial do primeiro dia do período para alinhar dia da semana */}
                       {calendarDaysView.length > 0 &&
                         Array.from({
                           length: calendarDaysView[0].weekday || 0,
@@ -1224,7 +1584,6 @@ export function RetailIntelligencePage() {
                     </div>
                   </section>
 
-                  {/* PAINEL LATERAL DO DIA SELECIONADO: RANKING DO DIA + LISTA DE VENDAS DO DIA */}
                   <aside className="retail-panel retail-intel-day-inspector">
                     {selectedDayData ? (
                       <div className="retail-stack" style={{ gap: 16 }}>
@@ -1243,7 +1602,7 @@ export function RetailIntelligencePage() {
                                 ? "venda realizada"
                                 : "vendas realizadas"}{" "}
                               · {selectedDayData.piecesCount} peças · PA{" "}
-                              {Number(selectedDayData.pa || 0).toFixed(2)}
+                              {formatDec(selectedDayData.pa, 2)}
                             </p>
                           </div>
                           <div className="text-right">
@@ -1263,7 +1622,6 @@ export function RetailIntelligencePage() {
                           </div>
                         </div>
 
-                        {/* Ranking dos Vendedores naquele Dia */}
                         {selectedDayData.sellerBreakdown?.length > 0 && (
                           <div className="retail-intel-day-sellers-box">
                             <strong
@@ -1273,58 +1631,73 @@ export function RetailIntelligencePage() {
                                 marginBottom: 8,
                               }}
                             >
-                              Quem vendeu mais neste dia:
+                              Desempenho no dia:
                             </strong>
                             <div className="retail-stack" style={{ gap: 8 }}>
                               {selectedDayData.sellerBreakdown.map(
-                                (ds: any, idx: number) => (
-                                  <div
-                                    key={ds.operatorId}
-                                    className="retail-row retail-spread retail-intel-day-seller-item"
-                                  >
+                                (ds: any, idx: number) => {
+                                  const isUnassignedRow =
+                                    ds.operatorId === "sem-vendedor";
+                                  return (
                                     <div
-                                      className="retail-row"
-                                      style={{ gap: 8 }}
+                                      key={ds.operatorId}
+                                      className="retail-row retail-spread retail-intel-day-seller-item"
                                     >
-                                      <span className="retail-intel-lb-badge is-small">
-                                        {idx + 1}º
-                                      </span>
-                                      <SellerAvatar
-                                        name={ds.name}
-                                        imageUrl={ds.imageUrl}
-                                        size={30}
-                                      />
-                                      <div>
-                                        <strong>{ds.name}</strong>
+                                      <div
+                                        className="retail-row"
+                                        style={{ gap: 8 }}
+                                      >
+                                        <span
+                                          className={`retail-intel-lb-badge is-small ${
+                                            !isUnassignedRow && idx === 0
+                                              ? "is-pos-1"
+                                              : !isUnassignedRow && idx < 3
+                                                ? "is-pos-podium"
+                                                : ""
+                                          }`}
+                                        >
+                                          {isUnassignedRow ? "—" : `${idx + 1}º`}
+                                        </span>
+                                        <SellerAvatar
+                                          name={ds.name}
+                                          imageUrl={ds.imageUrl}
+                                          size={30}
+                                          rank={
+                                            isUnassignedRow ? undefined : idx + 1
+                                          }
+                                        />
+                                        <div>
+                                          <strong>{ds.name}</strong>
+                                          <small
+                                            className="retail-muted"
+                                            style={{ display: "block" }}
+                                          >
+                                            {ds.salesCount} vendas ·{" "}
+                                            {ds.piecesCount} peças · PA{" "}
+                                            {formatDec(ds.pa, 2)}
+                                          </small>
+                                        </div>
+                                      </div>
+                                      <div className="text-right">
+                                        <strong className="retail-number">
+                                          {money(ds.revenue)}
+                                        </strong>
                                         <small
                                           className="retail-muted"
                                           style={{ display: "block" }}
                                         >
-                                          {ds.salesCount} vendas ·{" "}
-                                          {ds.piecesCount} peças · PA{" "}
-                                          {Number(ds.pa || 0).toFixed(2)}
+                                          {formatDec(ds.shareOfDayPct, 1)}% do
+                                          dia
                                         </small>
                                       </div>
                                     </div>
-                                    <div className="text-right">
-                                      <strong className="retail-number">
-                                        {money(ds.revenue)}
-                                      </strong>
-                                      <small
-                                        className="retail-muted"
-                                        style={{ display: "block" }}
-                                      >
-                                        {ds.shareOfDayPct}% do dia
-                                      </small>
-                                    </div>
-                                  </div>
-                                ),
+                                  );
+                                },
                               )}
                             </div>
                           </div>
                         )}
 
-                        {/* Lista de Todas as Vendas Feitas naquele Dia */}
                         <div>
                           <strong
                             style={{
@@ -1392,7 +1765,6 @@ export function RetailIntelligencePage() {
                                     </span>
                                   </div>
 
-                                  {/* Peças da Venda */}
                                   <div className="retail-intel-sale-items">
                                     {(sale.items || []).map(
                                       (it: any, iIdx: number) => (
@@ -1425,7 +1797,7 @@ export function RetailIntelligencePage() {
                                       {sale.discount > 0 && (
                                         <span className="retail-intel-tag">
                                           Desconto {money(sale.discount)} (
-                                          {sale.discountPct}%)
+                                          {formatDec(sale.discountPct, 1)}%)
                                         </span>
                                       )}
                                       {sale.hasReturn && (
@@ -1457,12 +1829,11 @@ export function RetailIntelligencePage() {
               </div>
             )}
 
-            {/* =================================================================
+            {/* ===============================================================
                 ABA 3: AUDITORIA DE DESCONTOS, TAXA DE TROCAS & METAS/COMISSÕES
-               ================================================================= */}
+               =============================================================== */}
             {activeSubTab === "metas" && (
               <div className="retail-stack" style={{ gap: 20 }}>
-                {/* Tabela Analítica: Descontos, Trocas, Margem e Recordes por Vendedor */}
                 <section className="retail-panel">
                   <div
                     className="retail-row retail-spread"
@@ -1500,142 +1871,169 @@ export function RetailIntelligencePage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {rankedSellers.map((s: any, index: number) => (
-                          <tr key={s.operatorId}>
-                            <td data-label="Vendedor">
-                              <div className="retail-row" style={{ gap: 10 }}>
-                                <span className="retail-intel-lb-badge is-small">
-                                  {index + 1}º
-                                </span>
-                                <SellerAvatar
-                                  name={s.name}
-                                  imageUrl={s.imageUrl}
-                                  size={34}
-                                />
-                                <div>
-                                  <strong>{s.name}</strong>
-                                  <small
-                                    className="retail-muted"
-                                    style={{ display: "block" }}
+                        {allOrderedSellers.map((s: any, index: number) => {
+                          const isUnassignedRow = Boolean(
+                            s.isUnassigned || s.operatorId === "sem-vendedor",
+                          );
+                          const pos = index + 1;
+                          return (
+                            <tr key={s.operatorId}>
+                              <td data-label="Vendedor">
+                                <div className="retail-row" style={{ gap: 10 }}>
+                                  <span
+                                    className={`retail-intel-lb-badge is-small ${
+                                      !isUnassignedRow && pos === 1
+                                        ? "is-pos-1"
+                                        : !isUnassignedRow && pos <= 3
+                                          ? "is-pos-podium"
+                                          : ""
+                                    }`}
                                   >
-                                    {s.jobTitle}
-                                  </small>
+                                    {isUnassignedRow ? "—" : `${pos}º`}
+                                  </span>
+                                  <SellerAvatar
+                                    name={s.name}
+                                    imageUrl={s.imageUrl}
+                                    size={34}
+                                    rank={isUnassignedRow ? undefined : pos}
+                                  />
+                                  <div>
+                                    <strong>{s.name}</strong>
+                                    <small
+                                      className="retail-muted"
+                                      style={{ display: "block" }}
+                                    >
+                                      {s.jobTitle}
+                                    </small>
+                                  </div>
                                 </div>
-                              </div>
-                            </td>
-                            <td
-                              data-label="Vendas Brutas"
-                              className="retail-number"
-                            >
-                              <strong>{money(s.grossRevenue)}</strong>
-                              <small
-                                className="retail-muted"
-                                style={{ display: "block" }}
+                              </td>
+                              <td
+                                data-label="Vendas Brutas"
+                                className="retail-number"
                               >
-                                {s.salesCount} vendas · {s.piecesCount} peças
-                              </small>
-                            </td>
-                            <td
-                              data-label="Índice de Desconto"
-                              className="retail-number"
-                            >
-                              <strong>
-                                {Number(s.discountRatePct || 0).toFixed(1)}% (
-                                {money(s.discountTotal)})
-                              </strong>
-                              <small
-                                className="retail-muted"
-                                style={{ display: "block" }}
+                                <strong>{money(s.grossRevenue)}</strong>
+                                <small
+                                  className="retail-muted"
+                                  style={{ display: "block" }}
+                                >
+                                  {s.salesCount} vendas · {s.piecesCount} peças
+                                </small>
+                              </td>
+                              <td
+                                data-label="Índice de Desconto"
+                                className="retail-number"
                               >
-                                Em {s.discountedSalesCount} vendas (
-                                {s.discountedSalesRatePct}%)
-                              </small>
-                            </td>
-                            <td
-                              data-label="Taxa de Trocas (Origem)"
-                              className="retail-number"
-                            >
-                              <strong>
-                                {Number(s.returnRatePct || 0).toFixed(1)}% (
-                                {money(s.returnsAmount)})
-                              </strong>
-                              <small
-                                className="retail-muted"
-                                style={{ display: "block" }}
+                                <strong>
+                                  {formatDec(s.discountRatePct, 1)}% (
+                                  {money(s.discountTotal)})
+                                </strong>
+                                <small
+                                  className="retail-muted"
+                                  style={{ display: "block" }}
+                                >
+                                  Em {s.discountedSalesCount} vendas (
+                                  {formatDec(s.discountedSalesRatePct, 1)}%)
+                                </small>
+                              </td>
+                              <td
+                                data-label="Taxa de Trocas (Origem)"
+                                className="retail-number"
                               >
-                                {s.returnsCount} trocas · {s.returnedPieces} pçs
-                                devolvidas
-                              </small>
-                            </td>
-                            <td
-                              data-label="Venda Líquida Real"
-                              className="retail-number"
-                            >
-                              <strong>{money(s.netRevenue)}</strong>
-                              <small
-                                className="retail-muted"
-                                style={{ display: "block" }}
+                                <strong>
+                                  {formatDec(s.returnRatePct, 1)}% (
+                                  {money(s.returnsAmount)})
+                                </strong>
+                                <small
+                                  className="retail-muted"
+                                  style={{ display: "block" }}
+                                >
+                                  {s.returnsCount} trocas · {s.returnedPieces}{" "}
+                                  pçs devolvidas
+                                </small>
+                              </td>
+                              <td
+                                data-label="Venda Líquida Real"
+                                className="retail-number"
                               >
-                                Margem est. {money(s.estimatedMargin)} (
-                                {s.marginRatePct}%)
-                              </small>
-                            </td>
-                            <td
-                              data-label="PA / Venda Casada"
-                              className="retail-number"
-                            >
-                              <strong>
-                                {Number(s.pa || 0).toFixed(2)} pçs/venda
-                              </strong>
-                              <small
-                                className="retail-muted"
-                                style={{ display: "block" }}
+                                <strong>{money(s.netRevenue)}</strong>
+                                <small
+                                  className="retail-muted"
+                                  style={{ display: "block" }}
+                                >
+                                  Margem est. {money(s.estimatedMargin)} (
+                                  {formatDec(s.marginRatePct, 1)}%)
+                                </small>
+                              </td>
+                              <td
+                                data-label="PA / Venda Casada"
+                                className="retail-number"
                               >
-                                {s.multiItemRatePct}% vendas c/ 2+ peças
-                              </small>
-                            </td>
-                            <td
-                              data-label="Cliente Identificado"
-                              className="retail-number"
-                            >
-                              <strong>{s.identifiedRatePct}%</strong>
-                              <small
-                                className="retail-muted"
-                                style={{ display: "block" }}
+                                <strong>
+                                  {formatDec(s.pa, 2)} pçs/venda
+                                </strong>
+                                <small
+                                  className="retail-muted"
+                                  style={{ display: "block" }}
+                                >
+                                  {formatDec(s.multiItemRatePct, 1)}% vendas c/
+                                  2+ peças
+                                </small>
+                              </td>
+                              <td
+                                data-label="Cliente Identificado"
+                                className="retail-number"
                               >
-                                {s.identifiedSalesCount} vendas ({s.uniqueCustomersCount}{" "}
-                                clientes)
-                              </small>
-                            </td>
-                            <td
-                              data-label="Meta & Comissão"
-                              className="retail-number"
-                            >
-                              <strong>
-                                {s.goalProgressPct}% da meta ({money(s.goal)})
-                              </strong>
-                              <small
-                                className="retail-muted"
-                                style={{ display: "block" }}
+                                <strong>
+                                  {formatDec(s.identifiedRatePct, 1)}%
+                                </strong>
+                                <small
+                                  className="retail-muted"
+                                  style={{ display: "block" }}
+                                >
+                                  {s.identifiedSalesCount} vendas (
+                                  {s.uniqueCustomersCount} clientes)
+                                </small>
+                              </td>
+                              <td
+                                data-label="Meta & Comissão"
+                                className="retail-number"
                               >
-                                Comissão ({s.commissionPct}%):{" "}
-                                {money(s.estimatedCommission)}
-                              </small>
-                            </td>
-                            <td data-label="Ações">
-                              <button
-                                type="button"
-                                className="retail-button"
-                                onClick={() =>
-                                  setSelectedSellerId(s.operatorId)
-                                }
-                              >
-                                <Eye size={15} />
-                                Raio-X
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
+                                {isUnassignedRow ? (
+                                  <small className="retail-muted">
+                                    Sem vínculo de comissão
+                                  </small>
+                                ) : (
+                                  <>
+                                    <strong>
+                                      {formatDec(s.goalProgressPct, 1)}% da meta
+                                      ({money(s.goal)})
+                                    </strong>
+                                    <small
+                                      className="retail-muted"
+                                      style={{ display: "block" }}
+                                    >
+                                      Comissão ({formatDec(s.commissionPct, 1)}
+                                      %): {money(s.estimatedCommission)}
+                                    </small>
+                                  </>
+                                )}
+                              </td>
+                              <td data-label="Ações">
+                                <button
+                                  type="button"
+                                  className="retail-button"
+                                  onClick={() =>
+                                    setSelectedSellerId(s.operatorId)
+                                  }
+                                >
+                                  <Eye size={15} />
+                                  Raio-X
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -1781,271 +2179,173 @@ export function RetailIntelligencePage() {
                     </label>
                   </div>
 
-                  {/* Metas Individuais por Vendedor */}
-                  <div style={{ marginTop: 20 }}>
-                    <h3 style={{ marginBottom: 10, fontSize: "0.95rem" }}>
-                      Metas e Comissões Individuais por Vendedor
-                    </h3>
-                    <div
-                      className="retail-summary-grid"
-                      style={{
-                        gridTemplateColumns:
-                          "repeat(auto-fit, minmax(260px, 1fr))",
-                        gap: 12,
-                      }}
-                    >
-                      {(data.sellers || []).map((s: any) => {
-                        const ov = goalsForm.sellerOverrides[s.operatorId] || {
-                          goal: goalsForm.defaultSellerGoal,
-                          commissionPct: goalsForm.defaultCommissionPct,
-                        };
-                        return (
-                          <div
-                            key={s.operatorId}
-                            className="retail-intel-goal-seller-card"
-                          >
+                  {teamRankedSellers.length > 0 && (
+                    <div style={{ marginTop: 20 }}>
+                      <h3 style={{ marginBottom: 10, fontSize: "0.95rem" }}>
+                        Metas e Comissões Individuais por Vendedor
+                      </h3>
+                      <div
+                        className="retail-summary-grid"
+                        style={{
+                          gridTemplateColumns:
+                            "repeat(auto-fit, minmax(260px, 1fr))",
+                          gap: 12,
+                        }}
+                      >
+                        {teamRankedSellers.map((s: any) => {
+                          const ov = goalsForm.sellerOverrides[
+                            s.operatorId
+                          ] || {
+                            goal: goalsForm.defaultSellerGoal,
+                            commissionPct: goalsForm.defaultCommissionPct,
+                          };
+                          return (
                             <div
-                              className="retail-row"
-                              style={{ gap: 10, marginBottom: 10 }}
+                              key={s.operatorId}
+                              className="retail-intel-goal-seller-card"
                             >
-                              <SellerAvatar
-                                name={s.name}
-                                imageUrl={s.imageUrl}
-                                size={36}
-                              />
-                              <div>
-                                <strong>{s.name}</strong>
-                                <small
-                                  className="retail-muted"
-                                  style={{ display: "block" }}
+                              <div
+                                className="retail-row"
+                                style={{ gap: 10, marginBottom: 10 }}
+                              >
+                                <SellerAvatar
+                                  name={s.name}
+                                  imageUrl={s.imageUrl}
+                                  size={36}
+                                />
+                                <div>
+                                  <strong>{s.name}</strong>
+                                  <small
+                                    className="retail-muted"
+                                    style={{ display: "block" }}
+                                  >
+                                    Atual: {money(s.netRevenue)} líquidos (
+                                    {formatDec(s.goalProgressPct, 1)}%)
+                                  </small>
+                                </div>
+                              </div>
+                              <div className="retail-row" style={{ gap: 10 }}>
+                                <label
+                                  className="retail-field"
+                                  style={{ flex: 1 }}
                                 >
-                                  Atual: {money(s.netRevenue)} líquidos (
-                                  {s.goalProgressPct}%)
-                                </small>
+                                  <span>Meta (R$)</span>
+                                  <input
+                                    type="number"
+                                    step="100"
+                                    min="0"
+                                    value={ov.goal}
+                                    onChange={(e) =>
+                                      setGoalsForm((prev) => ({
+                                        ...prev,
+                                        sellerOverrides: {
+                                          ...prev.sellerOverrides,
+                                          [s.operatorId]: {
+                                            ...ov,
+                                            goal: e.target.value,
+                                          },
+                                        },
+                                      }))
+                                    }
+                                  />
+                                </label>
+                                <label
+                                  className="retail-field"
+                                  style={{ width: 110 }}
+                                >
+                                  <span>Comissão (%)</span>
+                                  <input
+                                    type="number"
+                                    step="0.1"
+                                    min="0"
+                                    max="100"
+                                    value={ov.commissionPct}
+                                    onChange={(e) =>
+                                      setGoalsForm((prev) => ({
+                                        ...prev,
+                                        sellerOverrides: {
+                                          ...prev.sellerOverrides,
+                                          [s.operatorId]: {
+                                            ...ov,
+                                            commissionPct: e.target.value,
+                                          },
+                                        },
+                                      }))
+                                    }
+                                  />
+                                </label>
                               </div>
                             </div>
-                            <div className="retail-row" style={{ gap: 10 }}>
-                              <label
-                                className="retail-field"
-                                style={{ flex: 1 }}
-                              >
-                                <span>Meta (R$)</span>
-                                <input
-                                  type="number"
-                                  step="100"
-                                  min="0"
-                                  value={ov.goal}
-                                  onChange={(e) =>
-                                    setGoalsForm((prev) => ({
-                                      ...prev,
-                                      sellerOverrides: {
-                                        ...prev.sellerOverrides,
-                                        [s.operatorId]: {
-                                          ...ov,
-                                          goal: e.target.value,
-                                        },
-                                      },
-                                    }))
-                                  }
-                                />
-                              </label>
-                              <label
-                                className="retail-field"
-                                style={{ width: 110 }}
-                              >
-                                <span>Comissão (%)</span>
-                                <input
-                                  type="number"
-                                  step="0.1"
-                                  min="0"
-                                  max="100"
-                                  value={ov.commissionPct}
-                                  onChange={(e) =>
-                                    setGoalsForm((prev) => ({
-                                      ...prev,
-                                      sellerOverrides: {
-                                        ...prev.sellerOverrides,
-                                        [s.operatorId]: {
-                                          ...ov,
-                                          commissionPct: e.target.value,
-                                        },
-                                      },
-                                    }))
-                                  }
-                                />
-                              </label>
-                            </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </form>
               </div>
             )}
-
-            {/* =================================================================
-                FAIXA INFERIOR: KPIS EXECUTIVOS DA EQUIPE + FILTRO DE PERÍODO
-               ================================================================= */}
-            <div className="retail-kpis">
-              <article className="retail-kpi">
-                <span className="retail-muted">
-                  Faturamento Líquido da Equipe
-                </span>
-                <strong className="retail-number">
-                  {money(data.summary.netRevenue)}
-                </strong>
-                <small className="retail-muted">
-                  Bruto {money(data.summary.grossRevenue)} ·{" "}
-                  {data.summary.totalSales} vendas ({data.summary.totalPieces}{" "}
-                  peças)
-                </small>
-              </article>
-
-              <article className="retail-kpi">
-                <span className="retail-muted">
-                  Líder do Ranking (#1 no Período)
-                </span>
-                <strong className="retail-number">
-                  {data.summary.topSeller?.name || "Sem vendas"}
-                </strong>
-                <small className="retail-muted">
-                  {data.summary.topSeller
-                    ? `${money(data.summary.topSeller.netRevenue)} líquidos · ${data.summary.topSeller.dailyWinsCount} ${data.summary.topSeller.dailyWinsCount === 1 ? "dia em 1º" : "dias em 1º"}`
-                    : "Aguardando atendimentos"}
-                </small>
-              </article>
-
-              <article className="retail-kpi">
-                <span className="retail-muted">
-                  Índice de Descontos Concedidos
-                </span>
-                <strong className="retail-number">
-                  {Number(data.summary.discountRatePct || 0).toFixed(1)}% (
-                  {money(data.summary.totalDiscounts)})
-                </strong>
-                <small className="retail-muted">
-                  Aplicado em {data.summary.discountedSalesCount} de{" "}
-                  {data.summary.totalSales} atendimentos
-                </small>
-              </article>
-
-              <article className="retail-kpi">
-                <span className="retail-muted">
-                  Taxa de Trocas &amp; Recorde Diário
-                </span>
-                <strong className="retail-number">
-                  {Number(data.summary.returnRatePct || 0).toFixed(1)}% trocas (
-                  {money(data.summary.returnsTotal)})
-                </strong>
-                <small className="retail-muted">
-                  {data.summary.bestDay
-                    ? `Melhor dia: ${formatShortBrDate(data.summary.bestDay.date)} (${money(data.summary.bestDay.revenue)})`
-                    : `${data.summary.returnsCount} trocas registradas`}
-                </small>
-              </article>
-            </div>
-
-            <div className="retail-toolbar" style={{ marginBottom: 0 }}>
-              <div className="retail-field">
-                <span>De</span>
-                <RetailDatePicker
-                  aria-label="De"
-                  value={start}
-                  rangeStart={start}
-                  rangeEnd={end}
-                  allowClear={false}
-                  onValueChange={setStart}
-                />
-              </div>
-              <div className="retail-field">
-                <span>Até</span>
-                <RetailDatePicker
-                  aria-label="Até"
-                  value={end}
-                  rangeStart={start}
-                  rangeEnd={end}
-                  allowClear={false}
-                  onValueChange={setEnd}
-                />
-              </div>
-              <button
-                type="button"
-                className="retail-button"
-                onClick={() => {
-                  const today = todaySaoPaulo();
-                  setStart(today.slice(0, 8) + "01");
-                  setEnd(today);
-                }}
-              >
-                Este mês
-              </button>
-              <button
-                type="button"
-                className="retail-button"
-                onClick={() => {
-                  const today = todaySaoPaulo();
-                  const d7 = new Date(
-                    new Date(`${today}T12:00:00Z`).getTime() - 6 * 86400000,
-                  )
-                    .toISOString()
-                    .slice(0, 10);
-                  setStart(d7);
-                  setEnd(today);
-                }}
-              >
-                Últimos 7 dias
-              </button>
-              <button
-                type="button"
-                className="retail-button retail-button-primary"
-                onClick={() => void load()}
-              >
-                Atualizar inteligência
-              </button>
-            </div>
           </div>
         )
       )}
 
-      {/* =================================================================
-          MODAL DE RAIO-X 360º DO VENDEDOR
-         ================================================================= */}
+      {/* =====================================================================
+          MODAL DE RAIO-X 360º DO VENDEDOR / AUDITORIA DE BALCÃO
+         ===================================================================== */}
       {selectedSeller && (
         <RetailDialog
-          title={`Raio-X 360º do Vendedor · ${selectedSeller.name} (${selectedSeller.jobTitle})`}
+          title={
+            selectedSeller.isUnassigned ||
+            selectedSeller.operatorId === "sem-vendedor"
+              ? `Auditoria de Atendimentos · ${selectedSeller.name}`
+              : `Raio-X 360º do Vendedor · ${selectedSeller.name} (${selectedSeller.jobTitle})`
+          }
           onClose={() => setSelectedSellerId(null)}
           wide
         >
           <div className="retail-stack" style={{ gap: 18 }}>
-            {/* Cabeçalho do Perfil do Vendedor */}
             <div className="retail-intel-modal-hero">
               <div className="retail-row" style={{ gap: 14 }}>
                 <SellerAvatar
                   name={selectedSeller.name}
                   imageUrl={selectedSeller.imageUrl}
-                  size={68}
-                  rank={1}
+                  size={64}
+                  rank={
+                    selectedSeller.isUnassigned ||
+                    selectedSeller.operatorId === "sem-vendedor"
+                      ? undefined
+                      : 1
+                  }
                 />
                 <div>
-                  <h3 style={{ margin: 0, fontSize: "1.2rem" }}>
+                  <h3 style={{ margin: 0, fontSize: "1.15rem" }}>
                     {selectedSeller.name}
                   </h3>
                   <p className="retail-muted" style={{ margin: "2px 0 6px" }}>
-                    {selectedSeller.jobTitle} ·{" "}
-                    {selectedSeller.dailyWinsCount}{" "}
-                    {selectedSeller.dailyWinsCount === 1
-                      ? "dia como Campeão de Vendas (#1)"
-                      : "dias como Campeão de Vendas (#1)"}
+                    {selectedSeller.isUnassigned ||
+                    selectedSeller.operatorId === "sem-vendedor"
+                      ? "Vendas concluídas sem seleção de consultor no fechamento do PDV"
+                      : `${selectedSeller.jobTitle} · ${selectedSeller.dailyWinsCount} ${
+                          selectedSeller.dailyWinsCount === 1
+                            ? "dia como Campeão de Vendas (#1)"
+                            : "dias como Campeão de Vendas (#1)"
+                        }`}
                   </p>
-                  <div className="retail-row" style={{ gap: 8, flexWrap: "wrap" }}>
+                  <div
+                    className="retail-row"
+                    style={{ gap: 8, flexWrap: "wrap" }}
+                  >
                     <span className="retail-intel-tag">
-                      Participação: {selectedSeller.sharePct}% da loja
+                      Participação: {formatDec(selectedSeller.sharePct, 1)}% da
+                      loja
                     </span>
-                    <span className="retail-intel-tag">
-                      Comissão est. ({selectedSeller.commissionPct}%):{" "}
-                      {money(selectedSeller.estimatedCommission)}
-                    </span>
+                    {!selectedSeller.isUnassigned &&
+                      selectedSeller.operatorId !== "sem-vendedor" && (
+                        <span className="retail-intel-tag">
+                          Comissão est. (
+                          {formatDec(selectedSeller.commissionPct, 1)}%):{" "}
+                          {money(selectedSeller.estimatedCommission)}
+                        </span>
+                      )}
                     {selectedSeller.bestDay && (
                       <button
                         type="button"
@@ -2058,7 +2358,7 @@ export function RetailIntelligencePage() {
                           )
                         }
                       >
-                        Recorde: {formatBrDate(selectedSeller.bestDay.date)} (
+                        Maior dia: {formatBrDate(selectedSeller.bestDay.date)} (
                         {money(selectedSeller.bestDay.revenue)}) · Ver no
                         Calendário →
                       </button>
@@ -2068,7 +2368,6 @@ export function RetailIntelligencePage() {
               </div>
             </div>
 
-            {/* Grade de Indicadores do Vendedor */}
             <div className="retail-kpis">
               <article className="retail-kpi">
                 <span className="retail-muted">Venda Líquida Real</span>
@@ -2076,26 +2375,30 @@ export function RetailIntelligencePage() {
                   {money(selectedSeller.netRevenue)}
                 </strong>
                 <small className="retail-muted">
-                  Bruto {money(selectedSeller.grossRevenue)} · Meta{" "}
-                  {selectedSeller.goalProgressPct}%
+                  Bruto {money(selectedSeller.grossRevenue)}
+                  {!selectedSeller.isUnassigned &&
+                  selectedSeller.operatorId !== "sem-vendedor"
+                    ? ` · Meta ${formatDec(selectedSeller.goalProgressPct, 1)}%`
+                    : ""}
                 </small>
               </article>
 
               <article className="retail-kpi">
                 <span className="retail-muted">PA &amp; Ticket Médio</span>
                 <strong className="retail-number">
-                  {Number(selectedSeller.pa || 0).toFixed(2)} pçs/venda
+                  {formatDec(selectedSeller.pa, 2)} pçs/venda
                 </strong>
                 <small className="retail-muted">
                   Ticket {money(selectedSeller.avgTicket)} ·{" "}
-                  {selectedSeller.multiItemRatePct}% vendas casadas (2+ pçs)
+                  {formatDec(selectedSeller.multiItemRatePct, 1)}% vendas
+                  casadas (2+ pçs)
                 </small>
               </article>
 
               <article className="retail-kpi">
                 <span className="retail-muted">Índice de Desconto</span>
                 <strong className="retail-number">
-                  {Number(selectedSeller.discountRatePct || 0).toFixed(1)}% (
+                  {formatDec(selectedSeller.discountRatePct, 1)}% (
                   {money(selectedSeller.discountTotal)})
                 </strong>
                 <small className="retail-muted">
@@ -2107,7 +2410,7 @@ export function RetailIntelligencePage() {
               <article className="retail-kpi">
                 <span className="retail-muted">Taxa de Trocas (Origem)</span>
                 <strong className="retail-number">
-                  {Number(selectedSeller.returnRatePct || 0).toFixed(1)}% (
+                  {formatDec(selectedSeller.returnRatePct, 1)}% (
                   {money(selectedSeller.returnsAmount)})
                 </strong>
                 <small className="retail-muted">
@@ -2117,7 +2420,6 @@ export function RetailIntelligencePage() {
               </article>
             </div>
 
-            {/* Ritmo de Trabalho: Melhor Dia da Semana, Horário de Ouro e Top Mercadorias */}
             <div
               className="retail-summary-grid"
               style={{
@@ -2153,7 +2455,7 @@ export function RetailIntelligencePage() {
                     </strong>
                   </div>
                   <div className="retail-row retail-spread">
-                    <span className="retail-muted">Horário de ouro</span>
+                    <span className="retail-muted">Horário de pico</span>
                     <strong>
                       {selectedSeller.peakHour
                         ? `${selectedSeller.peakHour.label} (${money(selectedSeller.peakHour.revenue)})`
@@ -2165,7 +2467,7 @@ export function RetailIntelligencePage() {
                       Clientes identificados no PDV
                     </span>
                     <strong>
-                      {selectedSeller.identifiedRatePct}% (
+                      {formatDec(selectedSeller.identifiedRatePct, 1)}% (
                       {selectedSeller.uniqueCustomersCount} clientes)
                     </strong>
                   </div>
@@ -2178,7 +2480,7 @@ export function RetailIntelligencePage() {
                     size={15}
                     style={{ display: "inline", marginRight: 6 }}
                   />
-                  Mercadorias Mais Vendidas por {selectedSeller.name.split(" ")[0]}
+                  Mercadorias Mais Vendidas
                 </h4>
                 {selectedSeller.topGroups?.length > 0 ? (
                   <div className="retail-stack" style={{ gap: 6 }}>
@@ -2197,7 +2499,6 @@ export function RetailIntelligencePage() {
               </div>
             </div>
 
-            {/* Motivos de Troca (se houver) */}
             {selectedSeller.recentReturns?.length > 0 && (
               <div className="retail-panel">
                 <h4 style={{ margin: "0 0 8px" }}>
@@ -2205,8 +2506,7 @@ export function RetailIntelligencePage() {
                     size={15}
                     style={{ display: "inline", marginRight: 6 }}
                   />
-                  Trocas Originadas das Vendas deste Vendedor (
-                  {selectedSeller.recentReturns.length})
+                  Trocas Registradas ({selectedSeller.recentReturns.length})
                 </h4>
                 <div className="retail-stack" style={{ gap: 8 }}>
                   {selectedSeller.recentReturns.map((ret: any) => (
@@ -2216,7 +2516,8 @@ export function RetailIntelligencePage() {
                     >
                       <div>
                         <strong>
-                          Venda #{ret.saleCode || "—"} · {ret.customerName}
+                          Venda #{ret.saleCode || "—"} ·{" "}
+                          {ret.customerName || "Consumidor Balcão"}
                         </strong>
                         <small
                           className="retail-muted"
@@ -2254,12 +2555,12 @@ export function RetailIntelligencePage() {
                 className="retail-button retail-button-primary"
                 onClick={() => setSelectedSellerId(null)}
               >
-                Fechar Raio-X
+                Fechar
               </button>
             </div>
           </div>
         </RetailDialog>
       )}
-    </>
+    </div>
   );
 }

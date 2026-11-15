@@ -258,4 +258,95 @@ describe('RetailIntelligenceService', () => {
       emitirNfce: false,
     });
   });
+
+  it('consolida vendas e trocas sem vendedor em uma única linha sem-vendedor fora do campeonato e formata insights em pt-BR', async () => {
+    const { service, state } = createMockEnv();
+    state.sales.push({
+      id: 'sale-unassigned',
+      code: 103,
+      operatorId: null as any,
+      operator: null as any,
+      customerId: null,
+      customer: null,
+      subtotal: 44.9,
+      discount: 0,
+      total: 44.9,
+      status: 'completed',
+      source: 'pdv',
+      createdAt: new Date('2026-11-08T11:00:00-03:00'),
+      payments: [{ method: 'dinheiro', label: 'Dinheiro', value: 44.9 }],
+      items: [
+        {
+          id: 'item-unassigned',
+          productId: 'prod-3',
+          productName: 'Meia Cano Médio · Único · Branca',
+          quantity: 1,
+          priceUnit: 44.9,
+          priceCost: 15,
+          discount: 0,
+          subtotal: 44.9,
+          product: {
+            id: 'prod-3',
+            name: 'Meia Cano Médio · Único · Branca',
+            size: 'Único',
+            color: 'Branca',
+            category: { id: 'cat-3', name: 'Acessórios' },
+            retailGroup: { id: 'grp-3', name: 'Meia Cano Médio' },
+          },
+        },
+      ],
+    });
+    state.returns.push({
+      id: 'ret-unassigned',
+      saleId: 'sale-unassigned',
+      customerId: null as any,
+      operatorId: 'heart-admin-user-99', // ID de usuário administrativo não cadastrado em operators
+      reason: 'Devolução integral balcão',
+      total: 44.9,
+      createdAt: new Date('2026-11-08T15:00:00-03:00'),
+      customer: null as any,
+      sale: {
+        id: 'sale-unassigned',
+        code: 103,
+        operatorId: null as any,
+        createdAt: new Date('2026-11-08T11:00:00-03:00'),
+        total: 44.9,
+      },
+      items: [
+        {
+          id: 'ri-unassigned',
+          saleItemId: 'item-unassigned',
+          quantity: 1,
+          restock: true,
+          value: 44.9,
+          saleItem: {
+            id: 'item-unassigned',
+            productName: 'Meia Cano Médio · Único · Branca',
+            quantity: 1,
+            priceUnit: 44.9,
+          },
+        },
+      ],
+    });
+
+    const res = await service.getIntelligence('2026-11-01', '2026-11-08');
+
+    const unassignedRows = res.sellers.filter((s) => s.isUnassigned);
+    expect(unassignedRows).toHaveLength(1);
+    expect(unassignedRows[0].operatorId).toBe('sem-vendedor');
+    expect(unassignedRows[0].grossRevenue).toBe(44.9);
+    expect(unassignedRows[0].returnsAmount).toBe(44.9);
+    expect(unassignedRows[0].netRevenue).toBe(0);
+    expect(unassignedRows[0].returnRatePct).toBe(100);
+    expect(unassignedRows[0].estimatedCommission).toBe(0);
+
+    // Dia 08 teve apenas venda sem vendedor: não deve eleger "Balcão" como Campeão do Dia
+    const day08 = res.calendar.days.find((d) => d.date === '2026-11-08')!;
+    expect(day08.hasSales).toBe(true);
+    expect(day08.champion).toBeNull();
+
+    // Insights devem usar vírgula decimal brasileira
+    const leaderInsight = res.insights.find((i) => i.id === 'top-leader')!;
+    expect(leaderInsight.metric).toContain('230,00');
+  });
 });
